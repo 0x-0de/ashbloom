@@ -66,4 +66,13 @@ pub fn build(b: *std.Build) void
     });
 
     b.getInstallStep().dependOn(&install_exe.step);
+
+    const install_docs = b.addInstallDirectory(.{
+        .source_dir = exe.getEmittedDocs(),
+        .install_dir = .{ .custom = ".." },
+        .install_subdir = "docs"
+    });
+
+    const docs_step = b.step("docs", "Build documentation");
+    docs_step.dependOn(&install_docs.step);
 }
