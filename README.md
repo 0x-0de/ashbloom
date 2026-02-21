@@ -16,6 +16,7 @@
 ## Upcoming before the next release:
 
 - UI context & immediate-mode theme **[wip]**
+- Support for building on Linux devices **[wip]**
 - Example UI applications **[pending]**
 
 ## Further things that need to be added or addressed:

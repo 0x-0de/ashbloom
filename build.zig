@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 /// Adding the Vulkan and GLFW libraries to the compile object.
 fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void
@@ -22,11 +23,20 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
 
     cmp.root_module.addLibraryPath(.{ .cwd_relative = "bin" });
     
-    const sys32_path: std.Build.LazyPath = .{
-        .cwd_relative = "C:/Windows/System32"
-    };
-    
-    cmp.root_module.addLibraryPath(sys32_path);
+    // Searching for the Vulkan drivers.
+    // On Windows, they're located in System32.
+    if(builtin.target.os.tag == .windows)
+    {
+        const sys32_path: std.Build.LazyPath = .{
+            .cwd_relative = "C:/Windows/System32"
+        };
+        
+        cmp.root_module.addLibraryPath(sys32_path);
+    }
+    else if(builtin.target.os.tag == .linux)
+    {
+        // TODO.
+    }
 
     cmp.root_module.linkSystemLibrary("glfw", .{});
     cmp.root_module.linkSystemLibrary("libfreetype", .{});
@@ -56,9 +66,4 @@ pub fn build(b: *std.Build) void
     });
 
     b.getInstallStep().dependOn(&install_exe.step);
-
-    const run_exe = b.addRunArtifact(exe);
-
-    const run_step = b.step("run", "Run the example after building.");
-    run_step.dependOn(&run_exe.step);
 }

@@ -129,9 +129,7 @@ pub const Window = struct
         self.get_cursor_pos(&cursor_x, &cursor_y);
 
         const mouse_buttons = self.get_all_mouse_buttons();
-
-        std.debug.print("{d}, {d}.\n", .{cursor_x, cursor_y});
-
+        
         return .{
             .cursor_pos = .{
                 .x = @intFromFloat(cursor_x),
