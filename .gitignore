@@ -1,1 +1,3 @@
 .zig-cache
+bin/test.exe
+bin/test.pdb

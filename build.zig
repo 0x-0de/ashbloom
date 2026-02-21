@@ -54,6 +54,11 @@ pub fn build(b: *std.Build) void
     const install_exe = b.addInstallArtifact(exe, .{
         .dest_dir = .{ .override = .{ .custom = "../bin" } }
     });
-    
+
     b.getInstallStep().dependOn(&install_exe.step);
+
+    const run_exe = b.addRunArtifact(exe);
+
+    const run_step = b.step("run", "Run the example after building.");
+    run_step.dependOn(&run_exe.step);
 }
