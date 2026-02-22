@@ -602,3 +602,9 @@ pub fn main() !void
 
     vk_allocator.debug_print_free_space();
 }
+
+comptime
+{
+    _ = @import("rendering/commands.zig");
+    _ = @import("rendering/swapchain.zig");
+}
