@@ -3,3 +3,4 @@ bin/test.exe
 bin/test.pdb
 bin/v0lcano.dll
 bin/v0lcano.pdb
+clear-zig-cache.bat

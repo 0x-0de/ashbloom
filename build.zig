@@ -49,7 +49,7 @@ pub fn build(b: *std.Build) void
 	const std_optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
-        .name = "test",
+        .name = "v0lcano",
         .root_module = b.createModule(.{
 			.root_source_file = b.path("src/main.zig"),
 			.target = std_target,
@@ -60,7 +60,7 @@ pub fn build(b: *std.Build) void
 
     const lib = b.addLibrary(.{
         .linkage = .static,
-        .name = "src",
+        .name = "v0lcano",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/root.zig"),
             .target = std_target,
