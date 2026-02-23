@@ -603,8 +603,7 @@ pub fn main() !void
     vk_allocator.debug_print_free_space();
 }
 
-comptime
+test "All unit tests."
 {
-    _ = @import("rendering/commands.zig");
-    _ = @import("rendering/swapchain.zig");
+    _ = @import("rendering/vkcontext.zig");
 }

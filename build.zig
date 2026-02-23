@@ -58,6 +58,16 @@ pub fn build(b: *std.Build) void
 		})
     });
 
+    const exe_test = b.addTest(.{
+        .name = "v0lcano-test",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = std_target,
+            .optimize = std_optimize,
+            .link_libc = true
+        })
+    });
+
     const lib = b.addLibrary(.{
         .linkage = .static,
         .name = "v0lcano",
@@ -71,6 +81,9 @@ pub fn build(b: *std.Build) void
 
     add_libraries(b, exe, std_target, std_optimize);
     exe.addIncludePath(.{ .cwd_relative = "include/freetype" });
+
+    add_libraries(b, exe_test, std_target, std_optimize);
+    exe_test.addIncludePath(.{ .cwd_relative = "include/freetype" });
 
     add_libraries(b, lib, std_target, std_optimize);
     lib.addIncludePath(.{ .cwd_relative = "include/freetype" });
@@ -95,4 +108,13 @@ pub fn build(b: *std.Build) void
 
     const docs_step = b.step("docs", "Build documentation");
     docs_step.dependOn(&install_docs.step);
+
+    // Building unit tests.
+
+    const install_exe_test = b.addInstallArtifact(exe_test, .{
+        .dest_dir = .{ .override = .{ .custom = "../bin" } }
+    });
+
+    const test_step = b.step("lib-test", "Build unit tests");
+    test_step.dependOn(&install_exe_test.step);
 }
