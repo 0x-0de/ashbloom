@@ -72,6 +72,9 @@ pub fn build(b: *std.Build) void
     add_libraries(b, exe, std_target, std_optimize);
     exe.addIncludePath(.{ .cwd_relative = "include/freetype" });
 
+    add_libraries(b, lib, std_target, std_optimize);
+    lib.addIncludePath(.{ .cwd_relative = "include/freetype" });
+
     // Building test .exe.
 
     const install_exe = b.addInstallArtifact(exe, .{
@@ -80,19 +83,15 @@ pub fn build(b: *std.Build) void
 
     b.getInstallStep().dependOn(&install_exe.step);
 
-    // Building library and documentation.
-
-    const install_lib = b.addInstallArtifact(lib, .{
-        .dest_dir = .{ .override = .{ .custom = "../bin" } }
-    });
+    // Building library.
 
     const install_docs = b.addInstallDirectory(.{
-        .source_dir = lib.getEmittedDocs(),
         .install_dir = .{ .custom = ".." },
-        .install_subdir = "docs"
+        .install_subdir = "docs",
+        .source_dir = lib.getEmittedDocs()
     });
 
-    install_docs.step.dependOn(&install_lib.step);
+    install_docs.step.dependOn(&install_exe.step);
 
     const docs_step = b.step("docs", "Build documentation");
     docs_step.dependOn(&install_docs.step);

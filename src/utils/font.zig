@@ -141,3 +141,8 @@ pub const Font = struct
         _ = freetype.FT_Set_Pixel_Sizes(self.typeface, 0, size);
     }
 };
+
+comptime
+{
+    _ = Font;
+}
