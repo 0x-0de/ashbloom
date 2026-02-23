@@ -1,3 +1,6 @@
+//! Root source file.
+//! All modules (source files) are exposed here.
+
 pub const commands = @import("rendering\\commands.zig");
 pub const pipeline = @import("rendering\\pipeline.zig");
 pub const render_pass = @import("rendering\\renderpass.zig");

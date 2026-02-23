@@ -627,8 +627,6 @@ pub const VkContext = struct
         const graphics_queue = vk_context.device.getDeviceQueue(@truncate(queue_family.graphics_family_index.?), 0);
         _ = graphics_queue;
 
-        print("{s}\n", .{"\tDone."});
-
         return vk_context;
     }
 
@@ -641,7 +639,7 @@ pub const VkContext = struct
 
 const testing = std.testing;
 
-test "Equality of null-terminated strings."
+test c_strequal
 {
     var str_a: [4]u8 = .{'a', 'b', 'c', 'd'};
     var str_b: [6]u8 = .{'a', 'b', 'c', 'd', 'e', 'f'};
