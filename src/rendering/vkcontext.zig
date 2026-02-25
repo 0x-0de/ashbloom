@@ -650,3 +650,56 @@ test c_strequal
     try testing.expect(!std.mem.eql(u8, &str_a, &str_b));
     try testing.expect(c_strequal(@ptrCast(&str_a), @ptrCast(&str_b)));
 }
+
+// Standard Vulkan validation layers.
+var testing_basic_validation_layers: [1][*:0]const u8 = .{
+    "VK_LAYER_KHRONOS_validation"
+};
+
+// Standard validation layer extension.
+var testing_basic_instance_extensions: [1][*:0]const u8 = .{
+    vk.extensions.ext_debug_utils.name
+};
+
+// Swapchain extension. Not technically required but greatly helpful and recommended (used in the swapchain.zig module).
+var testing_basic_device_extensions: [1][*:0]const u8 = .{
+    vk.extensions.khr_swapchain.name
+};
+
+// Testing function, returns a created VkContext.
+
+const Window = @import("window.zig").Window;
+
+test "Basic VkContext init."
+{
+    try glfw.init();
+    defer glfw.terminate();
+
+    var dba: std.heap.DebugAllocator(.{}) = .{};
+    defer {
+        const dba_result = dba.deinit();
+        if(dba_result == .leak)
+        {
+            print("Program terminating with {d} memory leaks.\n", .{@intFromEnum(dba_result)});
+        }
+    }
+
+    const allocator = dba.allocator();
+
+    glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
+
+    const window = try Window.init(1280, 720, "TEST");
+    defer window.destroy();
+
+    const vk_context_options: VkContext.InitOptions = .{
+        .instance_extensions = @ptrCast(&testing_basic_instance_extensions),
+        .instance_layers = @ptrCast(&testing_basic_validation_layers),
+        .required_device_extensions = @ptrCast(&testing_basic_device_extensions),
+        .required_device_features = .{
+            .logic_op = .true // I use logic op for color blending.
+        }
+    };
+
+    const vk_context = try VkContext.init(&allocator, window.glfw_handle, vk_context_options);
+    vk_context.deinit();
+}
