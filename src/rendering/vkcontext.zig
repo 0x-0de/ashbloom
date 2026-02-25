@@ -4,6 +4,12 @@ const print = std.debug.print;
 const glfw = @import("glfw");
 const vk = @import("vulkan");
 
+/// Default device extensions. Since v0lcano's built-in Swapchain structure uses the VkSwapchainKHR extension, it's assumed that it will be
+/// required for this initialization too.
+var default_device_extensions: [1][*:0]const u8 = .{
+    vk.extensions.khr_swapchain.name
+};
+
 /// Wrapper function. The vulkan-zig wrapper gets all function pointers dynamically, so there needs to be some user-defined function which
 /// wraps vkGetInstanceProcAddr that vulkan-zig can use.
 fn vk_get_instance_proc_address(instance: vk.Instance, proc_name: [*:0]const u8) vk.PfnVoidFunction
@@ -185,7 +191,7 @@ pub const VkContext = struct
         instance_layers: [][*:0]const u8 = &.{},
 
         /// List of required extensions to add to the Vulkan device interface.
-        required_device_extensions: [][*:0]const u8 = &.{},
+        required_device_extensions: [][*:0]const u8 = &default_device_extensions,
         /// List of required device features to enable.
         required_device_features: vk.PhysicalDeviceFeatures = .{}
     };
@@ -712,7 +718,7 @@ test "Basic VkContext init."
     vk_context.deinit();
 }
 
-test "VkContext init empty"
+test "VkContext init default"
 {
     try glfw.init();
     defer glfw.terminate();
@@ -734,5 +740,35 @@ test "VkContext init empty"
     defer window.destroy();
 
     const vk_context = try VkContext.init(&allocator, window.glfw_handle, .{});
+    vk_context.deinit();
+}
+
+test "VkContext init empty"
+{
+    try glfw.init();
+    defer glfw.terminate();
+
+    var dba: std.heap.DebugAllocator(.{}) = .{};
+    defer {
+        const dba_result = dba.deinit();
+        if(dba_result == .leak)
+        {
+            print("Program terminating with {d} memory leaks.\n", .{@intFromEnum(dba_result)});
+        }
+    }
+
+    const allocator = dba.allocator();
+
+    glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
+
+    const window = try Window.init(1280, 720, "TEST");
+    defer window.destroy();
+
+    // Overriding the default_device_extensions list to just be empty.
+    const options: VkContext.InitOptions = .{
+        .required_device_extensions = &.{}
+    };
+
+    const vk_context = try VkContext.init(&allocator, window.glfw_handle, options);
     vk_context.deinit();
 }
