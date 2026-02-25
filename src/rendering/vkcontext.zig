@@ -164,7 +164,7 @@ pub const VkContext = struct
     instance: *vk.InstanceProxy = undefined,
     device: *vk.DeviceProxy = undefined,
 
-    debug_messenger: vk.DebugUtilsMessengerEXT = undefined,
+    debug_messenger: ?vk.DebugUtilsMessengerEXT = null,
 
     physical_device: vk.PhysicalDevice = undefined,
     physical_device_queue_families: PhysicalDeviceQueueFamilies = undefined,
@@ -180,14 +180,14 @@ pub const VkContext = struct
 
     pub const InitOptions = struct {
         /// List of extensions to add to the Vulkan instance. GLFW extensions are already added when VkContext.init() is called.
-        instance_extensions: [][*:0]const u8,
+        instance_extensions: [][*:0]const u8 = &.{},
         /// List of layers to add to the Vulkan instance.
-        instance_layers: [][*:0]const u8,
+        instance_layers: [][*:0]const u8 = &.{},
 
         /// List of required extensions to add to the Vulkan device interface.
-        required_device_extensions: [][*:0]const u8,
+        required_device_extensions: [][*:0]const u8 = &.{},
         /// List of required device features to enable.
-        required_device_features: vk.PhysicalDeviceFeatures
+        required_device_features: vk.PhysicalDeviceFeatures = .{}
     };
 
     /// Checks if the required Vulkan extensions for the build are supported, and initializes and populates required_extensions_list if they are supported.
@@ -312,24 +312,29 @@ pub const VkContext = struct
         // We check to make sure all required instance extensions and layers are supported.
 
         var required_extensions: std.ArrayList([*:0]const u8) = undefined;
+        defer required_extensions.deinit(self.allocator.*);
+
         if(!(try self.check_required_extensions_support(options.instance_extensions, &required_extensions)))
         {
             return VulkanContextInitError.ExtensionNotSupported;
         }
-        defer required_extensions.deinit(self.allocator.*);
 
         debug_print_name_list(required_extensions, @ptrCast("Required extensions"));
 
         // We do the same for the layers.
 
-        if(!(try self.check_validation_layer_support(options.instance_layers)))
+        var validate_instance: ?vk.DebugUtilsMessengerCreateInfoEXT = null; 
+        if(options.instance_layers.len > 0)
         {
-            return VulkanContextInitError.LayerNotSupported;
+            if(!(try self.check_validation_layer_support(options.instance_layers)))
+            {
+                return VulkanContextInitError.LayerNotSupported;
+            }
+
+            validate_instance = get_debug_messenger_create_info();
         }
 
         // Now we can get the information together for the creation of the Vulkan instance.
-
-        const validate_instance = get_debug_messenger_create_info();
 
         const info_instance: vk.InstanceCreateInfo = .{
             .p_application_info = &info_app,
@@ -337,7 +342,7 @@ pub const VkContext = struct
             .pp_enabled_extension_names = @ptrCast(required_extensions.items),
             .enabled_layer_count = @truncate(options.instance_layers.len),
             .pp_enabled_layer_names = @ptrCast(options.instance_layers),
-            .p_next = &validate_instance
+            .p_next = if(validate_instance != null) &validate_instance else null
         };
 
         return try self.vkb.createInstance(&info_instance, null);
@@ -564,7 +569,7 @@ pub const VkContext = struct
         self.allocator.destroy(self.device);
         self.allocator.destroy(self.vkd);
         self.instance.destroySurfaceKHR(self.window_surface, null);
-        self.instance.destroyDebugUtilsMessengerEXT(self.debug_messenger, null);
+        if(self.debug_messenger != null) self.instance.destroyDebugUtilsMessengerEXT(self.debug_messenger.?, null);
         self.instance.destroyInstance(null);
         self.allocator.destroy(self.instance);
         self.allocator.destroy(self.vki);
@@ -599,7 +604,10 @@ pub const VkContext = struct
 
         // Initializing the debug messenger for validation layers.
 
-        vk_context.debug_messenger = try vk_context.debug_setup_vulkan_messenger();
+        if(options.instance_layers.len > 0)
+        {
+            vk_context.debug_messenger = try vk_context.debug_setup_vulkan_messenger();
+        }
 
         // Creating the window surface handle for GLFW.
 
@@ -701,5 +709,30 @@ test "Basic VkContext init."
     };
 
     const vk_context = try VkContext.init(&allocator, window.glfw_handle, vk_context_options);
+    vk_context.deinit();
+}
+
+test "VkContext init empty"
+{
+    try glfw.init();
+    defer glfw.terminate();
+
+    var dba: std.heap.DebugAllocator(.{}) = .{};
+    defer {
+        const dba_result = dba.deinit();
+        if(dba_result == .leak)
+        {
+            print("Program terminating with {d} memory leaks.\n", .{@intFromEnum(dba_result)});
+        }
+    }
+
+    const allocator = dba.allocator();
+
+    glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
+
+    const window = try Window.init(1280, 720, "TEST");
+    defer window.destroy();
+
+    const vk_context = try VkContext.init(&allocator, window.glfw_handle, .{});
     vk_context.deinit();
 }
