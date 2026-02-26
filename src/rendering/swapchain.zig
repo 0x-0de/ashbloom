@@ -427,8 +427,6 @@ pub const Swapchain = struct
 
         _ = try self.context.device.queuePresentKHR(present_queue, &info_present);
 
-        
-
         self.current_render_stage = 0;
     }
 
@@ -502,6 +500,8 @@ test "Swapchain init"
     try std.testing.expect(swapchain.current_image_index == 0);
     try std.testing.expect(swapchain.render_stages == 2);
     try std.testing.expect(swapchain.current_render_stage == 0);
+    try std.testing.expect(swapchain.extent.width == window.width);
+    try std.testing.expect(swapchain.extent.height == window.height);
 
     swapchain.deinit();
 }
