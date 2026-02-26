@@ -250,3 +250,25 @@ pub const CommandBuffer = struct
         try self.vkc.device.resetCommandBuffer(self.handle, .{});
     }
 };
+
+const vk_test = @import("../utils/testing/test_utils.zig");
+
+test "Command pool from basic VkContext"
+{
+    try glfw.init();
+    defer glfw.terminate();
+
+    var dba = vk_test.init_testing_allocator();
+    defer vk_test.deinit_testing_allocator(&dba);
+
+    const allocator = dba.allocator();
+
+    var window = try vk_test.create_testing_window();
+    defer window.destroy();
+
+    var vk_context = try vk_test.create_testing_vk_context(&allocator, &window);
+    defer vk_context.deinit();
+
+    const pool = try create_command_pool(&vk_context);
+    vk_context.device.destroyCommandPool(pool, null);
+}

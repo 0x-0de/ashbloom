@@ -49,7 +49,7 @@ pub const Swapchain = struct
     fences_command_buffers_finished: []std.ArrayList(vk.Fence) = undefined,
 
     /// Index of the currently acquired image. Set whenever acquire_image is called.
-    current_image_index: u32 = undefined,
+    current_image_index: u32 = 0,
 
     /// List of command buffers to use for rendering each render stage to each image. Do not access this field directly, instead use get_current_command_buffer.
     command_buffers: []std.ArrayList(CommandBuffer) = undefined,
@@ -472,3 +472,36 @@ pub const Swapchain = struct
         self.current_render_stage += 1;
     }
 };
+
+const vk_test = @import("../utils/testing/test_utils.zig");
+
+const commands = @import("commands.zig");
+
+test "Swapchain init"
+{
+    try glfw.init();
+    defer glfw.terminate();
+
+    var dba = vk_test.init_testing_allocator();
+    defer vk_test.deinit_testing_allocator(&dba);
+
+    const allocator = dba.allocator();
+
+    var window = try vk_test.create_testing_window();
+    defer window.destroy();
+
+    var vk_context = try vk_test.create_testing_vk_context(&allocator, &window);
+    defer vk_context.deinit();
+
+    const pool = try commands.create_command_pool(&vk_context);
+    defer vk_context.device.destroyCommandPool(pool, null);
+
+    var swapchain = try Swapchain.init(window.glfw_handle, &vk_context, pool, 2);
+
+    try std.testing.expect(swapchain.image_count >= 1);
+    try std.testing.expect(swapchain.current_image_index == 0);
+    try std.testing.expect(swapchain.render_stages == 2);
+    try std.testing.expect(swapchain.current_render_stage == 0);
+
+    swapchain.deinit();
+}

@@ -665,22 +665,7 @@ test c_strequal
     try testing.expect(c_strequal(@ptrCast(&str_a), @ptrCast(&str_b)));
 }
 
-// Standard Vulkan validation layers.
-var testing_basic_validation_layers: [1][*:0]const u8 = .{
-    "VK_LAYER_KHRONOS_validation"
-};
-
-// Standard validation layer extension.
-var testing_basic_instance_extensions: [1][*:0]const u8 = .{
-    vk.extensions.ext_debug_utils.name
-};
-
-// Swapchain extension. Not technically required but greatly helpful and recommended (used in the swapchain.zig module).
-var testing_basic_device_extensions: [1][*:0]const u8 = .{
-    vk.extensions.khr_swapchain.name
-};
-
-// Testing function, returns a created VkContext.
+const vk_test = @import("../utils/testing/test_utils.zig");
 
 const Window = @import("window.zig").Window;
 
@@ -689,32 +674,15 @@ test "Basic VkContext init."
     try glfw.init();
     defer glfw.terminate();
 
-    var dba: std.heap.DebugAllocator(.{}) = .{};
-    defer {
-        const dba_result = dba.deinit();
-        if(dba_result == .leak)
-        {
-            print("Program terminating with {d} memory leaks.\n", .{@intFromEnum(dba_result)});
-        }
-    }
+    var dba = vk_test.init_testing_allocator();
+    defer vk_test.deinit_testing_allocator(&dba);
 
     const allocator = dba.allocator();
 
-    glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
-
-    const window = try Window.init(1280, 720, "TEST");
+    var window = try vk_test.create_testing_window();
     defer window.destroy();
 
-    const vk_context_options: VkContext.InitOptions = .{
-        .instance_extensions = @ptrCast(&testing_basic_instance_extensions),
-        .instance_layers = @ptrCast(&testing_basic_validation_layers),
-        .required_device_extensions = @ptrCast(&testing_basic_device_extensions),
-        .required_device_features = .{
-            .logic_op = .true // I use logic op for color blending.
-        }
-    };
-
-    const vk_context = try VkContext.init(&allocator, window.glfw_handle, vk_context_options);
+    const vk_context = try vk_test.create_testing_vk_context(&allocator, &window);
     vk_context.deinit();
 }
 
@@ -723,20 +691,12 @@ test "VkContext init default"
     try glfw.init();
     defer glfw.terminate();
 
-    var dba: std.heap.DebugAllocator(.{}) = .{};
-    defer {
-        const dba_result = dba.deinit();
-        if(dba_result == .leak)
-        {
-            print("Program terminating with {d} memory leaks.\n", .{@intFromEnum(dba_result)});
-        }
-    }
+    var dba = vk_test.init_testing_allocator();
+    defer vk_test.deinit_testing_allocator(&dba);
 
     const allocator = dba.allocator();
 
-    glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
-
-    const window = try Window.init(1280, 720, "TEST");
+    const window = try vk_test.create_testing_window();
     defer window.destroy();
 
     const vk_context = try VkContext.init(&allocator, window.glfw_handle, .{});
@@ -748,20 +708,12 @@ test "VkContext init empty"
     try glfw.init();
     defer glfw.terminate();
 
-    var dba: std.heap.DebugAllocator(.{}) = .{};
-    defer {
-        const dba_result = dba.deinit();
-        if(dba_result == .leak)
-        {
-            print("Program terminating with {d} memory leaks.\n", .{@intFromEnum(dba_result)});
-        }
-    }
+    var dba = vk_test.init_testing_allocator();
+    defer vk_test.deinit_testing_allocator(&dba);
 
     const allocator = dba.allocator();
 
-    glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
-
-    const window = try Window.init(1280, 720, "TEST");
+    const window = try vk_test.create_testing_window();
     defer window.destroy();
 
     // Overriding the default_device_extensions list to just be empty.
