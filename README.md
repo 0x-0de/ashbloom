@@ -5,13 +5,13 @@
 ## Current features include:
 
 - Window management (GLFW) **[needs testing]**
-- Vulkan context creation **[needs testing]**
+- Vulkan context creation **[done]**
 - Swapchain management **[needs testing]**
 - Render passes (legacy Vulkan feature) **[needs testing]**
 - Vulkan graphics pipeline, descriptor set, and push constant handling **[needs testing]**
-- Linear algebra library **[done]**
-- Vulkan memory allocator **[done]**
-- Vulkan texture loader (.bmps only) **[done]**
+- Linear algebra library **[needs testing]**
+- Vulkan memory allocator **[needs testing]**
+- Vulkan texture loader (.bmps only) **[needs testing]**
 
 ## Upcoming before the next release:
 

@@ -190,7 +190,7 @@ pub const VkContext = struct
         /// List of layers to add to the Vulkan instance.
         instance_layers: [][*:0]const u8 = &.{},
 
-        /// List of required extensions to add to the Vulkan device interface.
+        /// List of required extensions to add to the Vulkan device interface. Includes VkSwapchainKHR by default (required by v0lcano's Swapchain).
         required_device_extensions: [][*:0]const u8 = &default_device_extensions,
         /// List of required device features to enable.
         required_device_features: vk.PhysicalDeviceFeatures = .{}
