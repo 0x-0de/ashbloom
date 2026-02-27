@@ -608,4 +608,5 @@ test "All unit tests."
     _ = @import("rendering/vkcontext.zig");
     _ = @import("rendering/commands.zig");
     _ = @import("rendering/swapchain.zig");
+    _ = @import("rendering/renderpass.zig");
 }

@@ -3,8 +3,6 @@
 
 pub const commands = @import("rendering\\commands.zig");
 pub const pipeline = @import("rendering\\pipeline.zig");
-pub const render_pass = @import("rendering\\renderpass.zig");
-pub const swapchain = @import("rendering\\swapchain.zig");
 pub const vk_context = @import("rendering\\vkcontext.zig");
 pub const window = @import("rendering\\window.zig");
 
@@ -17,12 +15,13 @@ pub const vk_utils = @import("utils\\vkutils.zig");
 
 pub const ui_theme_basic = @import("utils\\ui_themes\\basic.zig");
 
+pub const RenderPass = @import("rendering\\renderpass.zig").RenderPass;
+pub const Swapchain = @import("rendering\\swapchain.zig").Swapchain;
+
 comptime
 {
     _ = commands;
     _ = pipeline;
-    _ = render_pass;
-    _ = swapchain;
     _ = vk_context;
     _ = window;
 
@@ -34,4 +33,7 @@ comptime
     _ = vk_utils;
 
     _ = ui_theme_basic;
+
+    _ = RenderPass;
+    _ = Swapchain;
 }

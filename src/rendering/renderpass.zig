@@ -151,3 +151,33 @@ pub const RenderPass = struct
         return rp;
     }
 };
+
+const vk_test = @import("../utils/testing/test_utils.zig");
+const Swapchain = @import("swapchain.zig").Swapchain;
+const commands = @import("commands.zig");
+
+test "Render pass init and build"
+{
+    try glfw.init();
+    defer glfw.terminate();
+
+    var dba = vk_test.init_testing_allocator();
+    defer vk_test.deinit_testing_allocator(&dba);
+
+    const allocator = dba.allocator();
+
+    var window = try vk_test.create_testing_window();
+    defer window.destroy();
+
+    var vk_context = try vk_test.create_testing_vk_context(&allocator, &window);
+    defer vk_context.deinit();
+
+    const pool = try commands.create_command_pool(&vk_context);
+    defer vk_context.device.destroyCommandPool(pool, null);
+
+    var swapchain = try Swapchain.init(window.glfw_handle, &vk_context, pool, 1);
+    defer swapchain.deinit();
+
+    var rp = try vk_test.create_testing_color_render_pass(&vk_context, swapchain);
+    rp.deinit();
+}

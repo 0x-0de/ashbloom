@@ -8,6 +8,8 @@ const vk = @import("vulkan");
 const Window = @import("../../rendering/window.zig").Window;
 
 const VkContext = @import("../../rendering/vkcontext.zig").VkContext;
+const RenderPass = @import("../../rendering/renderpass.zig").RenderPass;
+const Swapchain = @import("../../rendering/swapchain.zig").Swapchain;
 
 /// Creates a default debug allocator, the chosen allocator for this library's unit tests.
 pub fn init_testing_allocator() std.heap.DebugAllocator(.{})
@@ -63,4 +65,35 @@ pub fn create_testing_vk_context(allocator: *const std.mem.Allocator, window: *W
 
     const vk_context = try VkContext.init(allocator, window.glfw_handle, vk_context_options);
     return vk_context;
+}
+
+/// Creates a simple color render pass for testing.
+pub fn create_testing_color_render_pass(vk_context: *VkContext, swapchain: Swapchain) !RenderPass
+{
+    const color_subpass: RenderPass.Subpass = .{
+        .attachment_index = 0,
+        .attachment_layout = .color_attachment_optimal,
+        .subpass_bind_point = .graphics,
+        .subpass_dependency = .{
+            .src_subpass = vk.SUBPASS_EXTERNAL,
+            .dst_subpass = undefined,
+            .src_access_mask = .{},
+            .src_stage_mask = .{
+                .color_attachment_output_bit = true
+            },
+            .dst_access_mask = .{
+                .color_attachment_write_bit = true
+            },
+            .dst_stage_mask = .{
+                .color_attachment_output_bit = true
+            }
+        }
+    };
+
+    var rp = try RenderPass.init(vk_context);
+    try rp.add_attachment_description_no_stencil_multisample(swapchain.format.format, .clear, .store, .undefined, .color_attachment_optimal);
+    try rp.add_subpass(color_subpass);
+    try rp.build();
+
+    return rp;
 }
