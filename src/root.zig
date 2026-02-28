@@ -1,5 +1,8 @@
-//! Root source file.
+//! Root file for Ashbloom.
 //! All modules (source files) are exposed here.
+
+pub const vk = @import("vk");
+pub const glfw = @import("glfw");
 
 pub const commands = @import("rendering\\commands.zig");
 pub const pipeline = @import("rendering\\pipeline.zig");
@@ -17,6 +20,18 @@ pub const ui_theme_basic = @import("utils\\ui_themes\\basic.zig");
 
 pub const RenderPass = @import("rendering\\renderpass.zig").RenderPass;
 pub const Swapchain = @import("rendering\\swapchain.zig").Swapchain;
+
+/// Deinitializes the graphical side of the ashbloom framework, and all its dependencies (including GLFW).
+pub fn deinit_graphics() void
+{
+    glfw.terminate();
+}
+
+/// Initializes the graphical side of the ashbloom framework, and all its dependencies (including GLFW).
+pub fn init_graphics() !void
+{
+    try glfw.init();
+}
 
 comptime
 {
