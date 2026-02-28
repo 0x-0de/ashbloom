@@ -959,6 +959,12 @@ pub fn create_scrollbar(allocator: *const std.mem.Allocator) !*Element
     return e;
 }
 
+pub fn empty_checkbox_callback(e: *Element, value: bool) void
+{
+    _ = e;
+    _ = value;
+}
+
 const CheckboxData = struct
 {
     ticked: bool,
@@ -968,15 +974,17 @@ const CheckboxData = struct
     color_ticked: [4]f32,
 
     clock: f32,
+    callback: *const fn(*Element, bool) void,
 
-    pub fn init(ticked: bool, color_hover: [4]f32, color_ticked: [4]f32) CheckboxData
+    pub fn init(ticked: bool, color_hover: [4]f32, color_ticked: [4]f32, callback: *const fn(*Element, bool) void) CheckboxData
     {
         return .{
             .ticked = ticked,
             .hovered = false,
             .color_hover = color_hover,
             .color_ticked = color_ticked,
-            .clock = 0
+            .clock = 0,
+            .callback = callback
         };
     }
 };
@@ -998,6 +1006,8 @@ const CheckboxProperties = struct
 
     /// Width of the checkbox's border.
     border_width: f32,
+    /// Callback function to call when the checkbox is un/ticked.
+    callback: *const fn(*Element, bool) void,
 
     pub fn init_default(placement: Placement) CheckboxProperties
     {
@@ -1007,7 +1017,8 @@ const CheckboxProperties = struct
             .color_border = .{1, 1, 1, 1},
             .color_hover = .{1, 1, 1, 0.2},
             .color_ticked = .{0, 1, 1, 1},
-            .border_width = 5  
+            .border_width = 5,
+            .callback = empty_checkbox_callback
         };
     }
 };
@@ -1034,6 +1045,30 @@ fn checkbox_callback_mouse_leave(e: *Element, data: ContainerInputData) !void
     checkbox_data.hovered = false;
 
     memcpy_anonymous(e.data.?.ptr, &checkbox_data, @sizeOf(CheckboxData));
+}
+
+fn checkbox_callback_mouse_press(e: *Element, data: ContainerInputData) !void
+{
+    _ = data;
+
+    var checkbox_data: CheckboxData = undefined;
+    memcpy_anonymous(&checkbox_data, e.data.?.ptr, @sizeOf(CheckboxData));
+
+    checkbox_data.ticked = !checkbox_data.ticked;
+
+    const tickbox = e.children.items[5];
+    tickbox.coordinates = if(checkbox_data.ticked) checkbox_data.color_ticked else .{0, 0, 0, 0};
+
+    checkbox_data.callback(tickbox.parent.?, checkbox_data.ticked);
+    tickbox.refresh(false);
+
+    memcpy_anonymous(e.data.?.ptr, &checkbox_data, @sizeOf(CheckboxData));
+}
+
+fn checkbox_callback_mouse_release(e: *Element, data: ContainerInputData) !void
+{
+    _ = e;
+    _ = data;
 }
 
 fn checkbox_callback_tick(e: *Element, data: ContainerInputData) !void
@@ -1096,7 +1131,7 @@ pub fn create_checkbox(allocator: *const std.mem.Allocator, properties: Checkbox
 
     e.data = try allocator.alloc(u8, @sizeOf(CheckboxData));
 
-    var data: CheckboxData = .init(properties.start_ticked, properties.color_hover, properties.color_ticked);
+    var data: CheckboxData = .init(properties.start_ticked, properties.color_hover, properties.color_ticked, properties.callback);
     memcpy_anonymous(e.data.?.ptr, &data, @sizeOf(CheckboxData));
 
     const hover = try create_quad(allocator, .{
@@ -1115,8 +1150,115 @@ pub fn create_checkbox(allocator: *const std.mem.Allocator, properties: Checkbox
 
     _ = try e.add_and_dispose(hover);
 
+    const border_top = try create_quad(allocator, .{
+        .relative_pos = .{
+            .pos_x = 0,
+            .pos_y = 1,
+            .scl_x = 1,
+            .scl_y = 0
+        },
+        .absolute_offset = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 0,
+            .scl_y = properties.border_width
+        },
+        .alignment = .{
+            .x = .Left,
+            .y = .Top
+        }
+    }, .{1, 1, 1, 1});
+
+    _ = try e.add_and_dispose(border_top);
+
+    const border_bottom = try create_quad(allocator, .{
+        .relative_pos = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 1,
+            .scl_y = 0
+        },
+        .absolute_offset = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 0,
+            .scl_y = properties.border_width
+        },
+        .alignment = .{
+            .x = .Left,
+            .y = .Bottom
+        }
+    }, .{1, 1, 1, 1});
+
+    _ = try e.add_and_dispose(border_bottom);
+
+    const border_left = try create_quad(allocator, .{
+        .relative_pos = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 0,
+            .scl_y = 1
+        },
+        .absolute_offset = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = properties.border_width,
+            .scl_y = 0
+        },
+        .alignment = .{
+            .x = .Left,
+            .y = .Bottom
+        }
+    }, .{1, 1, 1, 1});
+
+    _ = try e.add_and_dispose(border_left);
+
+    const border_right = try create_quad(allocator, .{
+        .relative_pos = .{
+            .pos_x = 1,
+            .pos_y = 0,
+            .scl_x = 0,
+            .scl_y = 1
+        },
+        .absolute_offset = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = properties.border_width,
+            .scl_y = 0
+        },
+        .alignment = .{
+            .x = .Right,
+            .y = .Bottom
+        }
+    }, .{1, 1, 1, 1});
+
+    _ = try e.add_and_dispose(border_right);
+
+    const tickbox = try create_quad(allocator, .{
+        .relative_pos = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 1,
+            .scl_y = 1
+        },
+        .absolute_offset = .{
+            .pos_x = properties.border_width * 2,
+            .pos_y = properties.border_width * 2,
+            .scl_x = -properties.border_width * 4,
+            .scl_y = -properties.border_width * 4
+        },
+        .alignment = .{
+            .x = .Left,
+            .y = .Bottom
+        }
+    }, if(properties.start_ticked) properties.color_ticked else .{0, 0, 0, 0});
+
+    _ = try e.add_and_dispose(tickbox);
+
     try e.add_callback(.MouseEnter, checkbox_callback_mouse_enter);
     try e.add_callback(.MouseLeave, checkbox_callback_mouse_leave);
+    try e.add_callback(.MousePress, checkbox_callback_mouse_press);
+    try e.add_callback(.MouseRelease, checkbox_callback_mouse_release);
     try e.add_callback(.Tick, checkbox_callback_tick);
 
     return e;

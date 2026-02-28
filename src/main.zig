@@ -389,6 +389,13 @@ pub fn update_ui_uniforms(allocator: *const std.mem.Allocator, set_index: u16) !
     allocator.free(projection_data);
 }
 
+fn test_checkbox_callback(e: *Element, value: bool) void
+{
+    _ = e;
+
+    std.debug.print("Checkbox is {s}.\n", .{if(value) "ticked" else "unticked"});
+}
+
 pub fn main() !void
 {
     try glfw.init();
@@ -519,7 +526,8 @@ pub fn main() !void
         .color_border = .{1, 1, 1, 1},
         .color_hover = .{1, 1, 1, 0.2},
         .color_ticked = .{0, 1, 1, 1},
-        .border_width = 5
+        .border_width = 5,
+        .callback = test_checkbox_callback
     });
 
     start_text.deinit(allocator);
