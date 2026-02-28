@@ -1,6 +1,6 @@
-# v0lcano
+# Ashbloom
 
-**v0lcano** is my own Vulkan framework, which aims to provide some bootstrapping functionality, tying together zig-vulkan, zGLFW, and freetype.
+**Ashbloom** is my own Vulkan framework, which aims to provide some bootstrapping functionality, tying together zig-vulkan, zGLFW, and freetype.
 
 ## Current features include:
 

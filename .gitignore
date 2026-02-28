@@ -1,9 +1,9 @@
 .zig-cache
 bin/test.exe
 bin/test.pdb
-bin/v0lcano.exe
-bin/v0lcano.dll
-bin/v0lcano.pdb
-bin/v0lcano-test.exe
-bin/v0lcano-test.pdb
+bin/ashbloom.exe
+bin/ashbloom.dll
+bin/ashbloom.pdb
+bin/ashbloom-test.exe
+bin/ashbloom-test.pdb
 clear-zig-cache.bat
