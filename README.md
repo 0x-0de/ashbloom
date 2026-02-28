@@ -6,8 +6,8 @@
 
 - Window management (GLFW) **[needs testing]**
 - Vulkan context creation **[done]**
-- Swapchain management **[needs testing]**
-- Render passes (legacy Vulkan feature) **[needs testing]**
+- Swapchain management **[done]**
+- Render passes (legacy Vulkan feature) **[done]**
 - Vulkan graphics pipeline, descriptor set, and push constant handling **[needs testing]**
 - Linear algebra library **[needs testing]**
 - Vulkan memory allocator **[needs testing]**

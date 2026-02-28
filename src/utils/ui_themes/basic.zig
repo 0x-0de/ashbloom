@@ -14,6 +14,7 @@ const Element = vkui.Element;
 const Placement = vkui.Placement;
 const ContainerInputData = vkui.ContainerInputData;
 
+/// Implementation of C's memcpy(). Takes two anonymous pointers and a given byte size.
 fn memcpy_anonymous(dst: *anyopaque, src: *anyopaque, size: usize) void
 {
     const dest_data: [*]u8 = @as([*]u8, @ptrCast(dst));
@@ -21,6 +22,7 @@ fn memcpy_anonymous(dst: *anyopaque, src: *anyopaque, size: usize) void
     @memcpy(dest_data, copy_data);
 }
 
+/// Creates a colored quad.
 pub fn create_quad(allocator: *const std.mem.Allocator, placement: Placement, color: [4]f32) !*Element
 {
     const e = try allocator.create(Element);
@@ -29,6 +31,7 @@ pub fn create_quad(allocator: *const std.mem.Allocator, placement: Placement, co
     return e;
 }
 
+/// Creates an icon, image, or sprite quad.
 pub fn create_icon(allocator: *const std.mem.Allocator, placement: Placement, tex_coords: [4]f32) !*Element
 {
     const e = try allocator.create(Element);
@@ -37,12 +40,14 @@ pub fn create_icon(allocator: *const std.mem.Allocator, placement: Placement, te
     return e;
 }
 
+/// Utility struct which stores a text character element (created with create_text_character(...)) and its associated FontCharacter.
 pub const FontCharacterElement = struct
 {
     element: *Element,
     character: FontCharacter
 };
 
+/// Creates an image quad which displays a letter, symbol, or glyph from a font.
 pub fn create_text_character(allocator: *const std.mem.Allocator, placement: Placement, font: *Font, size: f32, unicode: u32) !FontCharacterElement
 {
     const e = try allocator.create(Element);
@@ -69,24 +74,31 @@ pub fn create_text_character(allocator: *const std.mem.Allocator, placement: Pla
     };
 }
 
+/// Utility struct storing information about a line of UI text.
 const TextLine = struct
 {
-    // Offset of the text array where the line starts.
+    /// Offset of the text array where the line starts.
     start: usize,
-    // Number of characters the line contains.
+    /// Number of characters the line contains.
     length: usize,
-    // Width of the line, in pixels.
+    /// Width of the line, in pixels.
     size: f32,
-    // Amount of pixels to 'push' the line forward so that it fits the horizontal alignment.
+    /// Amount of pixels to 'push' the line forward so that it fits the horizontal alignment.
     alignment_push: f32
 };
 
+/// Data structure contained within the 'data' slice of a text element.
 const TextData = struct
 {
+    /// Font used.
     font: *Font,
+    /// Text size.
     size: f32,
+    /// Alignment of individual lines of text in relation to the parent element.
     alignment: vkui.Alignment,
+    /// Text, in unicode (u32) values.
     string: []u32,
+    /// Horizontal border between the text and the edge of the parent element.
     margin: f32,
 
     pub fn init(font: *Font, size: f32, alignment: vkui.Alignment, string: []u32, margin: f32) TextData
@@ -101,6 +113,7 @@ const TextData = struct
     }
 };
 
+/// Copying text data to a new text element.
 fn text_copy_callback(element: *Element, data: ContainerInputData) !void
 {
     _ = data;
@@ -116,6 +129,7 @@ fn text_copy_callback(element: *Element, data: ContainerInputData) !void
     memcpy_anonymous(element.data.?.ptr, &text_data, @sizeOf(TextData));
 }
 
+/// Deleting element data.
 fn text_deinit_callback(element: *Element, data: ContainerInputData) !void
 {
     _ = data;
@@ -341,12 +355,18 @@ fn text_parent_resize_callback(element: *Element, data: ContainerInputData) !voi
     element.refresh(true);
 }
 
+/// Determines the properties of a text element.
 pub const TextProperties = struct
 {
+    /// Font to draw glyph images from.
     font: *Font,
+    /// Size to render the text glyphs.
     size: f32,
+    /// Alignment of individual lines of text.
     alignment: vkui.Alignment,
+    /// Unicode string.
     string: []u32,
+    /// Space to leave between the horizontal edges of the parent element, and the text itself. 
     margin: f32,
 
     pub fn init(font: *Font, size: f32, alignment: vkui.Alignment, string: []u32) TextProperties
@@ -361,6 +381,8 @@ pub const TextProperties = struct
     }
 };
 
+/// Creates a text element, which uses the element's parent to host the text. For example, adding this element as a child to a simple quad would
+/// mean the text would attempt to fit within said quad.
 pub fn create_text(allocator: *const std.mem.Allocator, properties: TextProperties) !*Element
 {
     const placement: Placement = .get_default();
@@ -389,6 +411,7 @@ pub fn create_text(allocator: *const std.mem.Allocator, properties: TextProperti
     return e;
 }
 
+/// Converts a slice string ([]const u8) to an ArrayList of u32 values, more usable with TextProperties.
 pub fn get_unicode_from_string(allocator: *const std.mem.Allocator, string: []const u8) !std.ArrayList(u32)
 {
     var unicode = try std.ArrayList(u32).initCapacity(allocator.*, string.len);
@@ -535,16 +558,23 @@ fn empty_press_callback(e: *Element) void
     _ = e;
 }
 
+/// Determines the properties of a created button element.
 pub const ButtonProperties = struct
 {
+    /// Placement of the button.
     placement: Placement,
 
+    /// Color to display when the button isn't being interacted with.
     color_idle: [4]f32,
+    /// Color to display when the button is being hovered by the mouse cursor.
     color_hover: [4]f32,
+    /// Color to display when the button is being pressed.
     color_press: [4]f32,
 
+    /// Specific callback to be called whenever the button is finished being pressed.
     press_callback: *const fn(*Element) void,
 
+    /// Initializes the ButtonProperties struct with default colors and no press callback.
     pub fn init_default() ButtonProperties
     {
         return .{
@@ -559,6 +589,7 @@ pub const ButtonProperties = struct
     }
 };
 
+/// Creates a button element, which the user can click.
 pub fn create_button(allocator: *const std.mem.Allocator, properties: ButtonProperties) !*Element
 {
     const e = try allocator.create(Element);
@@ -782,6 +813,7 @@ fn scrollbar_vertical_callback_window_resize(e: *Element, data: ContainerInputDa
     e.refresh(true);
 }
 
+/// Creates scroll sliders where applicable. Meant to be used with scrollable elements.
 pub fn create_scrollbar(allocator: *const std.mem.Allocator) !*Element
 {
     const e = try allocator.create(Element);
@@ -975,16 +1007,22 @@ const TextFieldExtension = enum
     ScrollVertically
 };
 
-const TextFieldProperties = struct
+/// Determines the properties of a textfield element.
+pub const TextFieldProperties = struct
 {
+    /// Font used for the text.
     font: *Font,
+    /// Text size.
     text_size: f32 = 20,
+    /// Alignment of the text within the textfield, including the direction which the text will "grow" in.
     text_alignment: vkui.Alignment = .{
         .x = .Left,
         .y = .Top
     },
 
+    /// Initial text for the field to start with.
     initial_text: []u32 = &.{},
+    /// Determines how the textfield should handle overflow.
     extension_protocol: TextFieldExtension = .ScrollHorizontally
 };
 
@@ -1542,6 +1580,7 @@ fn textfield_callback_tick(e: *Element, data: ContainerInputData) !void
     memcpy_anonymous(e.data.?.ptr, &textfield_data, @sizeOf(TextFieldData));
 }
 
+/// Creates a textfield element, which the user can store text within.
 pub fn create_textfield(allocator: *const std.mem.Allocator, placement: Placement, properties: TextFieldProperties) !*Element
 {
     const e = try allocator.create(Element);
