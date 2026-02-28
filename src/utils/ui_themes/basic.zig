@@ -1279,6 +1279,8 @@ const SliderData = struct
     color_knob_hover: [4]f32,
     color_knob_press: [4]f32,
 
+    horizontal: bool,
+
     clock: f32,
     hovered: bool,
     pressed: bool,
@@ -1302,6 +1304,7 @@ pub const SliderProperties = struct
 
     bar_width: f32,
     knob_width: f32,
+    horizontal: bool,
 
     callback: *const fn(*Element, f32) void,
 
@@ -1317,6 +1320,7 @@ pub const SliderProperties = struct
             .color_knob_press = .{0.6, 0.6, 0.6, 1},
             .bar_width = 5,
             .knob_width = 30,
+            .horizontal = true,
             .callback = empty_slider_callback
         };
     }
@@ -1438,9 +1442,10 @@ fn slider_callback_tick(e: *Element, data: ContainerInputData) !void
     else if(slider_data.pressed)
     {
         const bounds = (try data.container.get_element_bounds(e.lineage.?)).draw_bounds;
-        const mouse_offset = @as(f32, @floatFromInt(data.cursor_pos.x)) - bounds.pos_x;
+        const mouse_offset = if(slider_data.horizontal) @as(f32, @floatFromInt(data.cursor_pos.x)) - bounds.pos_x
+                                                        else @as(f32, @floatFromInt(data.cursor_pos.y)) - bounds.pos_y;
 
-        var offset = mouse_offset / bounds.scl_x;
+        var offset = mouse_offset / (if(slider_data.horizontal) bounds.scl_x else bounds.scl_y);
         offset = std.math.clamp(offset, 0, 1);
 
         if(slider_data.discrete_values != 0)
@@ -1460,7 +1465,14 @@ fn slider_callback_tick(e: *Element, data: ContainerInputData) !void
         if(offset != slider_data.input_value)
         {
             slider_data.input_value = offset;
-            knob.placement.relative_pos.pos_x = offset;
+            if(slider_data.horizontal)
+            {
+                knob.placement.relative_pos.pos_x = offset;
+            }
+            else
+            {
+                knob.placement.relative_pos.pos_y = offset;
+            }
 
             slider_data.callback(e, if(slider_data.discrete_values != 0) offset * @as(f32, @floatFromInt(slider_data.discrete_values)) else offset);
 
@@ -1485,6 +1497,7 @@ pub fn create_slider(allocator: *const std.mem.Allocator, properties: SliderProp
         .color_knob_hover = properties.color_knob_hover,
         .color_knob_press = properties.color_knob_press,
         .clock = 0,
+        .horizontal = properties.horizontal,
         .hovered = false,
         .pressed = false,
         .press_toggle = false,
@@ -1496,20 +1509,20 @@ pub fn create_slider(allocator: *const std.mem.Allocator, properties: SliderProp
 
     const bar = try create_quad(allocator, .{
         .relative_pos = .{
-            .pos_x = 0,
-            .pos_y = 0.5,
-            .scl_x = 1,
-            .scl_y = 0
+            .pos_x = if(properties.horizontal) 0 else 0.5,
+            .pos_y = if(properties.horizontal) 0.5 else 0,
+            .scl_x = if(properties.horizontal) 1 else 0,
+            .scl_y = if(properties.horizontal) 0 else 1
         },
         .absolute_offset = .{
             .pos_x = 0,
             .pos_y = 0,
-            .scl_x = 0,
-            .scl_y = properties.bar_width
+            .scl_x = if(properties.horizontal) 0 else properties.bar_width,
+            .scl_y = if(properties.horizontal) properties.bar_width else 0
         },
         .alignment = .{
-            .x = .Left,
-            .y = .Center
+            .x = if(properties.horizontal) .Left else .Center,
+            .y = if(properties.horizontal) .Center else .Bottom
         }
     }, properties.color_bar);
 
@@ -1517,16 +1530,16 @@ pub fn create_slider(allocator: *const std.mem.Allocator, properties: SliderProp
 
     const knob = try create_quad(allocator, .{
         .relative_pos = .{
-            .pos_x = properties.start_value,
-            .pos_y = 0.5,
-            .scl_x = 0,
-            .scl_y = 1
+            .pos_x = if(properties.horizontal) properties.start_value else 0.5,
+            .pos_y = if(properties.horizontal) 0.5 else properties.start_value,
+            .scl_x = if(properties.horizontal) 0 else 1,
+            .scl_y = if(properties.horizontal) 1 else 0
         },
         .absolute_offset = .{
             .pos_x = 0,
             .pos_y = 0,
-            .scl_x = properties.knob_width,
-            .scl_y = 0
+            .scl_x = if(properties.horizontal) properties.knob_width else 0,
+            .scl_y = if(properties.horizontal) 0 else properties.knob_width
         },
         .alignment = .{
             .x = .Center,

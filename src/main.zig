@@ -542,19 +542,20 @@ pub fn main() !void
     var slider_properties: ui_basic.SliderProperties = .init_default(.{
         .relative_pos = .{
             .pos_x = 0.1,
-            .pos_y = 0.35,
+            .pos_y = 0.05,
             .scl_x = 0.4,
-            .scl_y = 0.075
+            .scl_y = 0.4
         },
         .absolute_offset = .get_default(),
         .alignment = .{
             .x = .Left,
-            .y = .Center
+            .y = .Bottom
         }
     });
 
-    slider_properties.discrete_values = 0;
+    slider_properties.discrete_values = 10;
     slider_properties.callback = test_slider_callback;
+    slider_properties.horizontal = true;
 
     const slider = try ui_basic.create_slider(&allocator, slider_properties);
 
