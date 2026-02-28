@@ -1264,6 +1264,39 @@ pub fn create_checkbox(allocator: *const std.mem.Allocator, properties: Checkbox
     return e;
 }
 
+/// Determines the properties of a slider element.
+pub const SliderProperties = struct
+{
+    placement: Placement,
+
+    discrete_values: u32,
+    start_value: f32,
+
+    color_bar: [4]f32,
+    color_knob_idle: [4]f32,
+    color_knob_hover: [4]f32,
+    color_knob_press: [4]f32,
+
+    pub fn init_default(placement: Placement) SliderProperties
+    {
+        return .{
+            .placement = placement,
+            .discrete_values = 0,
+            .start_value = 0.5,
+            .color_bar = .{0.1, 0.1, 0.1, 1},
+            .color_knob_idle = .{0.35, 0.35, 0.35, 1},
+            .color_knob_hover = .{0.55, 0.55, 0.55, 1},
+            .color_knob_press = .{0.6, 0.6, 0.6, 1}
+        };
+    }
+};
+
+/// Creates a slider element, which the user can interact with.
+pub fn create_slider(allocator: *const std.mem.Allocator, properties: SliderProperties) !*Element
+{
+    
+}
+
 const TextFieldData = struct
 {
     update: bool,
