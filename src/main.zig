@@ -532,10 +532,29 @@ pub fn main() !void
         .callback = test_checkbox_callback
     });
 
+    var slider_properties: ui_basic.SliderProperties = .init_default(.{
+        .relative_pos = .{
+            .pos_x = 0.1,
+            .pos_y = 0.35,
+            .scl_x = 0.4,
+            .scl_y = 0.075
+        },
+        .absolute_offset = .get_default(),
+        .alignment = .{
+            .x = .Left,
+            .y = .Center
+        }
+    });
+
+    slider_properties.discrete_values = 10;
+
+    const slider = try ui_basic.create_slider(&allocator, slider_properties);
+
     start_text.deinit(allocator);
 
     _ = try quad.add_and_dispose(singleline_tf);
     _ = try quad.add_and_dispose(checkbox);
+    _ = try quad.add_and_dispose(slider);
     _ = try app_ui_container.add_and_dispose(quad);
 
     var window_width: u32 = undefined;

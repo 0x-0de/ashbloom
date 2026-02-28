@@ -1264,6 +1264,20 @@ pub fn create_checkbox(allocator: *const std.mem.Allocator, properties: Checkbox
     return e;
 }
 
+const SliderData = struct
+{
+    input_value: f32,
+    discrete_values: u32,
+
+    color_knob_idle: [4]f32,
+    color_knob_hover: [4]f32,
+    color_knob_press: [4]f32,
+
+    clock: f32,
+    hovered: bool,
+    pressed: bool
+};
+
 /// Determines the properties of a slider element.
 pub const SliderProperties = struct
 {
@@ -1277,6 +1291,9 @@ pub const SliderProperties = struct
     color_knob_hover: [4]f32,
     color_knob_press: [4]f32,
 
+    bar_width: f32,
+    knob_width: f32,
+
     pub fn init_default(placement: Placement) SliderProperties
     {
         return .{
@@ -1286,15 +1303,209 @@ pub const SliderProperties = struct
             .color_bar = .{0.1, 0.1, 0.1, 1},
             .color_knob_idle = .{0.35, 0.35, 0.35, 1},
             .color_knob_hover = .{0.55, 0.55, 0.55, 1},
-            .color_knob_press = .{0.6, 0.6, 0.6, 1}
+            .color_knob_press = .{0.6, 0.6, 0.6, 1},
+            .bar_width = 5,
+            .knob_width = 30
         };
     }
 };
 
+fn slider_callback_mouse_enter(e: *Element, data: ContainerInputData) !void
+{
+    _ = data;
+    
+    var slider_data: SliderData = undefined;
+    memcpy_anonymous(&slider_data, e.data.?.ptr, @sizeOf(SliderData));
+
+    slider_data.hovered = true;
+
+    memcpy_anonymous(e.data.?.ptr, &slider_data, @sizeOf(SliderData));
+}
+
+fn slider_callback_mouse_leave(e: *Element, data: ContainerInputData) !void
+{
+    _ = data;
+
+    var slider_data: SliderData = undefined;
+    memcpy_anonymous(&slider_data, e.data.?.ptr, @sizeOf(SliderData));
+
+    slider_data.hovered = false;
+
+    memcpy_anonymous(e.data.?.ptr, &slider_data, @sizeOf(SliderData));
+}
+
+fn slider_callback_mouse_press(e: *Element, data: ContainerInputData) !void
+{
+    _ = data;
+    
+    var slider_data: SliderData = undefined;
+    memcpy_anonymous(&slider_data, e.data.?.ptr, @sizeOf(SliderData));
+
+    slider_data.pressed = true;
+
+    memcpy_anonymous(e.data.?.ptr, &slider_data, @sizeOf(SliderData));
+}
+
+fn slider_callback_mouse_release(e: *Element, data: ContainerInputData) !void
+{
+    _ = e;
+    _ = data;
+}
+
+fn slider_callback_tick(e: *Element, data: ContainerInputData) !void
+{
+    const knob = e.children.items[1];
+
+    var slider_data: SliderData = undefined;
+    memcpy_anonymous(&slider_data, e.data.?.ptr, @sizeOf(SliderData));
+
+    if(slider_data.hovered and slider_data.clock != 1)
+    {
+        const diff = (1 - slider_data.clock) / 3;
+        if(diff < 0.001)
+        {
+            slider_data.clock = 1;
+            knob.coordinates = slider_data.color_knob_hover;
+        }
+        else
+        {
+            slider_data.clock += diff;
+            for(0..4) |i|
+            {
+                knob.coordinates[i] = (slider_data.color_knob_hover[i] * slider_data.clock) + (slider_data.color_knob_idle[i] * (1 - slider_data.clock));
+            }
+        }
+
+        knob.refresh(false);
+    }
+    else if(!slider_data.hovered and slider_data.clock != 0)
+    {
+        const diff = -slider_data.clock / 3;
+        if(diff > -0.001)
+        {
+            slider_data.clock = 0;
+            knob.coordinates = slider_data.color_knob_idle;
+        }
+        else
+        {
+            slider_data.clock += diff;
+            for(0..4) |i|
+            {
+                knob.coordinates[i] = slider_data.color_knob_hover[i] * slider_data.clock + (slider_data.color_knob_idle[i] * (1 - slider_data.clock));
+            }
+        }
+
+        knob.refresh(false);
+    }
+
+    if(data.mouse_buttons & 1 == 0)
+    {
+        slider_data.pressed = false;
+    }
+    else if(slider_data.pressed)
+    {
+        const bounds = (try data.container.get_element_bounds(e.lineage.?)).draw_bounds;
+        const mouse_offset = @as(f32, @floatFromInt(data.cursor_pos.x)) - bounds.pos_x;
+
+        var offset = mouse_offset / bounds.scl_x;
+        offset = std.math.clamp(offset, 0, 1);
+
+        if(slider_data.discrete_values != 0)
+        {
+            const limit = @as(f32, @floatFromInt(slider_data.discrete_values + 1));
+
+            var discrete_offset = offset * limit;
+
+            if(discrete_offset >= limit)
+            {
+                discrete_offset = limit - 0.0001;
+            }
+
+            offset = std.math.floor(discrete_offset) / @as(f32, @floatFromInt(slider_data.discrete_values));
+        }
+        
+        if(offset != slider_data.input_value)
+        {
+            slider_data.input_value = offset;
+            knob.placement.relative_pos.pos_x = offset;
+
+            knob.refresh(false);
+        }
+    }
+
+    memcpy_anonymous(e.data.?.ptr, &slider_data, @sizeOf(SliderData));
+}
+
 /// Creates a slider element, which the user can interact with.
 pub fn create_slider(allocator: *const std.mem.Allocator, properties: SliderProperties) !*Element
 {
-    
+    const e = try allocator.create(Element);
+
+    e.* = try .init(allocator, .None, properties.placement, properties.color_bar);
+
+    var slider_data: SliderData = .{
+        .input_value = properties.start_value,
+        .discrete_values = properties.discrete_values,
+        .color_knob_idle = properties.color_knob_idle,
+        .color_knob_hover = properties.color_knob_hover,
+        .color_knob_press = properties.color_knob_press,
+        .clock = 0,
+        .hovered = false,
+        .pressed = false
+    };
+
+    e.data = try allocator.alloc(u8, @sizeOf(SliderData));
+    memcpy_anonymous(e.data.?.ptr, &slider_data, @sizeOf(SliderData));
+
+    const bar = try create_quad(allocator, .{
+        .relative_pos = .{
+            .pos_x = 0,
+            .pos_y = 0.5,
+            .scl_x = 1,
+            .scl_y = 0
+        },
+        .absolute_offset = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 0,
+            .scl_y = properties.bar_width
+        },
+        .alignment = .{
+            .x = .Left,
+            .y = .Center
+        }
+    }, properties.color_bar);
+
+    _ = try e.add_and_dispose(bar);
+
+    const knob = try create_quad(allocator, .{
+        .relative_pos = .{
+            .pos_x = properties.start_value,
+            .pos_y = 0.5,
+            .scl_x = 0,
+            .scl_y = 1
+        },
+        .absolute_offset = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = properties.knob_width,
+            .scl_y = 0
+        },
+        .alignment = .{
+            .x = .Center,
+            .y = .Center
+        }
+    }, properties.color_knob_idle);
+
+    _ = try e.add_and_dispose(knob);
+
+    try e.add_callback(.MouseEnter, slider_callback_mouse_enter);
+    try e.add_callback(.MouseLeave, slider_callback_mouse_leave);
+    try e.add_callback(.MousePress, slider_callback_mouse_press);
+    try e.add_callback(.MouseRelease, slider_callback_mouse_release);
+    try e.add_callback(.Tick, slider_callback_tick);
+
+    return e;
 }
 
 const TextFieldData = struct
