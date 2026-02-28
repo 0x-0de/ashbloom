@@ -959,6 +959,40 @@ pub fn create_scrollbar(allocator: *const std.mem.Allocator) !*Element
     return e;
 }
 
+const CheckboxData = struct
+{
+    ticked: bool,
+
+    color_border: [4]f32,
+    color_hover: [4]f32,
+    color_ticked: [4]f32
+};
+
+/// Properties of a checkbox element.
+const CheckboxProperties = struct
+{
+    /// Placement of the checkbox.
+    placement: Placement,
+    /// Initial value of the checkbox.
+    start_ticked: bool,
+
+    /// Color to display on the checkbox's border.
+    color_border: [4]f32,
+    /// Color to display when the checkbox is being hovered.
+    color_hover: [4]f32,
+    /// Color to display when the checkbox is ticked.
+    color_ticked: [4]f32,
+
+    /// Width of the checkbox's border.
+    border_width: f32,
+};
+
+/// Creates a checkbox element, which the user can un/tick.
+pub fn create_checkbox(allocator: *const std.mem.Allocator, properties: CheckboxProperties) !*Element
+{
+    
+}
+
 const TextFieldData = struct
 {
     update: bool,
