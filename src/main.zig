@@ -398,6 +398,13 @@ fn test_checkbox_callback(e: *Element, value: bool) void
     std.debug.print("Checkbox is {s}.\n", .{if(value) "ticked" else "unticked"});
 }
 
+fn test_slider_callback(e: *Element, value: f32) void
+{
+    _ = e;
+
+    std.debug.print("Slider value: {d}.\n", .{value});
+}
+
 pub fn main() !void
 {
     try glfw.init();
@@ -546,7 +553,8 @@ pub fn main() !void
         }
     });
 
-    slider_properties.discrete_values = 10;
+    slider_properties.discrete_values = 0;
+    slider_properties.callback = test_slider_callback;
 
     const slider = try ui_basic.create_slider(&allocator, slider_properties);
 

@@ -1264,6 +1264,12 @@ pub fn create_checkbox(allocator: *const std.mem.Allocator, properties: Checkbox
     return e;
 }
 
+fn empty_slider_callback(e: *Element, value: f32) void
+{
+    _ = e;
+    _ = value;
+}
+
 const SliderData = struct
 {
     input_value: f32,
@@ -1275,7 +1281,10 @@ const SliderData = struct
 
     clock: f32,
     hovered: bool,
-    pressed: bool
+    pressed: bool,
+    press_toggle: bool,
+
+    callback: *const fn(*Element, f32) void
 };
 
 /// Determines the properties of a slider element.
@@ -1294,6 +1303,8 @@ pub const SliderProperties = struct
     bar_width: f32,
     knob_width: f32,
 
+    callback: *const fn(*Element, f32) void,
+
     pub fn init_default(placement: Placement) SliderProperties
     {
         return .{
@@ -1305,7 +1316,8 @@ pub const SliderProperties = struct
             .color_knob_hover = .{0.55, 0.55, 0.55, 1},
             .color_knob_press = .{0.6, 0.6, 0.6, 1},
             .bar_width = 5,
-            .knob_width = 30
+            .knob_width = 30,
+            .callback = empty_slider_callback
         };
     }
 };
@@ -1359,43 +1371,64 @@ fn slider_callback_tick(e: *Element, data: ContainerInputData) !void
     var slider_data: SliderData = undefined;
     memcpy_anonymous(&slider_data, e.data.?.ptr, @sizeOf(SliderData));
 
-    if(slider_data.hovered and slider_data.clock != 1)
+    if(slider_data.pressed)
     {
-        const diff = (1 - slider_data.clock) / 3;
-        if(diff < 0.001)
+        if(!slider_data.press_toggle)
         {
-            slider_data.clock = 1;
-            knob.coordinates = slider_data.color_knob_hover;
-        }
-        else
-        {
-            slider_data.clock += diff;
-            for(0..4) |i|
-            {
-                knob.coordinates[i] = (slider_data.color_knob_hover[i] * slider_data.clock) + (slider_data.color_knob_idle[i] * (1 - slider_data.clock));
-            }
+            knob.coordinates = slider_data.color_knob_press;
+            knob.refresh(false);
         }
 
-        knob.refresh(false);
+        slider_data.press_toggle = true;
     }
-    else if(!slider_data.hovered and slider_data.clock != 0)
+    else
     {
-        const diff = -slider_data.clock / 3;
-        if(diff > -0.001)
+        if(slider_data.press_toggle)
         {
-            slider_data.clock = 0;
-            knob.coordinates = slider_data.color_knob_idle;
-        }
-        else
-        {
-            slider_data.clock += diff;
-            for(0..4) |i|
-            {
-                knob.coordinates[i] = slider_data.color_knob_hover[i] * slider_data.clock + (slider_data.color_knob_idle[i] * (1 - slider_data.clock));
-            }
+            knob.coordinates = if(slider_data.hovered) slider_data.color_knob_hover else slider_data.color_knob_idle;
+            knob.refresh(false);
+
+            slider_data.press_toggle = false;
         }
 
-        knob.refresh(false);
+        if(slider_data.hovered and slider_data.clock != 1)
+        {
+            const diff = (1 - slider_data.clock) / 3;
+            if(diff < 0.001)
+            {
+                slider_data.clock = 1;
+                knob.coordinates = slider_data.color_knob_hover;
+            }
+            else
+            {
+                slider_data.clock += diff;
+                for(0..4) |i|
+                {
+                    knob.coordinates[i] = (slider_data.color_knob_hover[i] * slider_data.clock) + (slider_data.color_knob_idle[i] * (1 - slider_data.clock));
+                }
+            }
+
+            knob.refresh(false);
+        }
+        else if(!slider_data.hovered and slider_data.clock != 0)
+        {
+            const diff = -slider_data.clock / 3;
+            if(diff > -0.001)
+            {
+                slider_data.clock = 0;
+                knob.coordinates = slider_data.color_knob_idle;
+            }
+            else
+            {
+                slider_data.clock += diff;
+                for(0..4) |i|
+                {
+                    knob.coordinates[i] = slider_data.color_knob_hover[i] * slider_data.clock + (slider_data.color_knob_idle[i] * (1 - slider_data.clock));
+                }
+            }
+
+            knob.refresh(false);
+        }
     }
 
     if(data.mouse_buttons & 1 == 0)
@@ -1429,6 +1462,8 @@ fn slider_callback_tick(e: *Element, data: ContainerInputData) !void
             slider_data.input_value = offset;
             knob.placement.relative_pos.pos_x = offset;
 
+            slider_data.callback(e, if(slider_data.discrete_values != 0) offset * @as(f32, @floatFromInt(slider_data.discrete_values)) else offset);
+
             knob.refresh(false);
         }
     }
@@ -1451,7 +1486,9 @@ pub fn create_slider(allocator: *const std.mem.Allocator, properties: SliderProp
         .color_knob_press = properties.color_knob_press,
         .clock = 0,
         .hovered = false,
-        .pressed = false
+        .pressed = false,
+        .press_toggle = false,
+        .callback = properties.callback
     };
 
     e.data = try allocator.alloc(u8, @sizeOf(SliderData));
