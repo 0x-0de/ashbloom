@@ -962,10 +962,23 @@ pub fn create_scrollbar(allocator: *const std.mem.Allocator) !*Element
 const CheckboxData = struct
 {
     ticked: bool,
+    hovered: bool,
 
-    color_border: [4]f32,
     color_hover: [4]f32,
-    color_ticked: [4]f32
+    color_ticked: [4]f32,
+
+    clock: f32,
+
+    pub fn init(ticked: bool, color_hover: [4]f32, color_ticked: [4]f32) CheckboxData
+    {
+        return .{
+            .ticked = ticked,
+            .hovered = false,
+            .color_hover = color_hover,
+            .color_ticked = color_ticked,
+            .clock = 0
+        };
+    }
 };
 
 /// Properties of a checkbox element.
@@ -985,12 +998,128 @@ const CheckboxProperties = struct
 
     /// Width of the checkbox's border.
     border_width: f32,
+
+    pub fn init_default(placement: Placement) CheckboxProperties
+    {
+        return .{
+            .placement = placement,
+            .start_ticked = false,
+            .color_border = .{1, 1, 1, 1},
+            .color_hover = .{1, 1, 1, 0.2},
+            .color_ticked = .{0, 1, 1, 1},
+            .border_width = 5  
+        };
+    }
 };
+
+fn checkbox_callback_mouse_enter(e: *Element, data: ContainerInputData) !void
+{
+    _ = data;
+
+    var checkbox_data: CheckboxData = undefined;
+    memcpy_anonymous(&checkbox_data, e.data.?.ptr, @sizeOf(CheckboxData));
+
+    checkbox_data.hovered = true;
+
+    memcpy_anonymous(e.data.?.ptr, &checkbox_data, @sizeOf(CheckboxData));
+}
+
+fn checkbox_callback_mouse_leave(e: *Element, data: ContainerInputData) !void
+{
+    _ = data;
+    
+    var checkbox_data: CheckboxData = undefined;
+    memcpy_anonymous(&checkbox_data, e.data.?.ptr, @sizeOf(CheckboxData));
+
+    checkbox_data.hovered = false;
+
+    memcpy_anonymous(e.data.?.ptr, &checkbox_data, @sizeOf(CheckboxData));
+}
+
+fn checkbox_callback_tick(e: *Element, data: ContainerInputData) !void
+{
+    _ = data;
+
+    const hover = e.children.items[0];
+
+    var checkbox_data: CheckboxData = undefined;
+    memcpy_anonymous(&checkbox_data, e.data.?.ptr, @sizeOf(CheckboxData));
+
+    if(checkbox_data.hovered and checkbox_data.clock != 1)
+    {
+        const diff = (1 - checkbox_data.clock) / 3;
+        if(diff < 0.001)
+        {
+            checkbox_data.clock = 1;
+            hover.coordinates = checkbox_data.color_hover;
+        }
+        else
+        {
+            checkbox_data.clock += diff;
+            for(0..4) |i|
+            {
+                hover.coordinates[i] = checkbox_data.color_hover[i] * checkbox_data.clock;
+            }
+        }
+
+        hover.refresh(false);
+    }
+    else if(!checkbox_data.hovered and checkbox_data.clock != 0)
+    {
+        const diff = -checkbox_data.clock / 3;
+        if(diff > -0.001)
+        {
+            checkbox_data.clock = 0;
+            hover.coordinates = .{0, 0, 0, 0};
+        }
+        else
+        {
+            checkbox_data.clock += diff;
+            for(0..4) |i|
+            {
+                hover.coordinates[i] = checkbox_data.color_hover[i] * checkbox_data.clock;
+            }
+        }
+
+        hover.refresh(false);
+    }
+
+    memcpy_anonymous(e.data.?.ptr, &checkbox_data, @sizeOf(CheckboxData));
+}
 
 /// Creates a checkbox element, which the user can un/tick.
 pub fn create_checkbox(allocator: *const std.mem.Allocator, properties: CheckboxProperties) !*Element
 {
-    
+    const e = try allocator.create(Element);
+
+    e.* = try Element.init(allocator, .None, properties.placement, .{0, 0, 0, 0});
+
+    e.data = try allocator.alloc(u8, @sizeOf(CheckboxData));
+
+    var data: CheckboxData = .init(properties.start_ticked, properties.color_hover, properties.color_ticked);
+    memcpy_anonymous(e.data.?.ptr, &data, @sizeOf(CheckboxData));
+
+    const hover = try create_quad(allocator, .{
+        .relative_pos = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 1,
+            .scl_y = 1
+        },
+        .absolute_offset = .get_default(),
+        .alignment = .{
+            .x = .Left,
+            .y = .Bottom
+        }
+    }, .{0, 0, 0, 0});
+
+    _ = try e.add_and_dispose(hover);
+
+    try e.add_callback(.MouseEnter, checkbox_callback_mouse_enter);
+    try e.add_callback(.MouseLeave, checkbox_callback_mouse_leave);
+    try e.add_callback(.Tick, checkbox_callback_tick);
+
+    return e;
 }
 
 const TextFieldData = struct

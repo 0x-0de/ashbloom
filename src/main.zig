@@ -496,9 +496,36 @@ pub fn main() !void
         .extension_protocol = .ScrollVertically
     });
 
+    const checkbox = try ui_basic.create_checkbox(&allocator, .{
+        .placement = .{
+            .relative_pos = .{
+                .pos_x = 0.1,
+                .pos_y = 0.5,
+                .scl_x = 0,
+                .scl_y = 0
+            },
+            .absolute_offset = .{
+                .pos_x = 0,
+                .pos_y = 0,
+                .scl_x = 60,
+                .scl_y = 60
+            },
+            .alignment = .{
+                .x = .Left,
+                .y = .Center
+            }
+        },
+        .start_ticked = false,
+        .color_border = .{1, 1, 1, 1},
+        .color_hover = .{1, 1, 1, 0.2},
+        .color_ticked = .{0, 1, 1, 1},
+        .border_width = 5
+    });
+
     start_text.deinit(allocator);
 
     _ = try quad.add_and_dispose(singleline_tf);
+    _ = try quad.add_and_dispose(checkbox);
     _ = try app_ui_container.add_and_dispose(quad);
 
     var window_width: u32 = undefined;
