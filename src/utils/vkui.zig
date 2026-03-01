@@ -325,7 +325,7 @@ pub const Element = struct
             e.data = null;
         }
 
-        try self.children.append(e.allocator.*, e);
+        try self.children.append(self.allocator.*, e);
 
         var child_num: u32 = 0;
 
@@ -826,6 +826,29 @@ pub const Container = struct
         try command_buffer.end_recording();
 
         try swapchain.render(self.ui_rendering.render_queue);
+    }
+
+    pub fn get_element(self: *Container, lineage: []usize) VulkanUIError!*Element
+    {
+        var cur_element = &self.origin;
+        if(lineage.len == 0) return cur_element;
+
+        var cur_index: usize = 0;
+        
+        while(cur_index < lineage.len) : (cur_index += 1)
+        {
+            const cur_lineage = lineage[cur_index];
+            if(cur_lineage < cur_element.children.items.len)
+            {
+                cur_element = cur_element.children.items[cur_lineage];
+            }
+            else
+            {
+                return VulkanUIError.MissingLineage;
+            }
+        }
+
+        return cur_element;
     }
 
     pub fn get_element_bounds(self: *Container, lineage: []usize) VulkanUIError!Element.RuntimeBounds

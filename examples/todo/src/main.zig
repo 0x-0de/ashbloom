@@ -19,6 +19,8 @@ const RenderPass = ash.RenderPass;
 
 const Font = ash.font.Font;
 
+var allocator: std.mem.Allocator = undefined;
+
 var debug_required_validation_layers: [1][*:0]const u8 = .{
     "VK_LAYER_KHRONOS_validation"
 };
@@ -47,7 +49,7 @@ const AppQueueNames = enum(u8)
 
 var vk_queues: [@intFromEnum(AppQueueNames.app_queue_count)]vk.Queue = undefined;
 
-fn init_vk_context(allocator: *const std.mem.Allocator) !void
+fn init_vk_context() !void
 {
     const vk_context_options: VkContext.InitOptions = .{
         .instance_extensions = @ptrCast(&debug_required_instance_extensions),
@@ -58,7 +60,7 @@ fn init_vk_context(allocator: *const std.mem.Allocator) !void
         }
     };
 
-    vk_context = try VkContext.init(allocator, window.glfw_handle, vk_context_options);
+    vk_context = try VkContext.init(&allocator, window.glfw_handle, vk_context_options);
 
     const queue_families = vk_context.physical_device_queue_families;
 
@@ -67,7 +69,7 @@ fn init_vk_context(allocator: *const std.mem.Allocator) !void
 
     vk_command_pool = try ash.commands.create_command_pool(&vk_context);
 
-    vk_allocator = try VulkanAllocator.init(&vk_context, allocator, &vk_command_pool, &vk_queues[@intFromEnum(AppQueueNames.Graphics)], .{
+    vk_allocator = try VulkanAllocator.init(&vk_context, &allocator, &vk_command_pool, &vk_queues[@intFromEnum(AppQueueNames.Graphics)], .{
         .page_size = 128 << 20, // 128 MB.
         .staging_size =  32 << 20 // 32 MB.
     });
@@ -129,11 +131,11 @@ fn deinit_pipeline() !void
     try app_descriptor_set.deinit();
 }
 
-fn init_pipeline(allocator: *const std.mem.Allocator, swapchain: Swapchain) !void
+fn init_pipeline(swapchain: Swapchain) !void
 {
     app_pipeline = try .init(&vk_context);
 
-    var pvi = try pipeline.PipelineVertexInput.init(allocator);
+    var pvi = try pipeline.PipelineVertexInput.init(&allocator);
     defer pvi.deinit();
 
     try pvi.add_attribute(0, 0, vk.Format.r32_sfloat, 0);
@@ -193,13 +195,13 @@ fn init_pipeline(allocator: *const std.mem.Allocator, swapchain: Swapchain) !voi
     try app_pipeline.build(&render_pass);
 }
 
-pub fn update_ui_uniforms(allocator: *const std.mem.Allocator, set_index: u16) !void
+pub fn update_ui_uniforms(set_index: u16) !void
 {
     var window_width: u32 = undefined;
     var window_height: u32 = undefined;
 
     window.get_framebuffer_size(&window_width, &window_height);
-    var projection = try ash.math.mat_projection_orthographic(allocator, 0, @floatFromInt(window_width), 0, @floatFromInt(window_height), -1, 1);
+    var projection = try ash.math.mat_projection_orthographic(&allocator, 0, @floatFromInt(window_width), 0, @floatFromInt(window_height), -1, 1);
 
     const projection_data = try ash.math.mat_slice_data(f32, projection);
 
@@ -208,6 +210,54 @@ pub fn update_ui_uniforms(allocator: *const std.mem.Allocator, set_index: u16) !
     try app_descriptor_set.place_data(set_index, 0, f32, projection_data, 0);
 
     allocator.free(projection_data);
+}
+
+const TodoItem = struct
+{
+    name: []u32
+};
+
+fn create_todo_item(item: TodoItem) !*vkui.Element
+{
+    _ = item;
+
+    const e = try allocator.create(vkui.Element);
+
+    e.* = try vkui.Element.init(&allocator, .Color, .{
+        .relative_pos = .{
+            .pos_x = 0,
+            .pos_y = 1,
+            .scl_x = 1,
+            .scl_y = 0
+        },
+        .absolute_offset = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 1,
+            .scl_y = 50
+        },
+        .alignment = .{
+            .x = .Left,
+            .y = .Top
+        }
+    }, .{1, 1, 1, 0.2});
+
+    return e;
+}
+
+fn new_todo(e: *vkui.Element) !void
+{
+    _ = e;
+
+    var todo_list_lineage: [2]usize = .{0, 2};
+    const todo_list = try app_ui_container.get_element(todo_list_lineage[0..2]);
+
+    const todo_item = try create_todo_item(.{ .name = &.{} });
+    _ = try todo_list.add_and_dispose(todo_item);
+
+    app_ui_container.signal_rebuild = true;
+
+    print("Pressed!\n", .{});
 }
 
 pub fn main() !void
@@ -224,14 +274,14 @@ pub fn main() !void
         }
     }
 
-    const allocator = dba.allocator();
+    allocator = dba.allocator();
 
     glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
 
     window = try ash.window.Window.init(1280, 720, "Todo");
     defer window.destroy();
 
-    try init_vk_context(&allocator);
+    try init_vk_context();
     defer deinit_vk_context();
 
     var swapchain = try Swapchain.init(window.glfw_handle, &vk_context, vk_command_pool, 1);
@@ -253,27 +303,101 @@ pub fn main() !void
     var font = try Font.init(&vk_context, &vk_allocator, "res/bahnschrift.ttf", 36);
     app_ui_container.font = &font;
 
-    try init_pipeline(&allocator, swapchain);
+    try init_pipeline(swapchain);
 
     var framebuffers_ui = try swapchain.create_framebuffers(&render_pass);
     defer framebuffers_ui.deinit(allocator);
     defer swapchain.deinit_framebuffers(framebuffers_ui);
 
-    const test_quad = try ui_basic.create_quad(&allocator, .{
+    const background = try ui_basic.create_quad(&allocator, .{
         .relative_pos = .{
-            .pos_x = 0.2,
-            .pos_y = 0.7,
-            .scl_x = 0.3,
-            .scl_y = 0.2
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 1,
+            .scl_y = 1
         },
         .absolute_offset = .get_default(),
         .alignment = .{
             .x = .Left,
             .y = .Bottom
         }
-    }, .{0, 0, 1, 1});
+    }, .{0.01, 0.01, 0.01, 1});
 
-    _ = try app_ui_container.add(test_quad);
+    const enter_textfield = try ui_basic.create_textfield(&allocator, .{
+        .relative_pos = .{
+            .pos_x = 0,
+            .pos_y = 1,
+            .scl_x = 1,
+            .scl_y = 0
+        },
+        .absolute_offset = .{
+            .pos_x = 30,
+            .pos_y = -30,
+            .scl_x = -230,
+            .scl_y = 40
+        },
+        .alignment = .{
+            .x = .Left,
+            .y = .Top
+        }
+    }, .{
+        .font = &font,
+        .text_alignment = .{
+            .x = .Left,
+            .y = .Bottom
+        },
+        .text_size = 30
+    });
+
+    const enter_button = try ui_basic.create_button(&allocator, .{
+        .color_idle = .{0.15, 0.15, 0.15, 1},
+        .color_hover = .{0.25, 0.25, 0.25, 1},
+        .color_press = .{0.4, 0.4, 0.4, 1},
+        .placement = .{
+            .relative_pos = .{
+                .pos_x = 1,
+                .pos_y = 1,
+                .scl_x = 0,
+                .scl_y = 0
+            },
+            .absolute_offset = .{
+                .pos_x = -200,
+                .pos_y = -30,
+                .scl_x = 170,
+                .scl_y = 40
+            },
+            .alignment = .{
+                .x = .Left,
+                .y = .Top
+            }
+        },
+        .press_callback = new_todo
+    });
+
+    const list_panel = try ui_basic.create_quad(&allocator, .{
+        .relative_pos = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 1,
+            .scl_y = 1
+        },
+        .absolute_offset = .{
+            .pos_x = 50,
+            .pos_y = 50,
+            .scl_x = -100,
+            .scl_y = -250
+        },
+        .alignment = .{
+            .x = .Left,
+            .y = .Bottom
+        }
+    }, .{0.005, 0.005, 0.005, 1});
+
+    _ = try background.add_and_dispose(enter_textfield);
+    _ = try background.add_and_dispose(enter_button);
+    _ = try background.add_and_dispose(list_panel);
+
+    _ = try app_ui_container.add_and_dispose(background);
 
     var window_width: u32 = undefined;
     var window_height: u32 = undefined;
@@ -281,9 +405,7 @@ pub fn main() !void
     window.get_framebuffer_size(&window_width, &window_height);
 
     try app_ui_container.set_bounds(0, 0, @floatFromInt(window_width), @floatFromInt(window_height));
-    print("Building the UI container.\n", .{});
     try app_ui_container.build();
-    print("\tDone.\n", .{});
 
     var timer: f64 = glfw.getTime();
     var frames: u32 = 0;
@@ -329,7 +451,7 @@ pub fn main() !void
             app_ui_container.signal_reset_manual_input = false;
         }
 
-        try update_ui_uniforms(&allocator, @truncate(swapchain.current_image_index));
+        try update_ui_uniforms(@truncate(swapchain.current_image_index));
 
         const command_buffer = try swapchain.get_next_command_buffer();
 

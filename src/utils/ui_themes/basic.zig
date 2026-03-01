@@ -529,7 +529,7 @@ fn button_callback_mouse_press(e: *Element, data: ContainerInputData) !void
 fn button_callback_mouse_release(e: *Element, data: ContainerInputData) !void
 {
     var callback_data: [@sizeOf(*const fn(*Element) void)]u8 = undefined;
-    var callback: *const fn(*Element) void = undefined;
+    var callback: *const fn(*Element) anyerror!void = undefined;
 
     const data_offset: usize = @sizeOf(u8) + @sizeOf(f32);
 
@@ -540,7 +540,7 @@ fn button_callback_mouse_release(e: *Element, data: ContainerInputData) !void
     {
         if(e.data.?[0] == 2)
         {
-            callback(e);
+            try callback(e);
         }
         e.data.?[0] = 1;
     }
@@ -572,7 +572,7 @@ pub const ButtonProperties = struct
     color_press: [4]f32,
 
     /// Specific callback to be called whenever the button is finished being pressed.
-    press_callback: *const fn(*Element) void,
+    press_callback: *const fn(*Element) anyerror!void,
 
     /// Initializes the ButtonProperties struct with default colors and no press callback.
     pub fn init_default() ButtonProperties
@@ -608,7 +608,7 @@ pub fn create_button(allocator: *const std.mem.Allocator, properties: ButtonProp
     data_offset += @sizeOf(f32);
     
     var press_callback_alias = properties.press_callback;
-    memcpy_anonymous(e.data.?.ptr + data_offset, @ptrCast(&press_callback_alias), @sizeOf(*const fn(*Element) void));
+    memcpy_anonymous(e.data.?.ptr + data_offset, @ptrCast(&press_callback_alias), @sizeOf(*const fn(*Element) anyerror!void));
     data_offset += @sizeOf(@TypeOf(properties.press_callback));
 
     var color_idle = properties.color_idle;
