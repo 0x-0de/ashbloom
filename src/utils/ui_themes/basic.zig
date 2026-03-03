@@ -990,7 +990,7 @@ const CheckboxData = struct
 };
 
 /// Properties of a checkbox element.
-const CheckboxProperties = struct
+pub const CheckboxProperties = struct
 {
     /// Placement of the checkbox.
     placement: Placement,
@@ -2251,4 +2251,12 @@ pub fn create_textfield(allocator: *const std.mem.Allocator, placement: Placemen
     try e.add_callback(.Tick, textfield_callback_tick);
 
     return e;
+}
+
+pub fn get_textfield_text(e: *Element) []u32
+{
+    var textfield_data: TextFieldData = undefined;
+    memcpy_anonymous(&textfield_data, e.data.?.ptr, @sizeOf(TextFieldData));
+
+    return textfield_data.text;
 }

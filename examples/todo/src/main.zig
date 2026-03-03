@@ -125,6 +125,8 @@ var app_descriptor_set: pipeline.PipelineDescriptorSet = undefined;
 
 var app_ui_container: vkui.Container = undefined;
 
+var app_font: Font = undefined;
+
 fn deinit_pipeline() !void
 {
     app_pipeline.deinit();
@@ -217,10 +219,10 @@ const TodoItem = struct
     name: []u32
 };
 
+var cap: f32 = 0;
+
 fn create_todo_item(item: TodoItem) !*vkui.Element
 {
-    _ = item;
-
     const e = try allocator.create(vkui.Element);
 
     e.* = try vkui.Element.init(&allocator, .Color, .{
@@ -232,7 +234,7 @@ fn create_todo_item(item: TodoItem) !*vkui.Element
         },
         .absolute_offset = .{
             .pos_x = 0,
-            .pos_y = 0,
+            .pos_y = -cap * 50,
             .scl_x = 1,
             .scl_y = 50
         },
@@ -242,7 +244,78 @@ fn create_todo_item(item: TodoItem) !*vkui.Element
         }
     }, .{1, 1, 1, 0.2});
 
+    cap += 1;
+
+    var checkbox_properties: ui_basic.CheckboxProperties = .init_default(.{
+        .relative_pos = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 0,
+            .scl_y = 0
+        },
+        .absolute_offset = .{
+            .pos_x = 10,
+            .pos_y = 10,
+            .scl_x = 30,
+            .scl_y = 30
+        },
+        .alignment = .{
+            .x = .Left,
+            .y = .Bottom
+        }
+    });
+
+    checkbox_properties.border_width = 4;
+
+    const checkbox = try ui_basic.create_checkbox(&allocator, checkbox_properties);
+
+    const text_area = try ui_basic.create_quad(&allocator, .{
+        .relative_pos = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 0.8,
+            .scl_y = 1
+        },
+        .absolute_offset = .{
+            .pos_x = 60,
+            .pos_y = 5,
+            .scl_x = 0,
+            .scl_y = 0
+        },
+        .alignment = .{
+            .x = .Left,
+            .y = .Bottom
+        }
+    }, .{1, 0, 0, 0});
+
+    const text_properties: ui_basic.TextProperties = .init(&app_font, 30, .{
+        .x = .Left,
+        .y = .Center
+    }, item.name);
+
+    const text = try ui_basic.create_text(&allocator, text_properties);
+
+    _ = try e.add_and_dispose(checkbox);
+
+    _ = try text_area.add_and_dispose(text);
+    _ = try e.add_and_dispose(text_area);
+
     return e;
+}
+
+fn todo_list_rebuild_callback(e: *vkui.Element, data: vkui.ContainerInputData) !void
+{
+    if(e.children.items.len == 0) return;
+
+    print("What the hell?\n", .{});
+    const item_index = e.children.items.len - 1;
+
+    _ = data;
+
+    var lineage: [5]usize = .{0, 2, item_index, 1, 0};
+    const text_item = try app_ui_container.get_element(lineage[0..5]);
+
+    try text_item.force_callback(.WindowResize);
 }
 
 fn new_todo(e: *vkui.Element) !void
@@ -252,12 +325,17 @@ fn new_todo(e: *vkui.Element) !void
     var todo_list_lineage: [2]usize = .{0, 2};
     const todo_list = try app_ui_container.get_element(todo_list_lineage[0..2]);
 
-    const todo_item = try create_todo_item(.{ .name = &.{} });
-    _ = try todo_list.add_and_dispose(todo_item);
+    var textfield_lineage: [2]usize = .{0, 0};
+    const textfield = try app_ui_container.get_element(textfield_lineage[0..2]);
+
+    const todo_item_title = ui_basic.get_textfield_text(textfield);
+
+    const todo_item = try create_todo_item(.{ .name = todo_item_title });
+    const new_item = try todo_list.add_and_dispose(todo_item);
+
+    try new_item.force_callback(.WindowResize);
 
     app_ui_container.signal_rebuild = true;
-
-    print("Pressed!\n", .{});
 }
 
 pub fn main() !void
@@ -300,8 +378,8 @@ pub fn main() !void
         .render_queue = vk_queues[@intFromEnum(AppQueueNames.Graphics)]
     });
 
-    var font = try Font.init(&vk_context, &vk_allocator, "res/bahnschrift.ttf", 36);
-    app_ui_container.font = &font;
+    app_font = try Font.init(&vk_context, &vk_allocator, "res/bahnschrift.ttf", 36);
+    app_ui_container.font = &app_font;
 
     try init_pipeline(swapchain);
 
@@ -341,7 +419,7 @@ pub fn main() !void
             .y = .Top
         }
     }, .{
-        .font = &font,
+        .font = &app_font,
         .text_alignment = .{
             .x = .Left,
             .y = .Bottom
@@ -392,6 +470,8 @@ pub fn main() !void
             .y = .Bottom
         }
     }, .{0.005, 0.005, 0.005, 1});
+
+    try list_panel.add_callback(.Rebuild, todo_list_rebuild_callback);
 
     _ = try background.add_and_dispose(enter_textfield);
     _ = try background.add_and_dispose(enter_button);
@@ -464,7 +544,7 @@ pub fn main() !void
 
     try vk_context.device.deviceWaitIdle();
 
-    try font.deinit();
+    try app_font.deinit();
     try app_ui_container.deinit();
 
     try deinit_pipeline();
