@@ -9,6 +9,8 @@ const glfw = ash.glfw;
 const vkui = ash.vk_ui;
 const ui_basic = ash.ui_theme_basic;
 
+const misc = ash.misc;
+
 const pipeline = ash.pipeline;
 
 const VkContext = ash.vk_context.VkContext;
@@ -216,10 +218,19 @@ pub fn update_ui_uniforms(set_index: u16) !void
 
 const TodoItem = struct
 {
-    name: []u32
+    name: []u32,
+    index: u32
 };
 
-var cap: f32 = 0;
+fn callback_delete_todo_item(e: *vkui.Element) !void
+{
+    const item = e.parent.?;
+
+    var signal = true;
+    misc.memcpy_anonymous(item.data.?.ptr + @sizeOf(u32), &signal, @sizeOf(bool));
+    
+    app_ui_container.signal_rebuild = true;
+}
 
 fn create_todo_item(item: TodoItem) !*vkui.Element
 {
@@ -234,7 +245,7 @@ fn create_todo_item(item: TodoItem) !*vkui.Element
         },
         .absolute_offset = .{
             .pos_x = 0,
-            .pos_y = -cap * 50,
+            .pos_y = -@as(f32, @floatFromInt(@as(i32, @bitCast(item.index)))) * 50,
             .scl_x = 1,
             .scl_y = 50
         },
@@ -244,7 +255,13 @@ fn create_todo_item(item: TodoItem) !*vkui.Element
         }
     }, .{1, 1, 1, 0.2});
 
-    cap += 1;
+    e.data = try allocator.alloc(u8, @sizeOf(u32) + @sizeOf(bool));
+
+    var item_alias = item;
+    misc.memcpy_anonymous(e.data.?.ptr, &item_alias.index, @sizeOf(u32));
+
+    var false_alias = false;
+    misc.memcpy_anonymous(e.data.?.ptr + @sizeOf(u32), &false_alias, @sizeOf(bool));
 
     var checkbox_properties: ui_basic.CheckboxProperties = .init_default(.{
         .relative_pos = .{
@@ -295,10 +312,37 @@ fn create_todo_item(item: TodoItem) !*vkui.Element
 
     const text = try ui_basic.create_text(&allocator, text_properties);
 
+    const button_delete = try ui_basic.create_button(&allocator, .{
+        .placement = .{
+            .relative_pos = .{
+            .pos_x = 1,
+            .pos_y = 0,
+            .scl_x = 0,
+            .scl_y = 0
+            },
+            .absolute_offset = .{
+                .pos_x = -40,
+                .pos_y = 10,
+                .scl_x = 30,
+                .scl_y = 30
+            },
+            .alignment = .{
+                .x = .Left,
+                .y = .Bottom
+            }
+        },
+        .color_idle = .{0.75, 0.1, 0.1, 1},
+        .color_hover = .{0.85, 0.15, 0.15, 1},
+        .color_press = .{0.9, 0.25, 0.25, 1},
+        .press_callback = callback_delete_todo_item
+    });
+
     _ = try e.add_and_dispose(checkbox);
 
     _ = try text_area.add_and_dispose(text);
     _ = try e.add_and_dispose(text_area);
+
+    _ = try e.add_and_dispose(button_delete);
 
     return e;
 }
@@ -307,7 +351,6 @@ fn todo_list_rebuild_callback(e: *vkui.Element, data: vkui.ContainerInputData) !
 {
     if(e.children.items.len == 0) return;
 
-    print("What the hell?\n", .{});
     const item_index = e.children.items.len - 1;
 
     _ = data;
@@ -316,6 +359,18 @@ fn todo_list_rebuild_callback(e: *vkui.Element, data: vkui.ContainerInputData) !
     const text_item = try app_ui_container.get_element(lineage[0..5]);
 
     try text_item.force_callback(.WindowResize);
+
+    for(0..e.children.items.len) |i|
+    {
+        var delete_signal: bool = undefined;
+        misc.memcpy_anonymous(&delete_signal, e.children.items[i].data.?.ptr + @sizeOf(u32), @sizeOf(bool));
+
+        if(delete_signal)
+        {
+            try e.remove_by_index(i);
+            break;
+        }
+    }
 }
 
 fn new_todo(e: *vkui.Element) !void
@@ -330,7 +385,7 @@ fn new_todo(e: *vkui.Element) !void
 
     const todo_item_title = ui_basic.get_textfield_text(textfield);
 
-    const todo_item = try create_todo_item(.{ .name = todo_item_title });
+    const todo_item = try create_todo_item(.{ .name = todo_item_title, .index = @truncate(todo_list.children.items.len) });
     const new_item = try todo_list.add_and_dispose(todo_item);
 
     try new_item.force_callback(.WindowResize);

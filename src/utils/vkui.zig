@@ -363,6 +363,27 @@ pub const Element = struct
         });
     }
 
+    pub fn build_lineage(self: *Element, list: *std.ArrayList(usize)) !void
+    {
+        if(self.lineage != null)
+        {
+            self.allocator.free(self.lineage.?);
+        }
+
+        if(list.items.len != 0)
+        {
+            self.lineage = try self.allocator.alloc(usize, list.items.len);
+            @memcpy(self.lineage.?, list.items);
+        }
+
+        for(0..self.children.items.len) |i|
+        {
+            try list.append(self.allocator.*, i);
+            try self.children.items[i].build_lineage(list);
+            _ = list.orderedRemove(list.items.len - 1);
+        }
+    }
+
     /// Deinitializes, destroys, and frees all memory from an element and its children.
     pub fn deinit(self: *Element) anyerror!void
     {
@@ -779,11 +800,12 @@ pub const Container = struct
             try self.vk_allocator.free_buffer(self.instance_buffer.?);
         }
 
+        var lineage_list: std.ArrayList(usize) = try .initCapacity(self.context.allocator.*, 0);
+        try self.origin.build_lineage(&lineage_list);
+        lineage_list.deinit(self.context.allocator.*);
+
         var data_list = try self.get_all_element_data();
         defer data_list.deinit(self.context.allocator.*);
-
-        // print("Data size: {d}.\n", .{data_list.items.len});
-        // print("Number of instances: {d}.\n", .{self.element_draw_count});
 
         self.instance_buffer = try self.vk_allocator.alloc_buffer(f32, data_list.items, .exclusive, .VertexBuffer);
     }
@@ -791,7 +813,6 @@ pub const Container = struct
     /// Deinitializes the container, destroying all elements it holds and freeing all memory it uses.
     pub fn deinit(self: *Container) !void
     {
-        // print("Allocator pointer (container): {}.\n", .{self.context.allocator});
         try self.origin.deinit();
         try self.texture_atlas.deinit();
         if(self.instance_buffer != null) try self.vk_allocator.free_buffer(self.instance_buffer.?);

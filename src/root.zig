@@ -12,6 +12,7 @@ pub const window = @import("rendering\\window.zig");
 pub const font = @import("utils\\font.zig");
 pub const image_utils = @import("utils\\image_utils.zig");
 pub const math = @import("utils\\linalg.zig");
+pub const misc = @import("utils\\misc.zig");
 pub const vk_memory = @import("utils\\vkmemory.zig");
 pub const vk_ui = @import("utils\\vkui.zig");
 pub const vk_utils = @import("utils\\vkutils.zig");
@@ -43,6 +44,7 @@ comptime
     _ = font;
     _ = image_utils;
     _ = math;
+    _ = misc;
     _ = vk_memory;
     _ = vk_ui;
     _ = vk_utils;

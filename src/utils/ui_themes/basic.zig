@@ -14,13 +14,7 @@ const Element = vkui.Element;
 const Placement = vkui.Placement;
 const ContainerInputData = vkui.ContainerInputData;
 
-/// Implementation of C's memcpy(). Takes two anonymous pointers and a given byte size.
-fn memcpy_anonymous(dst: *anyopaque, src: *anyopaque, size: usize) void
-{
-    const dest_data: [*]u8 = @as([*]u8, @ptrCast(dst));
-    const copy_data: []u8 = @as([*]u8, @ptrCast(src))[0..size];
-    @memcpy(dest_data, copy_data);
-}
+const memcpy_anonymous = @import("../misc.zig").memcpy_anonymous;
 
 /// Creates a colored quad.
 pub fn create_quad(allocator: *const std.mem.Allocator, placement: Placement, color: [4]f32) !*Element
