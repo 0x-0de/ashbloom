@@ -371,6 +371,14 @@ fn todo_list_rebuild_callback(e: *vkui.Element, data: vkui.ContainerInputData) !
             break;
         }
     }
+
+    for(0..e.children.items.len) |i|
+    {
+        const v = @as(f32, @floatFromInt(i));
+
+        const child = e.children.items[i];
+        child.placement.absolute_offset.pos_y = -v * 50;
+    }
 }
 
 fn new_todo(e: *vkui.Element) !void

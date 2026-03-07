@@ -1939,6 +1939,15 @@ fn textfield_callback_rebuild(e: *Element, data: ContainerInputData) !void
     try text_ptr.force_callback(.WindowResize);
 }
 
+fn textfield_callback_window_resize(e: *Element, data: ContainerInputData) !void
+{
+    const parent_lineage = e.lineage.?[0..e.lineage.?.len - 1];
+    const bounds = (try data.container.get_element_bounds(parent_lineage)).draw_bounds;
+    
+    e.space.scl_x = bounds.scl_x;
+    e.refresh(true);
+}
+
 /// Updates the cursor's specific placement if necessary by querying what it's placement should be based on the cursor's
 /// position (index in the string where it would insert characters).
 fn textfield_update_cursor_placement(e: *Element, container_data: ContainerInputData, textfield_data: TextFieldData) !void
@@ -2230,6 +2239,8 @@ pub fn create_textfield(allocator: *const std.mem.Allocator, placement: Placemen
 
     e.data = try allocator.alloc(u8, @sizeOf(TextFieldData));
     memcpy_anonymous(e.data.?.ptr, &data, @sizeOf(TextFieldData));
+
+    try inner.add_callback(.WindowResize, textfield_callback_window_resize);
 
     _ = try inner.add_and_dispose(cursor);
     _ = try inner.add_and_dispose(text);
