@@ -547,6 +547,7 @@ pub const Element = struct
                                       and cursor_x >= erb.cut_bounds.pos_x and cursor_x < erb.cut_bounds.pos_x + erb.cut_bounds.scl_x
                                       and cursor_y >= erb.cut_bounds.pos_y and cursor_y < erb.cut_bounds.pos_y + erb.cut_bounds.scl_y;
 
+
         for(self.callbacks.items) |callback|
         {
             var force: bool = false;
@@ -598,7 +599,6 @@ pub const Element = struct
                                 const button: u8 = @as(u8, 1) << @truncate(i);
                                 if(input_data.mouse_buttons & button != 0 and self.mouse_button_toggles & button == 0)
                                 {
-                                    self.mouse_button_toggles |= button;
                                     try callback.callback(self, input_data);
                                 }
                             }
@@ -612,7 +612,6 @@ pub const Element = struct
                                 const button: u8 = @as(u8, 1) << @truncate(i);
                                 if(input_data.mouse_buttons & button == 0 and self.mouse_button_toggles & button != 0)
                                 {
-                                    self.mouse_button_toggles &= ~button;
                                     try callback.callback(self, input_data);
                                 }
                             }
@@ -642,6 +641,24 @@ pub const Element = struct
                     },
                     .Deinit, .Rebuild, .Copy => {},
                 }
+            }
+        }
+
+        // Mouse button toggles need to be flipped after the main loop is complete, to ensure that all mouse button callbacks get called first.
+        for(0..8) |i|
+        {
+            const button: u8 = @as(u8, 1) << @truncate(i);
+
+            // Mouse button is being pressed. Occurs whether or not the cursor is over the element.
+            if(input_data.mouse_buttons & button != 0 and self.mouse_button_toggles & button == 0)
+            {
+                self.mouse_button_toggles |= button;
+            }
+
+            // Mouse button isn't being pressed. Same deal as above.
+            if(input_data.mouse_buttons & button == 0 and self.mouse_button_toggles & button != 0)
+            {
+                self.mouse_button_toggles &= ~button;
             }
         }
 

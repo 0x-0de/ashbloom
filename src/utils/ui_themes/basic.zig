@@ -643,12 +643,6 @@ fn scrollbar_callback_mouse_press(e: *Element, data: ContainerInputData) !void
     }
 }
 
-fn scrollbar_callback_mouse_release(e: *Element, data: ContainerInputData) !void
-{
-    _ = e;
-    _ = data;
-}
-
 fn scrollbar_horizontal_callback_tick(e: *Element, data: ContainerInputData) !void
 {
     const parent = e.parent.?.parent.?;
@@ -863,7 +857,6 @@ pub fn create_scrollbar(allocator: *const std.mem.Allocator) !*Element
 
     try vertical_scroll.add_callback(.Tick, scrollbar_vertical_callback_tick);
     try vertical_scroll.add_callback(.MousePress, scrollbar_callback_mouse_press);
-    try vertical_scroll.add_callback(.MouseRelease, scrollbar_callback_mouse_release);
     try vertical_scroll.add_callback(.WindowResize, scrollbar_vertical_callback_window_resize);
 
     const scroll_placement: Placement = .{
@@ -922,7 +915,6 @@ pub fn create_scrollbar(allocator: *const std.mem.Allocator) !*Element
 
     try horizontal_scroll.add_callback(.Tick, scrollbar_horizontal_callback_tick);
     try horizontal_scroll.add_callback(.MousePress, scrollbar_callback_mouse_press);
-    try horizontal_scroll.add_callback(.MouseRelease, scrollbar_callback_mouse_release);
     try horizontal_scroll.add_callback(.WindowResize, scrollbar_horizontal_callback_window_resize);
 
     const horizontal_scroll_marker_placement: Placement = .{
@@ -1057,12 +1049,6 @@ fn checkbox_callback_mouse_press(e: *Element, data: ContainerInputData) !void
     tickbox.refresh(false);
 
     memcpy_anonymous(e.data.?.ptr, &checkbox_data, @sizeOf(CheckboxData));
-}
-
-fn checkbox_callback_mouse_release(e: *Element, data: ContainerInputData) !void
-{
-    _ = e;
-    _ = data;
 }
 
 fn checkbox_callback_tick(e: *Element, data: ContainerInputData) !void
@@ -1252,7 +1238,6 @@ pub fn create_checkbox(allocator: *const std.mem.Allocator, properties: Checkbox
     try e.add_callback(.MouseEnter, checkbox_callback_mouse_enter);
     try e.add_callback(.MouseLeave, checkbox_callback_mouse_leave);
     try e.add_callback(.MousePress, checkbox_callback_mouse_press);
-    try e.add_callback(.MouseRelease, checkbox_callback_mouse_release);
     try e.add_callback(.Tick, checkbox_callback_tick);
 
     return e;
@@ -1354,12 +1339,6 @@ fn slider_callback_mouse_press(e: *Element, data: ContainerInputData) !void
     slider_data.pressed = true;
 
     memcpy_anonymous(e.data.?.ptr, &slider_data, @sizeOf(SliderData));
-}
-
-fn slider_callback_mouse_release(e: *Element, data: ContainerInputData) !void
-{
-    _ = e;
-    _ = data;
 }
 
 fn slider_callback_tick(e: *Element, data: ContainerInputData) !void
@@ -1546,7 +1525,6 @@ pub fn create_slider(allocator: *const std.mem.Allocator, properties: SliderProp
     try e.add_callback(.MouseEnter, slider_callback_mouse_enter);
     try e.add_callback(.MouseLeave, slider_callback_mouse_leave);
     try e.add_callback(.MousePress, slider_callback_mouse_press);
-    try e.add_callback(.MouseRelease, slider_callback_mouse_release);
     try e.add_callback(.Tick, slider_callback_tick);
 
     return e;
@@ -1904,12 +1882,6 @@ fn textfield_callback_mouse_press(e: *Element, data: ContainerInputData) !void
     memcpy_anonymous(e.data.?.ptr, &textfield_data, @sizeOf(TextFieldData));
 }
 
-fn textfield_callback_mouse_release(e: *Element, data: ContainerInputData) !void
-{
-    _ = e;
-    _ = data;
-}
-
 fn textfield_callback_rebuild(e: *Element, data: ContainerInputData) !void
 {
     _ = data;
@@ -1943,7 +1915,7 @@ fn textfield_callback_window_resize(e: *Element, data: ContainerInputData) !void
 {
     const parent_lineage = e.lineage.?[0..e.lineage.?.len - 1];
     const bounds = (try data.container.get_element_bounds(parent_lineage)).draw_bounds;
-    
+
     e.space.scl_x = bounds.scl_x;
     e.refresh(true);
 }
@@ -2249,7 +2221,6 @@ pub fn create_textfield(allocator: *const std.mem.Allocator, placement: Placemen
     try e.add_callback(.MouseEnter, textfield_callback_mouse_enter);
     try e.add_callback(.MouseLeave, textfield_callback_mouse_leave);
     try e.add_callback(.MousePress, textfield_callback_mouse_press);
-    try e.add_callback(.MouseRelease, textfield_callback_mouse_release);
     try e.add_callback(.Copy, textfield_callback_copy);
     try e.add_callback(.Deinit, textfield_callback_deinit);
     try e.add_callback(.Rebuild, textfield_callback_rebuild);
