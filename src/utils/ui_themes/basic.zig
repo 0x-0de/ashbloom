@@ -387,7 +387,7 @@ pub fn create_text(allocator: *const std.mem.Allocator, properties: TextProperti
     for(properties.string) |ch|
     {
         const fce = try create_text_character(allocator, placement, properties.font, properties.size, ch);
-        _ = try e.add_and_dispose(fce.element);
+        try e.add_and_dispose(fce.element);
     }
 
     const text = try allocator.alloc(u32, properties.string.len);
@@ -881,8 +881,8 @@ pub fn create_scrollbar(allocator: *const std.mem.Allocator) !*Element
     const vertical_scroll_button = try allocator.create(Element);
     vertical_scroll_button.* = try Element.init(allocator, .Color, scroll_placement, .{1, 1, 1, 0.5});
 
-    _ = try vertical_scroll.add_and_dispose(vertical_scroll_button);
-    _ = try e.add_and_dispose(vertical_scroll);
+    try vertical_scroll.add_and_dispose(vertical_scroll_button);
+    try e.add_and_dispose(vertical_scroll);
 
     const horizontal_scroll = try allocator.create(Element);
 
@@ -939,8 +939,8 @@ pub fn create_scrollbar(allocator: *const std.mem.Allocator) !*Element
     const horizontal_scroll_button = try allocator.create(Element);
     horizontal_scroll_button.* = try Element.init(allocator, .Color, horizontal_scroll_marker_placement, .{1, 1, 1, 0.5});
 
-    _ = try horizontal_scroll.add_and_dispose(horizontal_scroll_button);
-    _ = try e.add_and_dispose(horizontal_scroll);
+    try horizontal_scroll.add_and_dispose(horizontal_scroll_button);
+    try e.add_and_dispose(horizontal_scroll);
 
     return e;
 }
@@ -1128,7 +1128,7 @@ pub fn create_checkbox(allocator: *const std.mem.Allocator, properties: Checkbox
         }
     }, .{0, 0, 0, 0});
 
-    _ = try e.add_and_dispose(hover);
+    try e.add_and_dispose(hover);
 
     const border_top = try create_quad(allocator, .{
         .relative_pos = .{
@@ -1149,7 +1149,7 @@ pub fn create_checkbox(allocator: *const std.mem.Allocator, properties: Checkbox
         }
     }, .{1, 1, 1, 1});
 
-    _ = try e.add_and_dispose(border_top);
+    try e.add_and_dispose(border_top);
 
     const border_bottom = try create_quad(allocator, .{
         .relative_pos = .{
@@ -1170,7 +1170,7 @@ pub fn create_checkbox(allocator: *const std.mem.Allocator, properties: Checkbox
         }
     }, .{1, 1, 1, 1});
 
-    _ = try e.add_and_dispose(border_bottom);
+    try e.add_and_dispose(border_bottom);
 
     const border_left = try create_quad(allocator, .{
         .relative_pos = .{
@@ -1191,7 +1191,7 @@ pub fn create_checkbox(allocator: *const std.mem.Allocator, properties: Checkbox
         }
     }, .{1, 1, 1, 1});
 
-    _ = try e.add_and_dispose(border_left);
+    try e.add_and_dispose(border_left);
 
     const border_right = try create_quad(allocator, .{
         .relative_pos = .{
@@ -1212,7 +1212,7 @@ pub fn create_checkbox(allocator: *const std.mem.Allocator, properties: Checkbox
         }
     }, .{1, 1, 1, 1});
 
-    _ = try e.add_and_dispose(border_right);
+    try e.add_and_dispose(border_right);
 
     const tickbox = try create_quad(allocator, .{
         .relative_pos = .{
@@ -1233,7 +1233,7 @@ pub fn create_checkbox(allocator: *const std.mem.Allocator, properties: Checkbox
         }
     }, if(properties.start_ticked) properties.color_ticked else .{0, 0, 0, 0});
 
-    _ = try e.add_and_dispose(tickbox);
+    try e.add_and_dispose(tickbox);
 
     try e.add_callback(.MouseEnter, checkbox_callback_mouse_enter);
     try e.add_callback(.MouseLeave, checkbox_callback_mouse_leave);
@@ -1499,7 +1499,7 @@ pub fn create_slider(allocator: *const std.mem.Allocator, properties: SliderProp
         }
     }, properties.color_bar);
 
-    _ = try e.add_and_dispose(bar);
+    try e.add_and_dispose(bar);
 
     const knob = try create_quad(allocator, .{
         .relative_pos = .{
@@ -1520,7 +1520,7 @@ pub fn create_slider(allocator: *const std.mem.Allocator, properties: SliderProp
         }
     }, properties.color_knob_idle);
 
-    _ = try e.add_and_dispose(knob);
+    try e.add_and_dispose(knob);
 
     try e.add_callback(.MouseEnter, slider_callback_mouse_enter);
     try e.add_callback(.MouseLeave, slider_callback_mouse_leave);
@@ -1901,14 +1901,15 @@ fn textfield_callback_rebuild(e: *Element, data: ContainerInputData) !void
     text_properties.margin = 5;
 
     const new_text = try create_text(e.allocator, text_properties);
-    var text_ptr = try text_space.add_and_dispose(new_text);
+    try text_space.add_and_dispose(new_text);
 
     const diff: isize = @as(isize, @intCast(textfield_data.text.len)) - @as(isize, @intCast(previous_text_size));
     textfield_data.current_cursor_pos +%= @bitCast(diff);
 
     memcpy_anonymous(e.data.?.ptr, &textfield_data, @sizeOf(TextFieldData));
 
-    try text_ptr.force_callback(.WindowResize);
+    const text_index = text_space.children.items.len - 1;
+    try text_space.children.items[text_index].force_callback(.WindowResize);
 }
 
 fn textfield_callback_window_resize(e: *Element, data: ContainerInputData) !void
@@ -2214,9 +2215,9 @@ pub fn create_textfield(allocator: *const std.mem.Allocator, placement: Placemen
 
     try inner.add_callback(.WindowResize, textfield_callback_window_resize);
 
-    _ = try inner.add_and_dispose(cursor);
-    _ = try inner.add_and_dispose(text);
-    _ = try e.add_and_dispose(inner);
+    try inner.add_and_dispose(cursor);
+    try inner.add_and_dispose(text);
+    try e.add_and_dispose(inner);
 
     try e.add_callback(.MouseEnter, textfield_callback_mouse_enter);
     try e.add_callback(.MouseLeave, textfield_callback_mouse_leave);

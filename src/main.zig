@@ -561,10 +561,10 @@ pub fn main() !void
 
     start_text.deinit(allocator);
 
-    _ = try quad.add_and_dispose(singleline_tf);
-    _ = try quad.add_and_dispose(checkbox);
-    _ = try quad.add_and_dispose(slider);
-    _ = try app_ui_container.add_and_dispose(quad);
+    try quad.add_and_dispose(singleline_tf);
+    try quad.add_and_dispose(checkbox);
+    try quad.add_and_dispose(slider);
+    try app_ui_container.add_and_dispose(quad);
 
     var window_width: u32 = undefined;
     var window_height: u32 = undefined;

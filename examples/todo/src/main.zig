@@ -337,12 +337,12 @@ fn create_todo_item(item: TodoItem) !*vkui.Element
         .press_callback = callback_delete_todo_item
     });
 
-    _ = try e.add_and_dispose(checkbox);
+    try e.add_and_dispose(checkbox);
 
-    _ = try text_area.add_and_dispose(text);
-    _ = try e.add_and_dispose(text_area);
+    try text_area.add_and_dispose(text);
+    try e.add_and_dispose(text_area);
 
-    _ = try e.add_and_dispose(button_delete);
+    try e.add_and_dispose(button_delete);
 
     return e;
 }
@@ -394,9 +394,10 @@ fn new_todo(e: *vkui.Element) !void
     const todo_item_title = ui_basic.get_textfield_text(textfield);
 
     const todo_item = try create_todo_item(.{ .name = todo_item_title, .index = @truncate(todo_list.children.items.len) });
-    const new_item = try todo_list.add_and_dispose(todo_item);
+    try todo_list.add_and_dispose(todo_item);
 
-    try new_item.force_callback(.WindowResize);
+    const new_item_index = todo_list.children.items.len - 1;
+    try todo_list.children.items[new_item_index].force_callback(.WindowResize);
 
     app_ui_container.signal_rebuild = true;
 }
@@ -536,11 +537,11 @@ pub fn main() !void
 
     try list_panel.add_callback(.Rebuild, todo_list_rebuild_callback);
 
-    _ = try background.add_and_dispose(enter_textfield);
-    _ = try background.add_and_dispose(enter_button);
-    _ = try background.add_and_dispose(list_panel);
+    try background.add_and_dispose(enter_textfield);
+    try background.add_and_dispose(enter_button);
+    try background.add_and_dispose(list_panel);
 
-    _ = try app_ui_container.add_and_dispose(background);
+    try app_ui_container.add_and_dispose(background);
 
     var window_width: u32 = undefined;
     var window_height: u32 = undefined;

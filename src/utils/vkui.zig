@@ -284,7 +284,7 @@ pub const Element = struct
     }
 
     /// Adds a copy of 'element' to this element's children array, making the copy one of its children. Returns a pointer to the new element.
-    pub fn add(self: *Element, element: *Element) !*Element
+    pub fn add(self: *Element, element: *Element) !void
     {
         var e = try self.allocator.create(Element);
         e.* = try .init(self.allocator, element.draw_mode, element.placement, element.coordinates);
@@ -339,19 +339,16 @@ pub const Element = struct
 
         for(element.children.items) |child|
         {
-            _ = try e.add(child);
+            try e.add(child);
             child_num += 1;
         }
-
-        return e;
     }
 
-    pub fn add_and_dispose(self: *Element, element: *Element) !*Element
+    pub fn add_and_dispose(self: *Element, element: *Element) !void
     {
-        const e = self.add(element);
+        try self.add(element);
         try element.deinit();
         self.allocator.destroy(element);
-        return e;
     }
 
     /// Adds a callback to this element.
@@ -784,19 +781,17 @@ pub const Container = struct
     }
 
     /// Adds an element to the origin element of this container.
-    pub fn add(self: *Container, element: *Element) !*Element
+    pub fn add(self: *Container, element: *Element) !void
     {
-        return try self.origin.add(element);
+        try self.origin.add(element);
     }
 
     /// Adds an element to the origin element of this container, then deletes the original element.
-    pub fn add_and_dispose(self: *Container, element: *Element) !*Element
+    pub fn add_and_dispose(self: *Container, element: *Element) !void
     {
-        const e = try self.add(element);
+        try self.add(element);
         try element.deinit();
         self.context.allocator.destroy(element);
-
-        return e;
     }
 
     /// Adds a texture to the texture atlas.
