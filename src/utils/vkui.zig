@@ -283,7 +283,7 @@ pub const Element = struct
         };
     }
 
-    /// Adds a copy of 'element' to this element's children array, making the copy one of its children. Returns a pointer to the new element.
+    /// Adds a copy of 'element' to this element's children array, making the copy one of its children.
     pub fn add(self: *Element, element: *Element) !void
     {
         var e = try self.allocator.create(Element);
@@ -344,6 +344,7 @@ pub const Element = struct
         }
     }
 
+    /// After trying self.add(element), deinitializes the element and destroys it.
     pub fn add_and_dispose(self: *Element, element: *Element) !void
     {
         try self.add(element);
