@@ -222,6 +222,24 @@ const TodoItem = struct
     index: u32
 };
 
+fn set_todo_list_scroll() !void
+{
+    var todo_list_lineage: [2]usize = .{0, 2};
+    const todo_list = try app_ui_container.get_element(todo_list_lineage[0..2]);
+
+    const list_bounds = try app_ui_container.get_element_bounds(todo_list.lineage.?);
+
+    const height = @as(f32, @floatFromInt(todo_list.children.items.len)) * 50;
+    
+    todo_list.space.scl_x = list_bounds.cut_bounds.scl_x;
+    todo_list.space.scl_y = height;
+
+    const expected_height = if(height - 50 < list_bounds.cut_bounds.scl_y) 0 else (height - list_bounds.cut_bounds.scl_y) - 50;
+    const new_height = if(height < list_bounds.cut_bounds.scl_y) 0 else (height - list_bounds.cut_bounds.scl_y);
+
+    todo_list.space.pos_y = if(todo_list.space.pos_y == expected_height) new_height else todo_list.space.pos_y + 50;
+}
+
 fn callback_delete_todo_item(e: *vkui.Element) !void
 {
     const item = e.parent.?;
@@ -229,6 +247,7 @@ fn callback_delete_todo_item(e: *vkui.Element) !void
     var signal = true;
     misc.memcpy_anonymous(item.data.?.ptr + @sizeOf(u32), &signal, @sizeOf(bool));
     
+    try set_todo_list_scroll();
     app_ui_container.signal_rebuild = true;
 }
 
@@ -399,6 +418,8 @@ fn new_todo(e: *vkui.Element) !void
     const new_item_index = todo_list.children.items.len - 1;
     try todo_list.children.items[new_item_index].force_callback(.WindowResize);
 
+    try set_todo_list_scroll();
+
     app_ui_container.signal_rebuild = true;
 }
 
@@ -516,7 +537,7 @@ pub fn main() !void
         .press_callback = new_todo
     });
 
-    const list_panel = try ui_basic.create_quad(&allocator, .{
+    var list_panel = try ui_basic.create_quad(&allocator, .{
         .relative_pos = .{
             .pos_x = 0,
             .pos_y = 0,
@@ -535,7 +556,16 @@ pub fn main() !void
         }
     }, .{0.005, 0.005, 0.005, 1});
 
+    list_panel.space = .{
+        .pos_x = 0,
+        .pos_y = 0,
+        .scl_x = 0,
+        .scl_y = 0
+    };
+
     try list_panel.add_callback(.Rebuild, todo_list_rebuild_callback);
+
+    try list_panel.add_callback(.Scroll, vkui.default_scroll_callback);
 
     try background.add_and_dispose(enter_textfield);
     try background.add_and_dispose(enter_button);

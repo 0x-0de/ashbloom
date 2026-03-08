@@ -225,8 +225,11 @@ pub const Element = struct
         const cut_scl_x = self.placement.relative_pos.scl_x * parent_draw_bounds.scl_x + self.placement.absolute_offset.scl_x;
         const cut_scl_y = self.placement.relative_pos.scl_y * parent_draw_bounds.scl_y + self.placement.absolute_offset.scl_y;
 
-        const draw_scl_x = if(uses_space) self.space.scl_x else cut_scl_x;
-        const draw_scl_y = if(uses_space) self.space.scl_y else cut_scl_y;
+        var draw_scl_x = if(uses_space) self.space.scl_x else cut_scl_x;
+        var draw_scl_y = if(uses_space) self.space.scl_y else cut_scl_y;
+
+        if(draw_scl_x < cut_scl_x) draw_scl_x = cut_scl_x;
+        if(draw_scl_y < cut_scl_y) draw_scl_y = cut_scl_y;
 
         var cut_pos_x = self.placement.relative_pos.pos_x * parent_draw_bounds.scl_x + parent_draw_bounds.pos_x + self.placement.absolute_offset.pos_x;
         var cut_pos_y = self.placement.relative_pos.pos_y * parent_draw_bounds.scl_y + parent_draw_bounds.pos_y + self.placement.absolute_offset.pos_y;
