@@ -654,6 +654,16 @@ fn scrollbar_horizontal_callback_tick(e: *Element, data: ContainerInputData) !vo
 
     var should_refresh: bool = false;
 
+    const bar_width = bounds.cut_bounds.scl_x - 20;
+
+    const scroll_button_width_ratio = bounds.cut_bounds.scl_x / bounds.draw_bounds.scl_x;
+    var scroll_button_width = scroll_button_width_ratio * bar_width;
+
+    if(scroll_button_width_ratio >= 1)
+    {
+        scroll_button_width = 0;
+    }
+
     // Mouse picking logic.
 
     var picked: bool = undefined;
@@ -670,11 +680,6 @@ fn scrollbar_horizontal_callback_tick(e: *Element, data: ContainerInputData) !vo
 
     if(picked)
     {
-        const bar_width = bounds.cut_bounds.scl_x - 20;
-
-        const scroll_button_width_ratio = bounds.cut_bounds.scl_x / bounds.draw_bounds.scl_x;
-        const scroll_button_width = scroll_button_width_ratio * bar_width;
-
         const scroll_bar_ratio = bounds.draw_bounds.scl_x / bounds.cut_bounds.scl_x;
         var cursor_offset = @as(f32, @floatFromInt(data.cursor_pos.x)) - bounds.cut_bounds.pos_x - scroll_button_width / 2;
 
@@ -692,6 +697,7 @@ fn scrollbar_horizontal_callback_tick(e: *Element, data: ContainerInputData) !vo
     const scroll_button_pos_ratio = parent.space.pos_x / bounds.draw_bounds.scl_x;
     var scroll_button_pos = scroll_button_pos_ratio * bounds.cut_bounds.scl_x;
 
+    child.placement.absolute_offset.scl_x = scroll_button_width;
     child.placement.absolute_offset.pos_x = scroll_button_pos;
 
     if(!should_refresh) should_refresh = scroll_button_prev_pos != scroll_button_pos;
@@ -711,7 +717,12 @@ fn scrollbar_horizontal_callback_window_resize(e: *Element, data: ContainerInput
     const bar_width = bounds.cut_bounds.scl_x - 20;
 
     const scroll_button_width_ratio = bounds.cut_bounds.scl_x / bounds.draw_bounds.scl_x;
-    const scroll_button_width = scroll_button_width_ratio * bar_width;
+    var scroll_button_width = scroll_button_width_ratio * bar_width;
+
+    if(scroll_button_width_ratio >= 1)
+    {
+        scroll_button_width = 0;
+    }
 
     const scroll_button_pos_ratio = e.parent.?.space.pos_x / bounds.draw_bounds.scl_x;
     var scroll_button_pos = scroll_button_pos_ratio * bar_width;
@@ -740,7 +751,12 @@ fn scrollbar_vertical_callback_tick(e: *Element, data: ContainerInputData) !void
     var picked: bool = undefined;
 
     const scroll_button_height_ratio = bounds.cut_bounds.scl_y / bounds.draw_bounds.scl_y;
-    const scroll_button_height = scroll_button_height_ratio * bounds.cut_bounds.scl_y;
+    var scroll_button_height = scroll_button_height_ratio * bounds.cut_bounds.scl_y;
+
+    if(scroll_button_height_ratio >= 1)
+    {
+        scroll_button_height = 0;
+    }
 
     if((data.mouse_buttons & 1) == 0)
     {
@@ -789,7 +805,12 @@ fn scrollbar_vertical_callback_window_resize(e: *Element, data: ContainerInputDa
     const child = e.children.items[0];
 
     const scroll_button_height_ratio = bounds.cut_bounds.scl_y / bounds.draw_bounds.scl_y;
-    const scroll_button_height = scroll_button_height_ratio * bounds.cut_bounds.scl_y;
+    var scroll_button_height = scroll_button_height_ratio * bounds.cut_bounds.scl_y;
+
+    if(scroll_button_height_ratio >= 1)
+    {
+        scroll_button_height = 0;
+    }
     
     const scroll_button_pos_ratio = e.parent.?.space.pos_y / bounds.draw_bounds.scl_y;
     var scroll_button_pos = scroll_button_pos_ratio * bounds.cut_bounds.scl_y;
