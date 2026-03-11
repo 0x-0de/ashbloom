@@ -216,6 +216,8 @@ pub fn update_ui_uniforms(set_index: u16) !void
     allocator.free(projection_data);
 }
 
+const todo_height: f32 = 50;
+
 const TodoItem = struct
 {
     name: []u32,
@@ -229,15 +231,15 @@ fn set_todo_list_scroll() !void
 
     const list_bounds = try app_ui_container.get_element_bounds(todo_list.lineage.?);
 
-    const height = @as(f32, @floatFromInt(todo_list.children.items.len)) * 50;
+    const height = @as(f32, @floatFromInt(todo_list.children.items.len - 1)) * todo_height;
     
     todo_list.space.scl_x = list_bounds.cut_bounds.scl_x;
     todo_list.space.scl_y = height;
 
-    const expected_height = if(height - 50 < list_bounds.cut_bounds.scl_y) 0 else (height - list_bounds.cut_bounds.scl_y) - 50;
+    const expected_height = if(height - todo_height < list_bounds.cut_bounds.scl_y) 0 else (height - list_bounds.cut_bounds.scl_y) - todo_height;
     const new_height = if(height < list_bounds.cut_bounds.scl_y) 0 else (height - list_bounds.cut_bounds.scl_y);
 
-    todo_list.space.pos_y = if(todo_list.space.pos_y == expected_height) new_height else todo_list.space.pos_y + 50;
+    todo_list.space.pos_y = if(todo_list.space.pos_y == expected_height or height < list_bounds.cut_bounds.scl_y) new_height else todo_list.space.pos_y + todo_height;
 }
 
 fn callback_delete_todo_item(e: *vkui.Element) !void
@@ -264,9 +266,9 @@ fn create_todo_item(item: TodoItem) !*vkui.Element
         },
         .absolute_offset = .{
             .pos_x = 0,
-            .pos_y = -@as(f32, @floatFromInt(@as(i32, @bitCast(item.index)))) * 50,
+            .pos_y = -@as(f32, @floatFromInt(@as(i32, @bitCast(item.index)))) * todo_height,
             .scl_x = 1,
-            .scl_y = 50
+            .scl_y = todo_height
         },
         .alignment = .{
             .x = .Left,
@@ -340,10 +342,10 @@ fn create_todo_item(item: TodoItem) !*vkui.Element
             .scl_y = 0
             },
             .absolute_offset = .{
-                .pos_x = -40,
-                .pos_y = 10,
-                .scl_x = 30,
-                .scl_y = 30
+                .pos_x = -80,
+                .pos_y = 5,
+                .scl_x = 40,
+                .scl_y = 40
             },
             .alignment = .{
                 .x = .Left,
@@ -379,7 +381,7 @@ fn todo_list_rebuild_callback(e: *vkui.Element, data: vkui.ContainerInputData) !
 
     try text_item.force_callback(.WindowResize);
 
-    for(0..e.children.items.len) |i|
+    for(1..e.children.items.len) |i|
     {
         var delete_signal: bool = undefined;
         misc.memcpy_anonymous(&delete_signal, e.children.items[i].data.?.ptr + @sizeOf(u32), @sizeOf(bool));
@@ -391,12 +393,12 @@ fn todo_list_rebuild_callback(e: *vkui.Element, data: vkui.ContainerInputData) !
         }
     }
 
-    for(0..e.children.items.len) |i|
+    for(1..e.children.items.len) |i|
     {
-        const v = @as(f32, @floatFromInt(i));
+        const v = @as(f32, @floatFromInt(i - 1));
 
         const child = e.children.items[i];
-        child.placement.absolute_offset.pos_y = -v * 50;
+        child.placement.absolute_offset.pos_y = -v * todo_height;
     }
 }
 
@@ -415,8 +417,8 @@ fn new_todo(e: *vkui.Element) !void
     const todo_item = try create_todo_item(.{ .name = todo_item_title, .index = @truncate(todo_list.children.items.len) });
     try todo_list.add_and_dispose(todo_item);
 
-    const new_item_index = todo_list.children.items.len - 1;
-    try todo_list.children.items[new_item_index].force_callback(.WindowResize);
+    // const new_item_index = todo_list.children.items.len - 1;
+    // try todo_list.children.items[new_item_index].force_callback(.WindowResize);
 
     try set_todo_list_scroll();
 
@@ -563,9 +565,13 @@ pub fn main() !void
         .scl_y = 0
     };
 
+    const scrollbar = try ui_basic.create_scrollbar(&allocator);
+
     try list_panel.add_callback(.Rebuild, todo_list_rebuild_callback);
 
     try list_panel.add_callback(.Scroll, vkui.default_scroll_callback);
+
+    try list_panel.add_and_dispose(scrollbar);
 
     try background.add_and_dispose(enter_textfield);
     try background.add_and_dispose(enter_button);

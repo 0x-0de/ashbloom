@@ -1036,6 +1036,8 @@ pub const Container = struct
             {
                 // TODO: Combine adjacent instance data offsets into a single transfer operation.
                 var data = e.get_element_instance_data(&self.origin, self.bounds);
+
+                std.debug.assert(e.draw_mode != .None);
                 std.debug.assert(data != null);
 
                 try self.vk_allocator.overwrite_buffer(self.instance_buffer.?, f32, @ptrCast(&data.?), e.instance_data_offset.?);

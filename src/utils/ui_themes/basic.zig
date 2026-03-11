@@ -739,6 +739,9 @@ fn scrollbar_vertical_callback_tick(e: *Element, data: ContainerInputData) !void
 
     var picked: bool = undefined;
 
+    const scroll_button_height_ratio = bounds.cut_bounds.scl_y / bounds.draw_bounds.scl_y;
+    const scroll_button_height = scroll_button_height_ratio * bounds.cut_bounds.scl_y;
+
     if((data.mouse_buttons & 1) == 0)
     {
         picked = false;
@@ -751,9 +754,6 @@ fn scrollbar_vertical_callback_tick(e: *Element, data: ContainerInputData) !void
 
     if(picked)
     {
-        const scroll_button_height_ratio = bounds.cut_bounds.scl_y / bounds.draw_bounds.scl_y;
-        const scroll_button_height = scroll_button_height_ratio * bounds.cut_bounds.scl_y;
-
         const scroll_bar_ratio = bounds.draw_bounds.scl_y / bounds.cut_bounds.scl_y;
         var cursor_offset = @as(f32, @floatFromInt(data.cursor_pos.y)) - bounds.cut_bounds.pos_y - scroll_button_height / 2;
 
@@ -771,6 +771,7 @@ fn scrollbar_vertical_callback_tick(e: *Element, data: ContainerInputData) !void
     const scroll_button_pos_ratio = parent.space.pos_y / bounds.draw_bounds.scl_y;
     var scroll_button_pos = scroll_button_pos_ratio * bounds.cut_bounds.scl_y;
 
+    child.placement.absolute_offset.scl_y = scroll_button_height;
     child.placement.absolute_offset.pos_y = scroll_button_pos;
 
     if(!should_refresh) should_refresh = scroll_button_prev_pos != scroll_button_pos;
@@ -778,12 +779,12 @@ fn scrollbar_vertical_callback_tick(e: *Element, data: ContainerInputData) !void
     if(should_refresh)
     {
         memcpy_anonymous(e.data.?.ptr, &scroll_button_pos, @sizeOf(f32));
-        parent.refresh(true);
+        // parent.refresh(true);
     }
 }
 
 fn scrollbar_vertical_callback_window_resize(e: *Element, data: ContainerInputData) !void
-{
+{    
     const bounds = try data.container.get_element_bounds(e.lineage.?[0..e.lineage.?.len - 2]);
     const child = e.children.items[0];
 
