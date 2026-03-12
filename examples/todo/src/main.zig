@@ -422,6 +422,7 @@ fn new_todo(e: *vkui.Element) !void
 
     try set_todo_list_scroll();
 
+    app_ui_container.signal_ignore_callbacks = true;
     app_ui_container.signal_rebuild = true;
 }
 

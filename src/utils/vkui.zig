@@ -721,6 +721,8 @@ pub const Container = struct
     signal_reset_manual_input: bool = false,
     /// Flag signalled when a rebuild is requested.
     signal_rebuild: bool = false,
+    /// Flag signalled to ignore callbacks for the next tick (useful for rebuilding).
+    signal_ignore_callbacks: bool = false,
 
     /// Returns a list of all of the element data from the origin element and its children.
     fn get_all_element_data(self: *Container) !std.ArrayList(f32)
@@ -1032,19 +1034,24 @@ pub const Container = struct
 
             try self.get_elements_refresh_list(&self.origin, &element_refresh_list);
 
-            for(element_refresh_list.items) |e|
+            if(!self.signal_ignore_callbacks)
             {
-                // TODO: Combine adjacent instance data offsets into a single transfer operation.
-                var data = e.get_element_instance_data(&self.origin, self.bounds);
+                for(element_refresh_list.items) |e|
+                {
+                    // TODO: Combine adjacent instance data offsets into a single transfer operation.
+                    var data = e.get_element_instance_data(&self.origin, self.bounds);
 
-                std.debug.assert(e.draw_mode != .None);
-                std.debug.assert(data != null);
+                    std.debug.assert(e.draw_mode != .None);
+                    std.debug.assert(data != null);
 
-                try self.vk_allocator.overwrite_buffer(self.instance_buffer.?, f32, @ptrCast(&data.?), e.instance_data_offset.?);
+                    try self.vk_allocator.overwrite_buffer(self.instance_buffer.?, f32, @ptrCast(&data.?), e.instance_data_offset.?);
+                }
             }
 
             self.resized = false;
             first_tick = false;
+
+            self.signal_ignore_callbacks = false;
         }
     }
 };

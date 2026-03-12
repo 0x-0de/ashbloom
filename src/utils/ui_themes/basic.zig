@@ -795,7 +795,7 @@ fn scrollbar_vertical_callback_tick(e: *Element, data: ContainerInputData) !void
     if(should_refresh)
     {
         memcpy_anonymous(e.data.?.ptr, &scroll_button_pos, @sizeOf(f32));
-        // parent.refresh(true);
+        parent.refresh(true);
     }
 }
 
