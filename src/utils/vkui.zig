@@ -678,7 +678,16 @@ pub const ContainerRendering = struct
     pipeline: *Pipeline,
     descriptor_set: *PipelineDescriptorSet,
     render_pass: *RenderPass,
-    render_queue: vk.Queue
+    render_queue: vk.Queue,
+    uniform_callback: *const fn(Container, u16) anyerror!void,
+
+    pub fn deinit(self: *ContainerRendering) !void
+    {
+        self.pipeline.deinit();
+        try self.descriptor_set.deinit();
+
+        self.render_pass.deinit();
+    }
 };
 
 /// The Container acts as an origin point for the UI system, containing an automatically updated "master" element which all other elements can
@@ -839,6 +848,8 @@ pub const Container = struct
     /// Draws the instance arrays using the command buffer onto the framebuffer.
     pub fn draw(self: *Container, command_buffer: *CommandBuffer, swapchain: *Swapchain, framebuffer: vk.Framebuffer) !void
     {
+        try self.ui_rendering.uniform_callback(self.*, @truncate(swapchain.current_image_index));
+
         var offset: vk.DeviceSize = 0;
 
         try command_buffer.reset();
@@ -920,7 +931,7 @@ pub const Container = struct
     }
 
     /// Creates a new Container object.
-    pub fn init(context: *VkContext, vulkan_allocator: *VulkanAllocator, render_resources: ContainerRendering) !Container
+    pub fn init(context: *VkContext, vulkan_allocator: *VulkanAllocator) !Container
     {
         const container: Container = .{
             .context = context,
@@ -941,7 +952,7 @@ pub const Container = struct
             }, .{0, 0, 0, 0}),
 
             .bounds = .get_default(),
-            .ui_rendering = render_resources,
+            .ui_rendering = undefined,
             .texture_atlas = try images.TextureAtlas2D.init(context, vulkan_allocator, 1024, 1024),
             .font = null,
             .tick_rate = 60,
@@ -972,6 +983,11 @@ pub const Container = struct
 
         if(self.instance_buffer != null) try self.refresh_all();
         self.resized = true;
+    }
+
+    pub fn set_render_instance(self: *Container, resources: ContainerRendering) void
+    {
+        self.ui_rendering = resources;
     }
 
     /// Updates all callbacks for the origin element and all of its children. Also handles refreshing any elements if necessary.

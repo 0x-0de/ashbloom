@@ -1,6 +1,8 @@
 const std = @import("std");
 const glfw = @import("glfw");
 
+const vk = @import("vulkan");
+
 const imp_font = @import("../font.zig");
 
 const vkui = @import("../vkui.zig");
@@ -13,6 +15,17 @@ const Container = vkui.Container;
 const Element = vkui.Element;
 const Placement = vkui.Placement;
 const ContainerInputData = vkui.ContainerInputData;
+
+const VkContext = @import("../../rendering/vkcontext.zig").VkContext;
+const Swapchain = @import("../../rendering/swapchain.zig").Swapchain;
+const RenderPass = @import("../../rendering/renderpass.zig").RenderPass;
+
+const pipeline = @import("../../rendering/pipeline.zig");
+
+const Pipeline = pipeline.Pipeline;
+const PipelineDescriptorSet = pipeline.PipelineDescriptorSet;
+
+const VulkanAllocator = @import("../vkmemory.zig").VulkanAllocator;
 
 const memcpy_anonymous = @import("../misc.zig").memcpy_anonymous;
 
@@ -2252,10 +2265,149 @@ pub fn create_textfield(allocator: *const std.mem.Allocator, placement: Placemen
     return e;
 }
 
+/// Returns the unicode string currently inside a textfield.
 pub fn get_textfield_text(e: *Element) []u32
 {
     var textfield_data: TextFieldData = undefined;
     memcpy_anonymous(&textfield_data, e.data.?.ptr, @sizeOf(TextFieldData));
 
     return textfield_data.text;
+}
+
+fn init_basic_render_pass(context: *VkContext, swapchain: Swapchain) !*RenderPass
+{
+    const color_subpass: RenderPass.Subpass = .{
+        .attachment_index = 0,
+        .attachment_layout = .color_attachment_optimal,
+        .subpass_bind_point = .graphics,
+        .subpass_dependency = .{
+            .src_subpass = vk.SUBPASS_EXTERNAL,
+            .dst_subpass = undefined,
+            .src_access_mask = .{},
+            .src_stage_mask = .{
+                .color_attachment_output_bit = true
+            },
+            .dst_access_mask = .{
+                .color_attachment_write_bit = true
+            },
+            .dst_stage_mask = .{
+                .color_attachment_output_bit = true
+            }
+        }
+    };
+
+    var ui_render_pass = try context.allocator.create(RenderPass);
+    ui_render_pass.* = try .init(context);
+
+    try ui_render_pass.add_attachment_description_no_stencil_multisample
+    (swapchain.format.format, .clear, .store, .undefined, .present_src_khr);
+    try ui_render_pass.add_subpass(color_subpass);
+    try ui_render_pass.build();
+
+    return ui_render_pass;
+}
+
+fn init_basic_pipeline_descriptor_set(context: *VkContext, vk_allocator: *VulkanAllocator, swapchain: Swapchain, container: Container) !*PipelineDescriptorSet
+{
+    var ui_descriptor_set = try context.allocator.create(PipelineDescriptorSet);
+    ui_descriptor_set.* = try .init(context, vk_allocator, @truncate(swapchain.image_count));
+
+    try ui_descriptor_set.add_binding(.{
+        .binding_index = 0,
+        .type = .uniform_buffer,
+        .shader_stage = .{
+            .vertex_bit = true
+        },
+        .buffer_size = 16 * @sizeOf(f32)
+    });
+
+    try ui_descriptor_set.add_binding(.{
+        .binding_index = 1,
+        .type = .combined_image_sampler,
+        .shader_stage = .{
+            .fragment_bit = true
+        },
+        .image_sampler = container.texture_atlas.sampler,
+        .image_layout = .shader_read_only_optimal,
+        .image_view = container.texture_atlas.image_view
+    });
+
+    try ui_descriptor_set.add_binding(.{
+        .binding_index = 2,
+        .type = .combined_image_sampler,
+        .shader_stage = .{
+            .fragment_bit = true
+        },
+        .image_sampler = container.font.?.atlas.sampler,
+        .image_layout = .shader_read_only_optimal,
+        .image_view = container.font.?.atlas.image_view
+    });
+
+    try ui_descriptor_set.build();
+
+    return ui_descriptor_set;
+}
+
+fn init_basic_pipeline(context: *VkContext, descriptor_set: PipelineDescriptorSet, render_pass: *RenderPass) !*Pipeline
+{
+    var ui_pipeline = try context.allocator.create(Pipeline);
+    ui_pipeline.* = try .init(context);
+
+    var pvi = try pipeline.PipelineVertexInput.init(context.allocator);
+    defer pvi.deinit();
+
+    try pvi.add_attribute(0, 0, vk.Format.r32_sfloat, 0);
+    try pvi.add_attribute(0, 1, vk.Format.r32g32b32a32_sfloat, @sizeOf(u32));
+    try pvi.add_attribute(0, 2, vk.Format.r32g32b32a32_sfloat, @sizeOf(u32) + 4 * @sizeOf(f32));
+    try pvi.add_attribute(0, 3, vk.Format.r32g32b32a32_sfloat, @sizeOf(u32) + 8 * @sizeOf(f32));
+
+    try pvi.build(0, vk.VertexInputRate.instance);
+
+    try ui_pipeline.add_shader_module("../../res/shaders/ui_vert.spv", .{.vertex_bit = true});
+    try ui_pipeline.add_shader_module("../../res/shaders/ui_frag.spv", .{.fragment_bit = true});
+
+    try ui_pipeline.add_dynamic_state(vk.DynamicState.viewport);
+    try ui_pipeline.add_dynamic_state(vk.DynamicState.scissor);
+
+    try ui_pipeline.add_descriptor_set(descriptor_set);
+
+    try ui_pipeline.add_color_blend_attachment(pipeline.pipeline_color_blend_attachment_alpha_blend());
+
+    ui_pipeline.set_vertex_input(&pvi);
+
+    try ui_pipeline.build(render_pass);
+
+    return ui_pipeline;
+}
+
+fn update_ui_basic_uniforms(container: Container, set_index: u16) !void
+{
+    const width = container.bounds.scl_x;
+    const height = container.bounds.scl_y;
+
+    var projection = try math.mat_projection_orthographic(container.context.allocator, 0, width, 0, height, -1, 1);
+
+    const projection_data = try math.mat_slice_data(f32, projection);
+
+    projection.deinit();
+
+    try container.ui_rendering.descriptor_set.place_data(set_index, 0, f32, projection_data, 0);
+
+    container.context.allocator.free(projection_data);
+}
+
+pub fn init_render_instance(context: *VkContext, vulkan_allocator: *VulkanAllocator, swapchain: Swapchain, container: Container, render_queue: vk.Queue) !vkui.ContainerRendering
+{
+    const render_pass = try init_basic_render_pass(context, swapchain);
+
+    const ui_descriptor_set = try init_basic_pipeline_descriptor_set(context, vulkan_allocator, swapchain, container);
+    const ui_pipeline = try init_basic_pipeline(context, ui_descriptor_set.*, render_pass);
+
+    return .{
+        .render_pass = render_pass,
+        .descriptor_set = ui_descriptor_set,
+        .pipeline = ui_pipeline,
+        .render_queue = render_queue,
+        .uniform_callback = update_ui_basic_uniforms
+    };
 }
