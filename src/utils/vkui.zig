@@ -681,12 +681,16 @@ pub const ContainerRendering = struct
     render_queue: vk.Queue,
     uniform_callback: *const fn(Container, u16) anyerror!void,
 
-    pub fn deinit(self: *ContainerRendering) !void
+    pub fn deinit(self: *ContainerRendering, vk_context: VkContext) !void
     {
         self.pipeline.deinit();
+        vk_context.allocator.destroy(self.pipeline);
+
         try self.descriptor_set.deinit();
+        vk_context.allocator.destroy(self.descriptor_set);
 
         self.render_pass.deinit();
+        vk_context.allocator.destroy(self.render_pass);
     }
 };
 

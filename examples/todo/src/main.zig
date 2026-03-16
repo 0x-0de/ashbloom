@@ -96,22 +96,43 @@ const TodoItem = struct
     index: u32
 };
 
-fn set_todo_list_scroll() !void
+fn set_todo_list_scroll(adding: bool) !void
 {
     var todo_list_lineage: [2]usize = .{0, 2};
     const todo_list = try app_ui_container.get_element(todo_list_lineage[0..2]);
 
     const list_bounds = try app_ui_container.get_element_bounds(todo_list.lineage.?);
 
-    const height = @as(f32, @floatFromInt(todo_list.children.items.len - 1)) * todo_height;
+    const min_height = list_bounds.cut_bounds.scl_y;
+    const prev_height = list_bounds.draw_bounds.scl_y;
+
+    var height = @as(f32, @floatFromInt(todo_list.children.items.len - 1)) * todo_height;
+    if(!adding) height -= todo_height;
+
+    if(height < min_height) height = min_height;
     
     todo_list.space.scl_x = list_bounds.cut_bounds.scl_x;
     todo_list.space.scl_y = height;
 
-    const expected_height = if(height - todo_height < list_bounds.cut_bounds.scl_y) 0 else (height - list_bounds.cut_bounds.scl_y) - todo_height;
-    const new_height = if(height < list_bounds.cut_bounds.scl_y) 0 else (height - list_bounds.cut_bounds.scl_y);
+    const diff = height - prev_height;
 
-    todo_list.space.pos_y = if(todo_list.space.pos_y == expected_height or height < list_bounds.cut_bounds.scl_y) new_height else todo_list.space.pos_y + todo_height;
+    if(height == min_height)
+    {
+        todo_list.space.pos_y = 0;
+    }
+    else if(adding)
+    {
+        todo_list.space.pos_y += diff;
+    }
+    else
+    {
+        todo_list.space.pos_y += diff;
+        if(todo_list.space.pos_y < 0) todo_list.space.pos_y = 0;
+    }
+
+    std.debug.print("Diff: {d}, Pos: {d}.\n", .{diff, todo_list.space.pos_y});
+
+    // todo_list.space.pos_y = if(todo_list.space.pos_y == expected_height or height < list_bounds.cut_bounds.scl_y) new_height else todo_list.space.pos_y + todo_height;
 }
 
 fn callback_delete_todo_item(e: *vkui.Element) !void
@@ -121,7 +142,7 @@ fn callback_delete_todo_item(e: *vkui.Element) !void
     var signal = true;
     misc.memcpy_anonymous(item.data.?.ptr + @sizeOf(u32), &signal, @sizeOf(bool));
     
-    try set_todo_list_scroll();
+    try set_todo_list_scroll(false);
     app_ui_container.signal_rebuild = true;
 }
 
@@ -289,10 +310,7 @@ fn new_todo(e: *vkui.Element) !void
     const todo_item = try create_todo_item(.{ .name = todo_item_title, .index = @truncate(todo_list.children.items.len) });
     try todo_list.add_and_dispose(todo_item);
 
-    // const new_item_index = todo_list.children.items.len - 1;
-    // try todo_list.children.items[new_item_index].force_callback(.WindowResize);
-
-    try set_todo_list_scroll();
+    try set_todo_list_scroll(true);
 
     app_ui_container.signal_ignore_callbacks = true;
     app_ui_container.signal_rebuild = true;
@@ -517,5 +535,5 @@ pub fn main() !void
     try app_font.deinit();
     try app_ui_container.deinit();
 
-    try container_resources.deinit();
+    try container_resources.deinit(vk_context);
 }
