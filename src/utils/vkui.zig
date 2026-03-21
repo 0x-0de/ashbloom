@@ -1049,22 +1049,72 @@ pub const Container = struct
 
             try self.origin.update(erb, final_input_data);
 
-            var element_refresh_list = try std.ArrayList(*Element).initCapacity(self.context.allocator.*, 0);
-            defer element_refresh_list.deinit(self.context.allocator.*);
-
-            try self.get_elements_refresh_list(&self.origin, &element_refresh_list);
-
             if(!self.signal_ignore_callbacks)
             {
-                for(element_refresh_list.items) |e|
+                // Get a list of every element which needs to be refreshed.
+
+                var element_refresh_list = try std.ArrayList(*Element).initCapacity(self.context.allocator.*, 0);
+                defer element_refresh_list.deinit(self.context.allocator.*);
+
+                try self.get_elements_refresh_list(&self.origin, &element_refresh_list);
+
+                // Now get the ranges of all these elements in the instance data array.
+
+                var condensed_list = try std.ArrayList(u64).initCapacity(self.context.allocator.*, 0);
+                defer condensed_list.deinit(self.context.allocator.*);
+
+                var previous_offset: u64 = 0;
+                var current_length: u64 = 0;
+
+                for(element_refresh_list.items, 0..) |e, i|
                 {
-                    // TODO: Combine adjacent instance data offsets into a single transfer operation.
-                    var data = e.get_element_instance_data(&self.origin, self.bounds);
+                    const offset = e.instance_data_offset.?;
 
-                    std.debug.assert(e.draw_mode != .None);
-                    std.debug.assert(data != null);
+                    if(condensed_list.items.len == 0 or offset > previous_offset + 13)
+                    {
+                        if(condensed_list.items.len != 0)
+                        {
+                            try condensed_list.append(self.context.allocator.*, current_length);
+                        }
 
-                    try self.vk_allocator.overwrite_buffer(self.instance_buffer.?, f32, @ptrCast(&data.?), e.instance_data_offset.?);
+                        try condensed_list.append(self.context.allocator.*, @truncate(i));
+                        current_length = 0;
+                    }
+
+                    current_length += 13;
+                    previous_offset = offset;
+                }
+
+                try condensed_list.append(self.context.allocator.*, current_length);
+
+                // Now run through the list, and refresh each batch of elements.
+
+                for(0..condensed_list.items.len / 2) |i|
+                {
+                    const element_index = condensed_list.items[i * 2];
+                    const start_element = element_refresh_list.items[element_index];
+
+                    std.debug.assert(start_element.draw_mode != .None);
+
+                    var data = try self.context.allocator.alloc(f32, condensed_list.items[i * 2 + 1]);
+                    defer self.context.allocator.free(data);
+
+                    const num_elements = condensed_list.items[i * 2 + 1] / 13;
+
+                    for(0..num_elements) |j|
+                    {
+                        const e = element_refresh_list.items[element_index + j];
+                        const element_data = e.get_element_instance_data(&self.origin, self.bounds).?;
+
+                        const data_offset = j * 13;
+
+                        for(0..13) |k|
+                        {
+                            data[data_offset + k] = element_data[k];
+                        }
+                    }
+
+                    try self.vk_allocator.overwrite_buffer(self.instance_buffer.?, f32, data, start_element.instance_data_offset.?);
                 }
             }
 

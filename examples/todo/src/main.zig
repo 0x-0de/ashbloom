@@ -129,10 +129,6 @@ fn set_todo_list_scroll(adding: bool) !void
         todo_list.space.pos_y += diff;
         if(todo_list.space.pos_y < 0) todo_list.space.pos_y = 0;
     }
-
-    std.debug.print("Diff: {d}, Pos: {d}.\n", .{diff, todo_list.space.pos_y});
-
-    // todo_list.space.pos_y = if(todo_list.space.pos_y == expected_height or height < list_bounds.cut_bounds.scl_y) new_height else todo_list.space.pos_y + todo_height;
 }
 
 fn callback_delete_todo_item(e: *vkui.Element) !void
