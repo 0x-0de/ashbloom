@@ -9,14 +9,25 @@ pub fn memcpy_anonymous(dst: *anyopaque, src: *anyopaque, size: usize) void
     @memcpy(dest_data, copy_data);
 }
 
+/// Returns the path of the emitted .exe file (implementation is OS-specific, only works on Windows & Linux for now).
 pub fn get_exe_path() []u8
 {
     if(comptime builtin.os.tag == .windows)
     {
-        const GetModuleFileName = @import("win32").system.library_loader.GetModuleFileNameA;
+        const win32 = @import("win32");
+        const GetModuleFileName = win32.system.library_loader.GetModuleFileNameA;
 
         var buffer: [4096]u8 = undefined;
         const len = GetModuleFileName(null, @as([*:0]u8, @ptrCast(&buffer)), 4096);
+
+        return buffer[0..len];
+    }
+    else if(comptime builtin.os.tag == .linux)
+    {
+        const unistd = @cImport("unistd.h");
+
+        var buffer: [4096]u8 = undefined;
+        const len = unistd.readlink("/proc/self/exe", @as([*:0]u8, @ptrCast(&buffer)), 4096 - 1);
 
         return buffer[0..len];
     }
