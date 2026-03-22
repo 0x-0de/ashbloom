@@ -1,6 +1,9 @@
 //! Root file for Ashbloom.
 //! All modules (source files) are exposed here.
 
+const win32 = @import("win32");
+pub const UNICODE = false;
+
 pub const vk = @import("vulkan");
 pub const glfw = @import("glfw");
 
@@ -53,4 +56,6 @@ comptime
 
     _ = RenderPass;
     _ = Swapchain;
+
+    _ = UNICODE;
 }

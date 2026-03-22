@@ -32,6 +32,15 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
         };
         
         cmp.root_module.addLibraryPath(sys32_path);
+
+        const win32 = b.addModule("win32", .{
+            .root_source_file = b.path("lib/win32.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true
+        });
+
+        cmp.root_module.addImport("win32", win32);
     }
     else if(builtin.target.os.tag == .linux)
     {

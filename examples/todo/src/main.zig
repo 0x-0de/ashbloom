@@ -425,6 +425,9 @@ pub fn main() !void
     try ash.init_graphics();
     defer ash.deinit_graphics();
 
+    const exe_path = ash.misc.get_exe_path();
+    std.debug.print("{s}\n", .{exe_path});
+
     var dba: std.heap.DebugAllocator(.{}) = .{};
     defer {
         const dba_result = dba.deinit();
