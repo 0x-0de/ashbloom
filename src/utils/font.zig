@@ -98,7 +98,7 @@ pub const Font = struct
         _ = freetype.FT_Done_Face(self.typeface);
     }
 
-    pub fn init(context: *VkContext, vk_allocator: *VulkanAllocator, path: [*:0]const u8, size: c_uint) !Font
+    pub fn init(context: *VkContext, vk_allocator: *VulkanAllocator, path: []const u8, size: c_uint) !Font
     {
         var font: Font = .{
             .context = context,
@@ -109,7 +109,17 @@ pub const Font = struct
             .characters = try std.ArrayList(FontCharacter).initCapacity(context.allocator.*, 0)
         };
 
-        if(freetype.FT_New_Face(vkui.ft, path, 0, &font.typeface) != 0)
+        const c_path_slc = try context.allocator.alloc(u8, path.len + 1);
+        defer context.allocator.free(c_path_slc);
+
+        for(0..path.len) |i|
+        {
+            c_path_slc[i] = path[i];
+        }
+
+        c_path_slc[path.len] = 0;
+
+        if(freetype.FT_New_Face(vkui.ft, @as([*:0]const u8, @ptrCast(c_path_slc.ptr)), 0, &font.typeface) != 0)
         {
             return FontError.FailedToLoadFont;
         }

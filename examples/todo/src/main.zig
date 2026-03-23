@@ -444,6 +444,16 @@ pub fn main() !void
     window = try ash.window.Window.init(1280, 720, "Todo");
     defer window.destroy();
 
+    const system_fonts = try ash.misc.enumerate_system_fonts(&allocator);
+
+    const name_1: []const u8 = "bahnschrift";
+    const name_2: []const u8 = "arial";
+
+    const names = [_][]const u8{name_1, name_2};
+    const names_slc: []const []const u8 = &names;
+
+    const font_entry = try ash.misc.search_font_entries(system_fonts, names_slc);
+
     try init_vk_context();
     defer deinit_vk_context();
 
@@ -456,8 +466,14 @@ pub fn main() !void
     app_ui_container = try vkui.Container.init(&vk_context, &vk_allocator);
 
     // TODO: Move font loading into basic.zig (and also figure out how the hell to do better font loading).
-    app_font = try Font.init(&vk_context, &vk_allocator, "res/bahnschrift.ttf", 36);
+    app_font = try Font.init(&vk_context, &vk_allocator, font_entry.path, 36);
     app_ui_container.font = &app_font;
+
+    for(system_fonts, 0..) |_, i|
+    {
+        system_fonts[i].deinit(&allocator);
+    }
+    allocator.free(system_fonts);
 
     var container_resources = try ui_basic.init_render_instance(&vk_context, &vk_allocator, swapchain, app_ui_container, vk_queues[@intFromEnum(AppQueueNames.Graphics)]);
     app_ui_container.set_render_instance(container_resources);
