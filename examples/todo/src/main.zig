@@ -336,9 +336,9 @@ fn init_ui_main_elements() !void
             .scl_y = 0
         },
         .absolute_offset = .{
-            .pos_x = 30,
+            .pos_x = 50,
             .pos_y = -30,
-            .scl_x = -230,
+            .scl_x = -250,
             .scl_y = 40
         },
         .alignment = .{
@@ -368,7 +368,7 @@ fn init_ui_main_elements() !void
             .absolute_offset = .{
                 .pos_x = -200,
                 .pos_y = -30,
-                .scl_x = 170,
+                .scl_x = 150,
                 .scl_y = 40
             },
             .alignment = .{
@@ -378,6 +378,22 @@ fn init_ui_main_elements() !void
         },
         .press_callback = new_todo
     });
+
+    var enter_unicode = try ui_basic.get_unicode_from_string(&allocator, "Add item");
+
+    const enter_button_text = try ui_basic.create_text(&allocator, .{
+        .alignment = .{
+            .x = .Center,
+            .y = .Center
+        },
+        .font = &app_font,
+        .margin = 0,
+        .size = 30,
+        .string = enter_unicode.items
+    });
+
+    try enter_button.add_and_dispose(enter_button_text);
+    enter_unicode.deinit(allocator);
 
     var list_panel = try ui_basic.create_quad(&allocator, .{
         .relative_pos = .{
@@ -390,7 +406,7 @@ fn init_ui_main_elements() !void
             .pos_x = 50,
             .pos_y = 50,
             .scl_x = -100,
-            .scl_y = -250
+            .scl_y = -150
         },
         .alignment = .{
             .x = .Left,
@@ -446,10 +462,7 @@ pub fn main() !void
 
     const system_fonts = try ash.misc.enumerate_system_fonts(&allocator);
 
-    const name_1: []const u8 = "bahnschrift";
-    const name_2: []const u8 = "arial";
-
-    const names = [_][]const u8{name_1, name_2};
+    const names = [_][]const u8{"bahnschrift", "arial"};
     const names_slc: []const []const u8 = &names;
 
     const font_entry = try ash.misc.search_font_entries(system_fonts, names_slc);

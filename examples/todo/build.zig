@@ -4,18 +4,13 @@ const builtin = @import("builtin");
 /// Adding the Vulkan and GLFW libraries to the compile object.
 fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void
 {
-    const glfw = b.addModule("glfw", .{
-        .root_source_file = b.path("../../lib/glfw.zig"),
+    const glfw = b.dependency("glfw", .{
         .target = target,
         .optimize = optimize,
-        .link_libc = true
     });
 
-    const vk = b.addModule("vulkan", .{
-        .root_source_file = b.path("../../lib/vk.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true
+    const vk = b.dependency("vk", .{
+        .registry = b.path("../../lib/vk.xml")
     });
 
     const ashbloom = b.addModule("ashbloom", .{
@@ -25,8 +20,8 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
         .link_libc = true
     });
 
-    ashbloom.addImport("glfw", glfw);
-    ashbloom.addImport("vulkan", vk);
+    ashbloom.addImport("glfw", glfw.module("glfw"));
+    ashbloom.addImport("vulkan", vk.module("vulkan-zig"));
 
     ashbloom.addIncludePath(.{ .cwd_relative = "../../include/freetype" });
 
