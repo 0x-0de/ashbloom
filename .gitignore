@@ -8,3 +8,4 @@ bin/ashbloom-test.exe
 bin/ashbloom-test.pdb
 clear-zig-cache.bat
 examples/*/bin
+docs
