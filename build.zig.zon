@@ -1,0 +1,27 @@
+.{
+    .name = .ashbloom,
+    .version = "0.0.1",
+    .fingerprint = 0x40abb2cb32622512,
+    .minimum_zig_version = "0.15.2",
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+        "README.md",
+        "res",
+        "include"
+    },
+
+    .dependencies = .{
+        .glfw = .{
+            .url = "git+https://github.com/IridescenceTech/zglfw.git#",
+            .hash = "zglfw-0.1.0-BghZXaTUAAAkCOlD_2akK4k1zIzo6HIXelVZu39yr_MO"
+        },
+        .vulkan = .{
+            .url = "git+https://github.com/Snektron/vulkan-zig#zig-0.15-compat",
+            .hash = "vulkan-0.0.0-r7Ytx6FIAwD3QyrrJhvObO0YSZ6WEkMGSCPKbhM__HFd"
+        }
+    }
+}

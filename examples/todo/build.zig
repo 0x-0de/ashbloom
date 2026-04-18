@@ -4,28 +4,12 @@ const builtin = @import("builtin");
 /// Adding the Vulkan and GLFW libraries to the compile object.
 fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void
 {
-    const glfw = b.dependency("glfw", .{
+    const ashbloom = b.dependency("ashbloom", .{
         .target = target,
         .optimize = optimize,
     });
 
-    const vulkan = b.dependency("vulkan", .{
-        .registry = b.path("../../lib/vk.xml")
-    });
-
-    const ashbloom = b.addModule("ashbloom", .{
-        .root_source_file = b.path("../../src/root.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true
-    });
-
-    ashbloom.addImport("glfw", glfw.module("glfw"));
-    ashbloom.addImport("vulkan", vulkan.module("vulkan-zig"));
-
-    ashbloom.addIncludePath(.{ .cwd_relative = "../../include/freetype" });
-
-    cmp.root_module.addImport("ashbloom", ashbloom);
+    cmp.root_module.addImport("ashbloom", ashbloom.module("ashbloom"));
 
     cmp.root_module.addLibraryPath(.{ .cwd_relative = "bin" });
     
@@ -46,7 +30,7 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
             .link_libc = true
         });
 
-        ashbloom.addImport("win32", win32);
+        ashbloom.module("ashbloom").addImport("win32", win32);
     }
     else if(builtin.target.os.tag == .linux)
     {
@@ -84,10 +68,7 @@ pub fn build(b: *std.Build) void
     });
 
     add_libraries(b, exe, std_target, std_optimize);
-    // exe.addIncludePath(.{ .cwd_relative = "include/freetype" });
-
     add_libraries(b, exe_test, std_target, std_optimize);
-    // exe_test.addIncludePath(.{ .cwd_relative = "include/freetype" });
 
     // Building test .exe.
 

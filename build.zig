@@ -52,15 +52,19 @@ pub fn build(b: *std.Build) void
     const std_target = b.standardTargetOptions(.{});
 	const std_optimize = b.standardOptimizeOption(.{});
 
+    var ashbloom_mod = b.addModule("ashbloom", .{
+        .root_source_file = b.path("src/root.zig"),
+        .target = std_target,
+        .optimize = std_optimize,
+        .link_libc = true
+    });
+
+    ashbloom_mod.addIncludePath(.{ .cwd_relative = "../../include/freetype" });
+
     const lib = b.addLibrary(.{
         .linkage = .static,
         .name = "ashbloom",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/root.zig"),
-            .target = std_target,
-            .optimize = std_optimize,
-            .link_libc = true
-        })
+        .root_module = ashbloom_mod
     });
 
     const exe_test = b.addTest(.{
