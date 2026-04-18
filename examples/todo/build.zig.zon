@@ -17,9 +17,9 @@
             .url = "git+https://github.com/IridescenceTech/zglfw.git#188d33b5abdb24768905dec1dad6b3ffd60fc324",
             .hash = "zglfw-0.1.0-BghZXaTUAAAkCOlD_2akK4k1zIzo6HIXelVZu39yr_MO"
         },
-        .vk = .{
-            .url = "git+https://github.com/Snektron/vulkan-zig/tree/zig-0.15-compat#",
-            .hash = "vulkan-0.0.0-r7Ytx-V9AwCwHxS2TaZ-KJCp_3axidu3ASZUg3B512-k"
+        .vulkan = .{
+            .url = "git+https://github.com/Snektron/vulkan-zig#zig-0.15-compat",
+            .hash = "vulkan-0.0.0-r7Ytx6FIAwD3QyrrJhvObO0YSZ6WEkMGSCPKbhM__HFd"
         }
     }
 }

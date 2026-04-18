@@ -9,7 +9,7 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
         .optimize = optimize,
     });
 
-    const vk = b.dependency("vk", .{
+    const vulkan = b.dependency("vulkan", .{
         .registry = b.path("../../lib/vk.xml")
     });
 
@@ -21,7 +21,7 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
     });
 
     ashbloom.addImport("glfw", glfw.module("glfw"));
-    ashbloom.addImport("vulkan", vk.module("vulkan-zig"));
+    ashbloom.addImport("vulkan", vulkan.module("vulkan-zig"));
 
     ashbloom.addIncludePath(.{ .cwd_relative = "../../include/freetype" });
 

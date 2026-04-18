@@ -4,22 +4,17 @@ const builtin = @import("builtin");
 /// Adding the Vulkan and GLFW libraries to the compile object.
 fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void
 {
-    const glfw = b.addModule("glfw", .{
-        .root_source_file = b.path("lib/glfw.zig"),
+    const glfw = b.dependency("glfw", .{
         .target = target,
         .optimize = optimize,
-        .link_libc = true
     });
 
-    const vk = b.addModule("vulkan", .{
-        .root_source_file = b.path("lib/vk.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true
+    const vulkan = b.dependency("vulkan", .{
+        .registry = b.path("./lib/vk.xml")
     });
 
-    cmp.root_module.addImport("glfw", glfw);
-    cmp.root_module.addImport("vulkan", vk);
+    cmp.root_module.addImport("glfw", glfw.module("glfw"));
+    cmp.root_module.addImport("vulkan", vulkan.module("vulkan-zig"));
 
     cmp.root_module.addLibraryPath(.{ .cwd_relative = "bin" });
     
@@ -57,26 +52,6 @@ pub fn build(b: *std.Build) void
     const std_target = b.standardTargetOptions(.{});
 	const std_optimize = b.standardOptimizeOption(.{});
 
-    const exe = b.addExecutable(.{
-        .name = "ashbloom",
-        .root_module = b.createModule(.{
-			.root_source_file = b.path("src/main.zig"),
-			.target = std_target,
-            .optimize = std_optimize,
-            .link_libc = true
-		})
-    });
-
-    const exe_test = b.addTest(.{
-        .name = "ashbloom-test",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/main.zig"),
-            .target = std_target,
-            .optimize = std_optimize,
-            .link_libc = true
-        })
-    });
-
     const lib = b.addLibrary(.{
         .linkage = .static,
         .name = "ashbloom",
@@ -88,8 +63,15 @@ pub fn build(b: *std.Build) void
         })
     });
 
-    add_libraries(b, exe, std_target, std_optimize);
-    exe.addIncludePath(.{ .cwd_relative = "include/freetype" });
+    const exe_test = b.addTest(.{
+        .name = "ashbloom-test",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/root.zig"),
+            .target = std_target,
+            .optimize = std_optimize,
+            .link_libc = true
+        })
+    });
 
     add_libraries(b, exe_test, std_target, std_optimize);
     exe_test.addIncludePath(.{ .cwd_relative = "include/freetype" });
@@ -97,23 +79,13 @@ pub fn build(b: *std.Build) void
     add_libraries(b, lib, std_target, std_optimize);
     lib.addIncludePath(.{ .cwd_relative = "include/freetype" });
 
-    // Building test .exe.
-
-    const install_exe = b.addInstallArtifact(exe, .{
-        .dest_dir = .{ .override = .{ .custom = "../bin" } }
-    });
-
-    b.getInstallStep().dependOn(&install_exe.step);
-
-    // Building library.
+    // Building library documentation.
 
     const install_docs = b.addInstallDirectory(.{
         .install_dir = .{ .custom = ".." },
         .install_subdir = "docs",
         .source_dir = lib.getEmittedDocs()
     });
-
-    install_docs.step.dependOn(&install_exe.step);
 
     const docs_step = b.step("docs", "Build documentation");
     docs_step.dependOn(&install_docs.step);
