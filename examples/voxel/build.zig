@@ -48,7 +48,7 @@ pub fn build(b: *std.Build) void
 	const std_optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
-        .name = "todo",
+        .name = "voxel",
         .root_module = b.createModule(.{
 			.root_source_file = b.path("src/main.zig"),
 			.target = std_target,
@@ -58,7 +58,7 @@ pub fn build(b: *std.Build) void
     });
 
     const exe_test = b.addTest(.{
-        .name = "todo-test",
+        .name = "voxel-test",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = std_target,

@@ -4,6 +4,8 @@ const print = std.debug.print;
 const glfw = @import("glfw");
 const vk = @import("vulkan");
 
+const Window = @import("window.zig").Window;
+
 /// Default device extensions. Since v0lcano's built-in Swapchain structure uses the VkSwapchainKHR extension, it's assumed that it will be
 /// required for this initialization too.
 var default_device_extensions: [1][*:0]const u8 = .{
@@ -583,7 +585,7 @@ pub const VkContext = struct
     }
 
     /// Creates a new Vulkan context.
-    pub fn init(allocator: *const std.mem.Allocator, window: *c_long, options: InitOptions) !VkContext
+    pub fn init(allocator: *const std.mem.Allocator, window: *Window, options: InitOptions) !VkContext
     {
         print("{s}\n", .{"Loading Zig Vulkan wrappers and creating instance..."});
         var vk_context: VkContext = .{
@@ -617,7 +619,7 @@ pub const VkContext = struct
 
         // Creating the window surface handle for GLFW.
 
-        try vk_context.create_window_surface(window);
+        try vk_context.create_window_surface(window.glfw_handle);
 
         // Selecting a GPU to use for the application, and then creating the Vulkan logical device handle.
 
@@ -645,9 +647,9 @@ pub const VkContext = struct
     }
 
     /// Returns the queue at the queue index with the queue family.
-    pub fn get_queue(self: *VkContext, queue_family_index: u32, queue_index: u32) vk.Queue
+    pub fn get_queue(self: *VkContext, queue_family_index: usize, queue_index: usize) vk.Queue
     {
-        return self.device.getDeviceQueue(queue_family_index, queue_index);
+        return self.device.getDeviceQueue(@truncate(queue_family_index), @truncate(queue_index));
     }
 };
 
@@ -666,8 +668,6 @@ test c_strequal
 }
 
 const vk_test = @import("../utils/testing/test_utils.zig");
-
-const Window = @import("window.zig").Window;
 
 test "Basic VkContext init."
 {

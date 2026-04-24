@@ -77,6 +77,9 @@ pub fn build(b: *std.Build) void
         })
     });
 
+    // const install_glfw = b.addInstallFile(b.path("deps/glfw.dll"), ".");
+    // const install_freetype = b.addInstallFile(b.path("deps/libfreetype.dll"), ".");
+
     add_libraries(b, exe_test, std_target, std_optimize);
     exe_test.addIncludePath(.{ .cwd_relative = "include/freetype" });
 
