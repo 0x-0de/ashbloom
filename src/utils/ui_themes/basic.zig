@@ -2352,8 +2352,8 @@ fn init_basic_pipeline(context: *VkContext, descriptor_set: PipelineDescriptorSe
 
     try pvi.build(0, vk.VertexInputRate.instance);
 
-    try ui_pipeline.add_shader_module("../../../res/shaders/ui_vert.spv", .{.vertex_bit = true});
-    try ui_pipeline.add_shader_module("../../../res/shaders/ui_frag.spv", .{.fragment_bit = true});
+    try ui_pipeline.add_shader_module("shaders/ui_basic_vert.spv", .{.vertex_bit = true});
+    try ui_pipeline.add_shader_module("shaders/ui_basic_frag.spv", .{.fragment_bit = true});
 
     try ui_pipeline.add_dynamic_state(vk.DynamicState.viewport);
     try ui_pipeline.add_dynamic_state(vk.DynamicState.scissor);
