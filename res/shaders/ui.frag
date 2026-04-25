@@ -9,7 +9,6 @@ layout(location = 4) in vec4 f_coords;
 layout(location = 0) out vec4 color;
 
 layout(binding = 1) uniform sampler2D tex_atlas;
-layout(binding = 2) uniform sampler2D tex_font;
 
 void main()
 {
@@ -36,7 +35,7 @@ void main()
             break;
         case 3:
         {
-            vec4 t = texture(tex_font, tex_coords);
+            vec4 t = texture(tex_atlas, tex_coords);
             if(t.a == 0) discard;
             color = t;
         }

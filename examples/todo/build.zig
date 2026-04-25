@@ -45,7 +45,7 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
 pub fn build(b: *std.Build) void
 {
     const std_target = b.standardTargetOptions(.{});
-	const std_optimize = b.standardOptimizeOption(.{});
+    const std_optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
         .name = "todo",
@@ -77,6 +77,14 @@ pub fn build(b: *std.Build) void
     });
 
     b.getInstallStep().dependOn(&install_exe.step);
+
+    // Run step.
+    
+    const run_step = b.step("run", "Run the application.");
+    const run_exe = b.addRunArtifact(exe);
+    run_exe.setCwd(b.path("./bin"));
+
+    run_step.dependOn(&run_exe.step);
 
     // Building unit tests.
 

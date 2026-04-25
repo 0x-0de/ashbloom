@@ -718,8 +718,6 @@ pub const Container = struct
 
     /// Texture atlas to be used by all drawn icons or texture elements other than those that render text.
     texture_atlas: images.TextureAtlas2D,
-    /// Font object used by this container.
-    font: ?*Font,
 
     /// Number of ticks to occur per second.
     tick_rate: u16,
@@ -958,7 +956,6 @@ pub const Container = struct
             .bounds = .get_default(),
             .ui_rendering = undefined,
             .texture_atlas = try images.TextureAtlas2D.init(context, vulkan_allocator, 1024, 1024),
-            .font = null,
             .tick_rate = 60,
             .tick_timer = 0,
             .prev_time = glfw.getTime()

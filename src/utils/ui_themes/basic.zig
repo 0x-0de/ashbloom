@@ -68,8 +68,8 @@ pub fn create_text_character(allocator: *const std.mem.Allocator, placement: Pla
     scaled_placement.absolute_offset = .{
         .pos_x = 0,
         .pos_y = 0,
-        .scl_x = suballoc.scl_x * @as(f32, @floatFromInt(font.atlas.width)),
-        .scl_y = suballoc.scl_y * @as(f32, @floatFromInt(font.atlas.height))
+        .scl_x = suballoc.scl_x * @as(f32, @floatFromInt(font.atlas.?.width)),
+        .scl_y = suballoc.scl_y * @as(f32, @floatFromInt(font.atlas.?.height))
     };
 
     e.* = try Element.init(allocator, .Character, scaled_placement, 
@@ -238,7 +238,7 @@ fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextDat
         for(line_start..text.string.len) |i|
         {
             const unicode = text.string[i];
-            const character = try data.container.font.?.request(unicode, text.size);
+            const character = try text.font.request(unicode, text.size);
 
             loop_text_character(i, text.string, character, container_width, &line_end, &offset, &prev_offset,
             &line_length, &end_skip, &word_mode, &should_break);
@@ -275,7 +275,7 @@ fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextDat
         for(line_start..element.children.items.len) |i|
         {
             const unicode = text.string[i];
-            const character = try data.container.font.?.request(unicode, text.size);
+            const character = try text.font.request(unicode, text.size);
 
             loop_text_character(i, text.string, character, container_width, &line_end, &offset, &prev_offset,
             &line_length, &end_skip, &word_mode, &should_break);
@@ -318,7 +318,7 @@ fn text_parent_resize_callback(element: *Element, data: ContainerInputData) !voi
             const e = element.children.items[j];
 
             const uc = text_data.string[j];
-            const ch = try data.container.font.?.request(uc, text_data.size);
+            const ch = try text_data.font.request(uc, text_data.size);
 
             e.placement.absolute_offset.pos_x = offset + @as(f32, @floatFromInt(ch.bearing_x)) + line.alignment_push;
             e.placement.absolute_offset.pos_y = -(e.placement.absolute_offset.scl_y - @as(f32, @floatFromInt(ch.bearing_y))) - @as(f32, @floatFromInt(i)) * text_data.size;
@@ -2332,17 +2332,6 @@ fn init_basic_pipeline_descriptor_set(context: *VkContext, vk_allocator: *Vulkan
         .image_view = container.texture_atlas.image_view
     });
 
-    try ui_descriptor_set.add_binding(.{
-        .binding_index = 2,
-        .type = .combined_image_sampler,
-        .shader_stage = .{
-            .fragment_bit = true
-        },
-        .image_sampler = container.font.?.atlas.sampler,
-        .image_layout = .shader_read_only_optimal,
-        .image_view = container.font.?.atlas.image_view
-    });
-
     try ui_descriptor_set.build();
 
     return ui_descriptor_set;
@@ -2363,8 +2352,8 @@ fn init_basic_pipeline(context: *VkContext, descriptor_set: PipelineDescriptorSe
 
     try pvi.build(0, vk.VertexInputRate.instance);
 
-    try ui_pipeline.add_shader_module("../../res/shaders/ui_vert.spv", .{.vertex_bit = true});
-    try ui_pipeline.add_shader_module("../../res/shaders/ui_frag.spv", .{.fragment_bit = true});
+    try ui_pipeline.add_shader_module("../../../res/shaders/ui_vert.spv", .{.vertex_bit = true});
+    try ui_pipeline.add_shader_module("../../../res/shaders/ui_frag.spv", .{.fragment_bit = true});
 
     try ui_pipeline.add_dynamic_state(vk.DynamicState.viewport);
     try ui_pipeline.add_dynamic_state(vk.DynamicState.scissor);

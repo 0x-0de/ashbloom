@@ -8,6 +8,8 @@ const vkcontext = @import("vkcontext.zig");
 const rp = @import("renderpass.zig");
 const CommandBuffer = @import("commands.zig").CommandBuffer;
 
+const Window = @import("window.zig").Window;
+
 /// Describes a VkSwapchainKHR object, or Vulkan swap chain. A swap chain is a 'chain', list, or queue, of images that Vulkan can render to.
 /// The reason we want multiple images rather than just a single image is to prevent screen tearing, which is caused by rendering to and displaying
 /// an image at the same time. This structure also contains a command buffer and some synchronization objects for each image.
@@ -388,12 +390,12 @@ pub const Swapchain = struct
     }
 
     /// Creates the swap chain, along with its image views.
-    pub fn init(window: *c_long, context: *vkcontext.VkContext, command_pool: vk.CommandPool, render_stages: u16) !Swapchain
+    pub fn init(window: *Window, context: *vkcontext.VkContext, command_pool: vk.CommandPool, render_stages: u16) !Swapchain
     {
         std.debug.assert(render_stages > 0);
 
         var sc: Swapchain = .{
-            .window = window,
+            .window = window.glfw_handle,
             .context = context,
             .command_pool = command_pool,
             .render_stages = render_stages

@@ -42,14 +42,13 @@ var vk_allocator: VulkanAllocator = undefined;
 
 var vk_command_pool: vk.CommandPool = undefined;
 
-const AppQueueNames = enum(u8)
+const AppQueues = enum(u8)
 {
     Graphics = 0,
     Presentation,
-    app_queue_count
 };
 
-var vk_queues: [@intFromEnum(AppQueueNames.app_queue_count)]vk.Queue = undefined;
+var vk_queues: std.EnumArray(AppQueues, vk.Queue) = .initUndefined();
 
 fn init_vk_context() !void
 {
@@ -62,16 +61,16 @@ fn init_vk_context() !void
         }
     };
 
-    vk_context = try VkContext.init(&allocator, window.glfw_handle, vk_context_options);
+    vk_context = try VkContext.init(&allocator, &window, vk_context_options);
 
     const queue_families = vk_context.physical_device_queue_families;
 
-    vk_queues[@intFromEnum(AppQueueNames.Graphics)] = vk_context.get_queue(@truncate(queue_families.graphics_family_index.?), 0);
-    vk_queues[@intFromEnum(AppQueueNames.Presentation)] = vk_context.get_queue(@truncate(queue_families.present_family_index.?), 0);
+    vk_queues.set(.Graphics, vk_context.get_queue(@truncate(queue_families.graphics_family_index.?), 0));
+    vk_queues.set(.Presentation, vk_context.get_queue(@truncate(queue_families.present_family_index.?), 0));
 
     vk_command_pool = try ash.commands.create_command_pool(&vk_context);
 
-    vk_allocator = try VulkanAllocator.init(&vk_context, &allocator, &vk_command_pool, &vk_queues[@intFromEnum(AppQueueNames.Graphics)], .{
+    vk_allocator = try VulkanAllocator.init(&vk_context, &allocator, &vk_command_pool, vk_queues.getPtr(.Graphics), .{
         .page_size = 128 << 20, // 128 MB.
         .staging_size =  32 << 20 // 32 MB.
     });
@@ -470,17 +469,14 @@ pub fn main() !void
     try init_vk_context();
     defer deinit_vk_context();
 
-    var swapchain = try Swapchain.init(window.glfw_handle, &vk_context, vk_command_pool, 1);
+    var swapchain = try Swapchain.init(&window, &vk_context, vk_command_pool, 1);
     defer swapchain.deinit();
 
     try vkui.init();
     defer vkui.deinit();
 
     app_ui_container = try vkui.Container.init(&vk_context, &vk_allocator);
-
-    // TODO: Move font loading into basic.zig (and also figure out how the hell to do better font loading).
-    app_font = try Font.init(&vk_context, &vk_allocator, font_entry.path, 36);
-    app_ui_container.font = &app_font;
+    app_font = try Font.init(&vk_context, &vk_allocator, font_entry.path, 36, &app_ui_container.texture_atlas);
 
     for(system_fonts, 0..) |_, i|
     {
@@ -488,7 +484,7 @@ pub fn main() !void
     }
     allocator.free(system_fonts);
 
-    var container_resources = try ui_basic.init_render_instance(&vk_context, &vk_allocator, swapchain, app_ui_container, vk_queues[@intFromEnum(AppQueueNames.Graphics)]);
+    var container_resources = try ui_basic.init_render_instance(&vk_context, &vk_allocator, swapchain, app_ui_container, vk_queues.get(.Graphics));
     app_ui_container.set_render_instance(container_resources);
 
     var framebuffers_ui = try swapchain.create_framebuffers(container_resources.render_pass);
@@ -553,7 +549,7 @@ pub fn main() !void
 
         try app_ui_container.draw(command_buffer, &swapchain, framebuffers_ui.items[swapchain.current_image_index]);
 
-        try swapchain.present(vk_queues[@intFromEnum(AppQueueNames.Presentation)]);
+        try swapchain.present(vk_queues.get(.Presentation));
 
         frames += 1;
     }

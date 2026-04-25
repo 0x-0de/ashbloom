@@ -14,7 +14,8 @@ const TextureAtlas2D = images.TextureAtlas2D;
 pub const FontError = error
 {
     FailedToLoadFont,
-    FailedToLoadGlyph
+    FailedToLoadGlyph,
+    NoAtlas
 };
 
 pub const FontCharacter = struct
@@ -35,11 +36,16 @@ pub const Font = struct
     typeface: freetype.FT_Face,
     typesize: c_uint,
 
-    atlas: TextureAtlas2D,
+    atlas: ?*TextureAtlas2D,
     characters: std.ArrayList(FontCharacter),
 
     fn add_unicode_glyph(self: *Font, unicode: u32) !FontCharacter
     {
+        if(self.atlas == null)
+        {
+            return FontError.NoAtlas;
+        }
+
         if(freetype.FT_Load_Char(self.typeface, unicode, freetype.FT_LOAD_RENDER) != 0)
         {
             return FontError.FailedToLoadGlyph;
@@ -69,12 +75,12 @@ pub const Font = struct
         var texture = try Texture2D.init_buffer(self.context, self.vk_allocator, u8, buffer, width + 1, height + 1,
         .a8b8g8r8_uint_pack32, .Subtexture);
         
-        var suballocation = try self.atlas.add_texture(&texture);
+        var suballocation = try self.atlas.?.add_texture(&texture);
 
-        suballocation.pos_y += 1.0 / @as(f32, @floatFromInt(self.atlas.height));
+        suballocation.pos_y += 1.0 / @as(f32, @floatFromInt(self.atlas.?.height));
 
-        suballocation.scl_x -= 1.0 / @as(f32, @floatFromInt(self.atlas.width));
-        suballocation.scl_y -= 1.0 / @as(f32, @floatFromInt(self.atlas.height));
+        suballocation.scl_x -= 1.0 / @as(f32, @floatFromInt(self.atlas.?.width));
+        suballocation.scl_y -= 1.0 / @as(f32, @floatFromInt(self.atlas.?.height));
 
         self.context.allocator.free(buffer);
         try texture.deinit();
@@ -94,18 +100,17 @@ pub const Font = struct
     pub fn deinit(self: *Font) !void
     {
         self.characters.deinit(self.context.allocator.*);
-        try self.atlas.deinit();
         _ = freetype.FT_Done_Face(self.typeface);
     }
 
-    pub fn init(context: *VkContext, vk_allocator: *VulkanAllocator, path: []const u8, size: c_uint) !Font
+    pub fn init(context: *VkContext, vk_allocator: *VulkanAllocator, path: []const u8, size: c_uint, atlas: ?*TextureAtlas2D) !Font
     {
         var font: Font = .{
             .context = context,
             .vk_allocator = vk_allocator,
             .typeface = undefined,
             .typesize = size,
-            .atlas = try TextureAtlas2D.init(context, vk_allocator, 1024, 1024),
+            .atlas = atlas, 
             .characters = try std.ArrayList(FontCharacter).initCapacity(context.allocator.*, 0)
         };
 

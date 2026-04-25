@@ -9,6 +9,8 @@ const Window = ash.Window;
 const VkContext = ash.VkContext;
 const VulkanAllocator = ash.VulkanAllocator;
 
+const Swapchain = ash.Swapchain;
+
 var allocator: std.mem.Allocator = undefined;
 
 var debug_required_validation_layers: [1][*:0]const u8 = .{
@@ -95,6 +97,9 @@ pub fn main() !void
     
     try init_vk_context();
     defer deinit_vk_context();
+
+    var swapchain: Swapchain = .init(&window, &vk_context, &vk_command_pool, 1);
+    defer swapchain.deinit();
 
     while(!window.should_close())
     {
