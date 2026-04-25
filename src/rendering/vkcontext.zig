@@ -1,10 +1,12 @@
 const std = @import("std");
-const print = std.debug.print;
+const err_print = std.debug.print;
 
 const glfw = @import("glfw");
 const vk = @import("vulkan");
 
 const Window = @import("window.zig").Window;
+
+const print = @import("../root.zig").print_stdout;
 
 /// Default device extensions. Since v0lcano's built-in Swapchain structure uses the VkSwapchainKHR extension, it's assumed that it will be
 /// required for this initialization too.
@@ -24,12 +26,18 @@ fn vk_get_instance_proc_address(instance: vk.Instance, proc_name: [*:0]const u8)
 fn vk_debug_validation_layer_message_callback(message_severity: vk.DebugUtilsMessageSeverityFlagsEXT, message_types: vk.DebugUtilsMessageTypeFlagsEXT,
                                               p_callback_data: ?*const vk.DebugUtilsMessengerCallbackDataEXT, p_user_data: ?*anyopaque) callconv(.c) vk.Bool32
 {
-    _ = message_severity;
     _ = message_types;
     
     _ = p_user_data;
 
-    print("[VK|VAL] {s}\n", .{p_callback_data.?.p_message.?});
+    if(message_severity.error_bit_ext)
+    {
+        err_print("[VK|VAL|ERR] {s}\n", .{p_callback_data.?.p_message.?});
+    }
+    else
+    {
+        print("[VK|VAL] {s}\n", .{p_callback_data.?.p_message.?}) catch unreachable;
+    }
 
     return vk.Bool32.false;
 }
@@ -66,36 +74,36 @@ fn c_strequal(a: [*:0]const u8, b: [*:0]const u8) bool
 }
 
 /// Print out all items in a generic name list.
-fn debug_print_name_list(names: std.ArrayList([*:0]const u8), label: []const u8) void
+fn debug_print_name_list(names: std.ArrayList([*:0]const u8), label: []const u8) !void
 {
-    print("[{s}], count {d}:\n", .{label, names.items.len});
+    try print("[{s}], count {d}:\n", .{label, names.items.len});
     for(0..names.items.len) |i|
     {
-        print("\t{s}\n", .{names.items[i]});
+        try print("\t{s}\n", .{names.items[i]});
     }
-    print("\t[End of list.]\n", .{});
+    try print("\t[End of list.]\n", .{});
 }
 
 /// Print out the names of all Vulkan extensions in a provided vk.ExtensionProperties list.
-fn debug_print_extension_list(extensions: std.ArrayList(vk.ExtensionProperties), label: []const u8) void
+fn debug_print_extension_list(extensions: std.ArrayList(vk.ExtensionProperties), label: []const u8) !void
 {
-    print("[{s}] extensions, count {d}:\n", .{label, extensions.items.len});
+    try print("[{s}] extensions, count {d}:\n", .{label, extensions.items.len});
     for(0..extensions.items.len) |i|
     {
-        print("\t{s}\n", .{extensions.items[i].extension_name});
+        try print("\t{s}\n", .{extensions.items[i].extension_name});
     }
-    print("\t[End of list.]\n", .{});
+    try print("\t[End of list.]\n", .{});
 }
 
 /// Print out the names of all Vulkan layers in a provided vk.LayerProperties list.
-fn debug_print_layer_list(layers: std.ArrayList(vk.LayerProperties), label: []const u8) void
+fn debug_print_layer_list(layers: std.ArrayList(vk.LayerProperties), label: []const u8) !void
 {
-    print("[{s}] layers, count {d}:\n", .{label, layers.items.len});
+    try print("[{s}] layers, count {d}:\n", .{label, layers.items.len});
     for(0..layers.items.len) |i|
     {
-        print("\t{s}\n", .{layers.items[i].layer_name});
+        try print("\t{s}\n", .{layers.items[i].layer_name});
     }
-    print("\t[End of list.]\n", .{});
+    try print("\t[End of list.]\n", .{});
 }
 
 /// Helper struct containing the swapchain formats, capabilities (such as max image width/height), and presentation modes.
@@ -327,7 +335,7 @@ pub const VkContext = struct
             return VulkanContextInitError.ExtensionNotSupported;
         }
 
-        debug_print_name_list(required_extensions, @ptrCast("Required extensions"));
+        debug_print_name_list(required_extensions, @ptrCast("Required extensions")) catch unreachable;
 
         // We do the same for the layers.
 
@@ -367,10 +375,10 @@ pub const VkContext = struct
     }
 
     /// Prints the name (identifier) for a physical device.
-    fn debug_print_physical_device_name(self: VkContext, physical_device: vk.PhysicalDevice) void
+    fn debug_print_physical_device_name(self: VkContext, physical_device: vk.PhysicalDevice) !void
     {
         const device_properties = self.instance.getPhysicalDeviceProperties(physical_device);
-        print("{s}\n", .{device_properties.device_name});
+        try print("{s}\n", .{device_properties.device_name});
     }
 
     /// Gets a PhysicalDeviceQueueFamilies struct containing the indices of all queue families housed with the physical_device.
@@ -501,7 +509,6 @@ pub const VkContext = struct
         if(current_highest_score == -1) return VulkanContextInitError.NoSuitableGPUs;
 
         const selected_device = available_physical_devices.items[current_selected_index];
-        self.debug_print_physical_device_name(selected_device);
         return selected_device;
     }
 
@@ -587,7 +594,7 @@ pub const VkContext = struct
     /// Creates a new Vulkan context.
     pub fn init(allocator: *const std.mem.Allocator, window: *Window, options: InitOptions) !VkContext
     {
-        print("{s}\n", .{"Loading Zig Vulkan wrappers and creating instance..."});
+        print("{s}\n", .{"Loading Zig Vulkan wrappers and creating instance..."}) catch unreachable;
         var vk_context: VkContext = .{
             .allocator = allocator
         };

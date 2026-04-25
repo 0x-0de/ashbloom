@@ -1,6 +1,7 @@
 //! Root file for Ashbloom.
 //! All modules (source files) are exposed here.
 
+const std = @import("std");
 const win32 = @import("win32");
 pub const UNICODE = false;
 
@@ -62,6 +63,11 @@ pub const Element = vk_ui.Element;
 pub const ContainerRendering = vk_ui.ContainerRendering;
 pub const Container = vk_ui.Container;
 
+var stdout_buffer: [2048]u8 = undefined;
+var stdout_writer: std.fs.File.Writer = undefined;
+
+var stdout: *std.Io.Writer = undefined;
+
 /// Deinitializes the graphical side of the ashbloom framework, and all its dependencies (including GLFW).
 pub fn deinit_graphics() void
 {
@@ -71,7 +77,16 @@ pub fn deinit_graphics() void
 /// Initializes the graphical side of the ashbloom framework, and all its dependencies (including GLFW).
 pub fn init_graphics() !void
 {
+    stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    stdout = &stdout_writer.interface;
+
     try glfw.init();
+}
+
+pub fn print_stdout(comptime fmt: []const u8, args: anytype) !void
+{
+    try stdout.print(fmt, args);
+    try stdout.flush();
 }
 
 comptime

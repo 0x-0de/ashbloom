@@ -33,8 +33,6 @@ pub fn load_bmp_image(allocator: *const std.mem.Allocator, path: [*:0]const u8, 
     const file = try cwd.openFile(path_slice, .{.mode = .read_only});
     var file_reader = file.reader(@ptrCast(&dummy_buffer));
 
-    std.debug.print("File size: {d}.\n", .{try file_reader.getSize()});
-
     const bitmap_header = try file_reader.interface.readAlloc(allocator.*, 18);
 
     if(bitmap_header[0] != 'B' or bitmap_header[1] != 'M')
@@ -47,8 +45,6 @@ pub fn load_bmp_image(allocator: *const std.mem.Allocator, path: [*:0]const u8, 
 
     var header_size: u32 = undefined;
     @memcpy(@as(*[4]u8, @ptrCast(&header_size)), bitmap_header.ptr + 14);
-
-    std.debug.print("Header size: {d}.\n", .{header_size});
 
     if(header_size != 124)
     {
