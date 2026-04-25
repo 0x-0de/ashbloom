@@ -1,3 +1,5 @@
+//! Handles loading fonts and font characters.
+
 const std = @import("std");
 
 const images = @import("image_utils.zig");
@@ -13,32 +15,50 @@ const TextureAtlas2D = images.TextureAtlas2D;
 
 pub const FontError = error
 {
+    /// Failure to load a font file.
     FailedToLoadFont,
+    /// Failure to load a character into a font.
     FailedToLoadGlyph,
+    /// `atlas` is `null`.
     NoAtlas
 };
 
+/// Stores information relating to a single font character loaded with `request`.
 pub const FontCharacter = struct
 {
+    /// Unicode value of the character.
     unicode: u32,
+    /// Pixel size of the character.
     size: c_uint,
+    /// Location of the character in the font's atlas.
     suballocation: TextureAtlas2D.TextureSuballocation,
+    /// Indicates how many pixels the next character should "advance" to after this one (used in text rendering).
     advance: u16,
+    /// Indicates the pixel x-offset of the character (used in text rendering).
     bearing_x: i16,
+    /// Indicates the pixel y-offset of the character (used in text rendering).
     bearing_y: u16
 };
 
+/// Stores and performs font loading operations.
 pub const Font = struct
 {
+    /// Vulkan context.
     context: *VkContext,
+    /// Vulkan allocator.
     vk_allocator: *VulkanAllocator,
 
+    /// FreeType typeface object.
     typeface: freetype.FT_Face,
+    /// Current pixel size of any new requested characters.
     typesize: c_uint,
 
+    /// Texture atlas to load the font characters onto.
     atlas: ?*TextureAtlas2D,
+    /// List of all characters added to this font instance.
     characters: std.ArrayList(FontCharacter),
 
+    /// Adds a unicode character directly to the atlas.
     fn add_unicode_glyph(self: *Font, unicode: u32) !FontCharacter
     {
         if(self.atlas == null)
@@ -97,12 +117,14 @@ pub const Font = struct
         return character;
     }
 
+    /// Deinitializes the font class and releases all resources.
     pub fn deinit(self: *Font) !void
     {
         self.characters.deinit(self.context.allocator.*);
         _ = freetype.FT_Done_Face(self.typeface);
     }
 
+    /// Initializes the font class. If `atlas` is null, it will need to be set before `request` is called.
     pub fn init(context: *VkContext, vk_allocator: *VulkanAllocator, path: []const u8, size: c_uint, atlas: ?*TextureAtlas2D) !Font
     {
         var font: Font = .{
@@ -134,6 +156,8 @@ pub const Font = struct
         return font;
     }
 
+    /// Requests a unicode character to be added to the font.
+    /// If the character is already available, then the associated `FontCharacter` is returned. Otherwise, a new one is allocated from the `atlas` and added to `characters` before being returned.
     pub fn request(self: *Font, unicode: u32, size: f32) !FontCharacter
     {
         for(self.characters.items) |ch|
@@ -150,6 +174,8 @@ pub const Font = struct
         return ch;
     }
 
+    /// Updates the `typesize`. This change only applies to new requested characters, currently held ones will maintain their current sizes.
+    /// You can request the same character(s) in multiple sizes.
     pub fn set_font_size(self: *Font, size: c_uint) void
     {
         self.typesize = size;

@@ -3,6 +3,8 @@
 
 const std = @import("std");
 const win32 = @import("win32");
+
+/// Required field for win32 API.
 pub const UNICODE = false;
 
 // Namespaces.
@@ -84,6 +86,8 @@ pub fn init_graphics() !void
     try glfw.init();
 }
 
+/// Prints to the standard output. Useful since Zig's `std.debug.print` prints to stderr. Ashbloom inits its own instance of stdout().writer so this is just a shortcut.
+/// Max buffer size is 2048 characters, exceeding this value will likely return errors.
 pub fn print_stdout(comptime fmt: []const u8, args: anytype) !void
 {
     try stdout.print(fmt, args);

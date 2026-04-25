@@ -155,3 +155,4 @@ pub fn search_font_entries(available_fonts: []FontEntry, names: []const []const 
 
     return FontSearchError.MissingFont;
 }
+

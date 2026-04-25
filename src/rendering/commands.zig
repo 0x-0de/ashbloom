@@ -1,4 +1,4 @@
-//! Test top-level comment.
+//! Namespace for handling Vulkan commands and command buffers.
 
 const std = @import("std");
 const print = std.debug.print;
@@ -65,7 +65,7 @@ pub fn end_and_submit_single_time_command_buffer(context: *vkcontext.VkContext, 
 }
 
 /// Essentially wraps a vk.CommandBuffer object and provides some helper functions for common commands, such as beginning/ending
-/// buffer recording, drawing, resetting, binding a graphics pipeline, and so on.
+/// buffer recording, drawing commands, resetting buffers, binding a graphics pipeline, and so on.
 pub const CommandBuffer = struct
 {
     /// Vulkan context.
@@ -84,7 +84,7 @@ pub const CommandBuffer = struct
         try self.vkc.device.beginCommandBuffer(self.handle, &info_begin);
     }
 
-    /// Activates a render pass and binds it to a framebuffer. You can also provide a render area for the render pass, as 'extent'.
+    /// Activates a render pass and binds it to a framebuffer. You can also provide a render area for the render pass, as `extent`.
     pub fn cmd_begin_render_pass(self: *CommandBuffer, render_pass: *RenderPass, framebuffer: vk.Framebuffer, extent: vk.Extent2D, clear_color: [4]f32) void
     {
         const clear_value: vk.ClearValue = .{
@@ -110,19 +110,19 @@ pub const CommandBuffer = struct
         self.vkc.device.cmdBeginRenderPass(self.handle, &info_begin_rp, vk.SubpassContents.@"inline");
     }
 
-    /// Binds a Vulkan pipeline. All subsequent commands will be 
+    /// Binds a Vulkan pipeline. All subsequent commands will be performed with this pipeline, until the buffer ends or another pipeline is bound. 
     pub fn cmd_bind_pipeline(self: *CommandBuffer, pipeline: *Pipeline) void
     {
         self.vkc.device.cmdBindPipeline(self.handle, vk.PipelineBindPoint.graphics, pipeline.pipeline);
     }
 
-    /// Binds a descriptor set.
+    /// Binds a pipeline descriptor set.
     pub fn cmd_bind_descriptor_set(self: *CommandBuffer, pipeline: *Pipeline, descriptor_set: *vk.DescriptorSet) void
     {
         self.vkc.device.cmdBindDescriptorSets(self.handle, .graphics, pipeline.pipeline_layout.?, 0, 1, @ptrCast(descriptor_set), 0, null);
     }
 
-    /// Binds an index buffer. This will apply to the target of the next draw command. The buffer MUST be a list of 16-bit unsigned integers.
+    /// Binds an index buffer. This will apply to the target of the next draw command. The buffer **MUST** be a list of 16-bit unsigned integers.
     pub fn cmd_bind_index_buffer(self: *CommandBuffer, buffer: *vk.Buffer, offset: vk.DeviceSize) void
     {
         self.vkc.device.cmdBindIndexBuffer(self.handle, buffer.*, offset, .uint16);
