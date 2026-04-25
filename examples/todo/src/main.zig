@@ -21,6 +21,9 @@ const RenderPass = ash.RenderPass;
 
 const Font = ash.font.Font;
 
+const Texture2D = ash.image_utils.Texture2D;
+const TextureAtlas2D = ash.image_utils.TextureAtlas2D;
+
 var allocator: std.mem.Allocator = undefined;
 
 var debug_required_validation_layers: [1][*:0]const u8 = .{
@@ -86,6 +89,8 @@ fn deinit_vk_context() void
 
 var app_ui_container: vkui.Container = undefined;
 var app_font: Font = undefined;
+
+var icon_trash: TextureAtlas2D.TextureSuballocation = undefined;
 
 const todo_height: f32 = 50;
 
@@ -246,11 +251,26 @@ fn create_todo_item(item: TodoItem) !*vkui.Element
         .press_callback = callback_delete_todo_item
     });
 
+    const icon_delete = try ui_basic.create_icon(&allocator, .{
+        .relative_pos = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 1,
+            .scl_y = 1
+        },
+        .absolute_offset = .get_default(),
+        .alignment = .{
+            .x = .Left,
+            .y = .Bottom
+        }
+    }, .{icon_trash.pos_x, icon_trash.pos_y, icon_trash.scl_x, icon_trash.scl_y});
+
     try e.add_and_dispose(checkbox);
 
     try text_area.add_and_dispose(text);
     try e.add_and_dispose(text_area);
 
+    try button_delete.add_and_dispose(icon_delete);
     try e.add_and_dispose(button_delete);
 
     return e;
@@ -477,6 +497,10 @@ pub fn main() !void
 
     app_ui_container = try vkui.Container.init(&vk_context, &vk_allocator);
     app_font = try Font.init(&vk_context, &vk_allocator, font_entry.path, 36, &app_ui_container.texture_atlas);
+
+    var trash_texture: Texture2D = try .init(&vk_context, &vk_allocator, "../res/trash.bmp", .Subtexture);
+    icon_trash = try app_ui_container.texture_atlas.add_texture(&trash_texture);
+    try trash_texture.deinit();
 
     for(system_fonts, 0..) |_, i|
     {
