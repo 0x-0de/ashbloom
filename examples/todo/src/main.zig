@@ -38,7 +38,7 @@ var required_device_extensions: [1][*:0]const u8 = .{
     vk.extensions.khr_swapchain.name
 };
 
-var window: ash.window.Window = undefined;
+var window: ash.ABWindow = undefined;
 
 var vk_context: VkContext = undefined;
 var vk_allocator: VulkanAllocator = undefined;
@@ -476,7 +476,7 @@ pub fn main() !void
 
     glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
 
-    window = try ash.window.Window.init(1280, 720, "Todo");
+    window = try .init(1280, 720, "Todo");
     defer window.destroy();
 
     const system_fonts = try ash.misc.enumerate_system_fonts(&allocator);

@@ -39,7 +39,8 @@ pub const Swapchain = @import("rendering\\swapchain.zig").Swapchain;
 
 pub const VkContext = vk_context.VkContext;
 
-pub const Window = window.Window;
+/// Named "ABWindow" because vulkan-zig will try to interface with it if it's just named "Window".
+pub const ABWindow = window.Window;
 
 pub const FontCharacter = font.FontCharacter;
 pub const Font = font.Font;
