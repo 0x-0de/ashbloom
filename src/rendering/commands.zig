@@ -58,10 +58,10 @@ pub fn end_and_submit_single_time_command_buffer(context: *vkcontext.VkContext, 
         .p_command_buffers = @ptrCast(&command_buffer)
     };
 
-    try context.device.queueSubmit(queue, 1, @ptrCast(&info_submit), .null_handle);
+    try context.device.queueSubmit(queue, &.{ info_submit }, .null_handle);
     try context.device.queueWaitIdle(queue);
 
-    context.device.freeCommandBuffers(command_pool, 1, @ptrCast(&command_buffer));
+    context.device.freeCommandBuffers(command_pool, &.{ command_buffer });
 }
 
 /// Essentially wraps a vk.CommandBuffer object and provides some helper functions for common commands, such as beginning/ending
@@ -119,19 +119,19 @@ pub const CommandBuffer = struct
     /// Binds a pipeline descriptor set.
     pub fn cmd_bind_descriptor_set(self: *CommandBuffer, pipeline: *Pipeline, descriptor_set: *vk.DescriptorSet) void
     {
-        self.vkc.device.cmdBindDescriptorSets(self.handle, .graphics, pipeline.pipeline_layout.?, 0, 1, @ptrCast(descriptor_set), 0, null);
+        self.vkc.device.cmdBindDescriptorSets(self.handle, .graphics, pipeline.pipeline_layout.?, 0, &.{ descriptor_set.* }, null);
     }
 
     /// Binds an index buffer. This will apply to the target of the next draw command. The buffer **MUST** be a list of 16-bit unsigned integers.
-    pub fn cmd_bind_index_buffer(self: *CommandBuffer, buffer: *vk.Buffer, offset: vk.DeviceSize) void
+    pub fn cmd_bind_index_buffer(self: *CommandBuffer, buffer: vk.Buffer, offset: vk.DeviceSize) void
     {
-        self.vkc.device.cmdBindIndexBuffer(self.handle, buffer.*, offset, .uint16);
+        self.vkc.device.cmdBindIndexBuffer(self.handle, buffer, offset, .uint16);
     }
 
     /// Binds a vertex buffer. This will be the target of the next draw command.
-    pub fn cmd_bind_vertex_buffer(self: *CommandBuffer, buffer: *vk.Buffer, offset: *vk.DeviceSize) void
+    pub fn cmd_bind_vertex_buffer(self: *CommandBuffer, buffer: vk.Buffer, offset: vk.DeviceSize) void
     {
-        self.vkc.device.cmdBindVertexBuffers(self.handle, 0, 1, @ptrCast(buffer), @ptrCast(offset));
+        self.vkc.device.cmdBindVertexBuffers(self.handle, 0, &.{ buffer }, &.{ offset });
     }
 
     /// Sets the scissor of the current draw operation. Used for graphics pipelines with dynamic viewports and scissors.
@@ -142,7 +142,7 @@ pub const CommandBuffer = struct
             .extent = bounds.extent
         };
 
-        self.vkc.device.cmdSetScissor(self.handle, 0, 1, @ptrCast(&scissor));
+        self.vkc.device.cmdSetScissor(self.handle, 0, &.{ scissor });
     }
 
     /// Sets the viewport of the screen. Used for graphics pipelines with dynamic viewports and scissors.
@@ -157,7 +157,7 @@ pub const CommandBuffer = struct
             .max_depth = max_depth
         };
 
-        self.vkc.device.cmdSetViewport(self.handle, 0, 1, @ptrCast(&viewport));
+        self.vkc.device.cmdSetViewport(self.handle, 0, &.{ viewport });
     }
 
     /// Sets the viewport of the screen, assuming that the top-left corner of the viewport is (0, 0), and the min and max depth are -1 and
@@ -173,7 +173,7 @@ pub const CommandBuffer = struct
             .max_depth = 1
         };
 
-        self.vkc.device.cmdSetViewport(self.handle, 0, 1, @ptrCast(&viewport));
+        self.vkc.device.cmdSetViewport(self.handle, 0, &.{ viewport });
     }
 
     /// Sets both the viewport and scissor to cover the entire area of extent. Used for graphics pipelines with dynamic viewports and scissors.
@@ -188,7 +188,7 @@ pub const CommandBuffer = struct
             .max_depth = 1
         };
 
-        self.vkc.device.cmdSetViewport(self.handle, 0, 1, @ptrCast(&viewport));
+        self.vkc.device.cmdSetViewport(self.handle, 0, &.{ viewport });
 
         const scissor: vk.Rect2D = .{
             .offset = .{
@@ -198,7 +198,7 @@ pub const CommandBuffer = struct
             .extent = extent
         };
 
-        self.vkc.device.cmdSetScissor(self.handle, 0, 1, @ptrCast(&scissor));
+        self.vkc.device.cmdSetScissor(self.handle, 0, &.{ scissor });
     }
 
     /// Draws a certain number of vertices and instances. Does not apply indices.

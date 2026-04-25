@@ -457,9 +457,6 @@ fn init_ui_main_elements() !void
 
 pub fn main() !void
 {
-    try ash.init_graphics();
-    defer ash.deinit_graphics();
-
     const exe_path = ash.misc.get_exe_path();
     std.debug.print("{s}\n", .{exe_path});
 
@@ -473,6 +470,9 @@ pub fn main() !void
     }
 
     allocator = dba.allocator();
+
+    try ash.init_graphics(&allocator);
+    defer ash.deinit_graphics();
 
     glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
 

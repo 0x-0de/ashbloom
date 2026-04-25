@@ -696,19 +696,19 @@ pub const IITWordWheel = extern union {
             self: *const IITWordWheel,
             pcEntries: ?*i32,
         ) callconv(.winapi) HRESULT,
-        Lookup_TODO_A: *const fn(
+        LookupPrefix: *const fn(
             self: *const IITWordWheel,
             lpcvPrefix: ?*const anyopaque,
             fExactMatch: BOOL,
             plEntry: ?*i32,
         ) callconv(.winapi) HRESULT,
-        Lookup_TODO_B: *const fn(
+        LookupResultSet: *const fn(
             self: *const IITWordWheel,
             lEntry: i32,
             lpITResult: ?*IITResultSet,
             cEntries: i32,
         ) callconv(.winapi) HRESULT,
-        Lookup_TODO_C: *const fn(
+        LookupKey: *const fn(
             self: *const IITWordWheel,
             lEntry: i32,
             lpvKeyBuf: ?*anyopaque,
@@ -739,7 +739,7 @@ pub const IITWordWheel = extern union {
     };
     vtable: *const VTable,
     IUnknown: IUnknown,
-    pub const Lookup = @compileError("COM method 'Lookup' must be called using one of the following overload names: Lookup_TODO_B, Lookup_TODO_C, Lookup_TODO_A");
+    pub const Lookup = @compileError("COM method 'Lookup' must be called using one of the following overload names: LookupResultSet, LookupKey, LookupPrefix");
     pub fn Open(self: *const IITWordWheel, lpITDB: ?*IITDatabase, lpszMoniker: ?[*:0]const u16, dwFlags: WORD_WHEEL_OPEN_FLAGS) callconv(.@"inline") HRESULT {
         return self.vtable.Open(self, lpITDB, lpszMoniker, dwFlags);
     }
@@ -755,14 +755,14 @@ pub const IITWordWheel = extern union {
     pub fn Count(self: *const IITWordWheel, pcEntries: ?*i32) callconv(.@"inline") HRESULT {
         return self.vtable.Count(self, pcEntries);
     }
-    pub fn Lookup_TODO_A(self: *const IITWordWheel, lpcvPrefix: ?*const anyopaque, fExactMatch: BOOL, plEntry: ?*i32) callconv(.@"inline") HRESULT {
-        return self.vtable.Lookup_TODO_A(self, lpcvPrefix, fExactMatch, plEntry);
+    pub fn LookupPrefix(self: *const IITWordWheel, lpcvPrefix: ?*const anyopaque, fExactMatch: BOOL, plEntry: ?*i32) callconv(.@"inline") HRESULT {
+        return self.vtable.LookupPrefix(self, lpcvPrefix, fExactMatch, plEntry);
     }
-    pub fn Lookup_TODO_B(self: *const IITWordWheel, lEntry: i32, lpITResult: ?*IITResultSet, cEntries: i32) callconv(.@"inline") HRESULT {
-        return self.vtable.Lookup_TODO_B(self, lEntry, lpITResult, cEntries);
+    pub fn LookupResultSet(self: *const IITWordWheel, lEntry: i32, lpITResult: ?*IITResultSet, cEntries: i32) callconv(.@"inline") HRESULT {
+        return self.vtable.LookupResultSet(self, lEntry, lpITResult, cEntries);
     }
-    pub fn Lookup_TODO_C(self: *const IITWordWheel, lEntry: i32, lpvKeyBuf: ?*anyopaque, cbKeyBuf: u32) callconv(.@"inline") HRESULT {
-        return self.vtable.Lookup_TODO_C(self, lEntry, lpvKeyBuf, cbKeyBuf);
+    pub fn LookupKey(self: *const IITWordWheel, lEntry: i32, lpvKeyBuf: ?*anyopaque, cbKeyBuf: u32) callconv(.@"inline") HRESULT {
+        return self.vtable.LookupKey(self, lEntry, lpvKeyBuf, cbKeyBuf);
     }
     pub fn SetGroup(self: *const IITWordWheel, piitGroup: ?*IITGroup) callconv(.@"inline") HRESULT {
         return self.vtable.SetGroup(self, piitGroup);
@@ -985,26 +985,26 @@ pub const IITResultSet = extern union {
             self: *const IITResultSet,
             PropID: u32,
         ) callconv(.winapi) HRESULT,
-        Add_TODO_A: *const fn(
+        AddDword: *const fn(
             self: *const IITResultSet,
             PropID: u32,
             dwDefaultData: u32,
             Priority: PRIORITY,
         ) callconv(.winapi) HRESULT,
-        Add_TODO_B: *const fn(
+        AddString: *const fn(
             self: *const IITResultSet,
             PropID: u32,
             lpszwDefault: ?[*:0]const u16,
             Priority: PRIORITY,
         ) callconv(.winapi) HRESULT,
-        Add_TODO_C: *const fn(
+        AddPointer: *const fn(
             self: *const IITResultSet,
             PropID: u32,
             lpvDefaultData: ?*anyopaque,
             cbData: u32,
             Priority: PRIORITY,
         ) callconv(.winapi) HRESULT,
-        Add_TODO_D: *const fn(
+        AddHeader: *const fn(
             self: *const IITResultSet,
             lpvHdr: ?*anyopaque,
         ) callconv(.winapi) HRESULT,
@@ -1013,26 +1013,26 @@ pub const IITResultSet = extern union {
             lpvHdr: ?*anyopaque,
             lpvData: ?*anyopaque,
         ) callconv(.winapi) HRESULT,
-        Set_TODO_A: *const fn(
+        SetPointer: *const fn(
             self: *const IITResultSet,
             lRowIndex: i32,
             lColumnIndex: i32,
             lpvData: ?*anyopaque,
             cbData: u32,
         ) callconv(.winapi) HRESULT,
-        Set_TODO_B: *const fn(
+        SetString: *const fn(
             self: *const IITResultSet,
             lRowIndex: i32,
             lColumnIndex: i32,
             lpwStr: ?[*:0]const u16,
         ) callconv(.winapi) HRESULT,
-        Set_TODO_C: *const fn(
+        SetDword: *const fn(
             self: *const IITResultSet,
             lRowIndex: i32,
             lColumnIndex: i32,
             dwData: usize,
         ) callconv(.winapi) HRESULT,
-        Set_TODO_D: *const fn(
+        SetRow: *const fn(
             self: *const IITResultSet,
             lRowIndex: i32,
             lpvHdr: ?*anyopaque,
@@ -1072,7 +1072,7 @@ pub const IITResultSet = extern union {
             self: *const IITResultSet,
             lNumberOfColumns: ?*i32,
         ) callconv(.winapi) HRESULT,
-        GetColumn_TODO_A: *const fn(
+        GetColumnAll: *const fn(
             self: *const IITResultSet,
             lColumnIndex: i32,
             PropID: ?*u32,
@@ -1081,7 +1081,7 @@ pub const IITResultSet = extern union {
             cbSize: ?*u32,
             ColumnPriority: ?*PRIORITY,
         ) callconv(.winapi) HRESULT,
-        GetColumn_TODO_B: *const fn(
+        GetColumnPropId: *const fn(
             self: *const IITResultSet,
             lColumnIndex: i32,
             PropID: ?*u32,
@@ -1123,9 +1123,9 @@ pub const IITResultSet = extern union {
     };
     vtable: *const VTable,
     IUnknown: IUnknown,
-    pub const GetColumn = @compileError("COM method 'GetColumn' must be called using one of the following overload names: GetColumn_TODO_A, GetColumn_TODO_B");
-    pub const Set = @compileError("COM method 'Set' must be called using one of the following overload names: Set_TODO_A, Set_TODO_B, Set_TODO_C, Set_TODO_D");
-    pub const Add = @compileError("COM method 'Add' must be called using one of the following overload names: Add_TODO_A, Add_TODO_B, Add_TODO_D, Add_TODO_C");
+    pub const GetColumn = @compileError("COM method 'GetColumn' must be called using one of the following overload names: GetColumnAll, GetColumnPropId");
+    pub const Set = @compileError("COM method 'Set' must be called using one of the following overload names: SetPointer, SetString, SetDword, SetRow");
+    pub const Add = @compileError("COM method 'Add' must be called using one of the following overload names: AddDword, AddString, AddHeader, AddPointer");
     pub fn SetColumnPriority(self: *const IITResultSet, lColumnIndex: i32, ColumnPriority: PRIORITY) callconv(.@"inline") HRESULT {
         return self.vtable.SetColumnPriority(self, lColumnIndex, ColumnPriority);
     }
@@ -1135,32 +1135,32 @@ pub const IITResultSet = extern union {
     pub fn SetKeyProp(self: *const IITResultSet, PropID: u32) callconv(.@"inline") HRESULT {
         return self.vtable.SetKeyProp(self, PropID);
     }
-    pub fn Add_TODO_A(self: *const IITResultSet, PropID: u32, dwDefaultData: u32, Priority: PRIORITY) callconv(.@"inline") HRESULT {
-        return self.vtable.Add_TODO_A(self, PropID, dwDefaultData, Priority);
+    pub fn AddDword(self: *const IITResultSet, PropID: u32, dwDefaultData: u32, Priority: PRIORITY) callconv(.@"inline") HRESULT {
+        return self.vtable.AddDword(self, PropID, dwDefaultData, Priority);
     }
-    pub fn Add_TODO_B(self: *const IITResultSet, PropID: u32, lpszwDefault: ?[*:0]const u16, Priority: PRIORITY) callconv(.@"inline") HRESULT {
-        return self.vtable.Add_TODO_B(self, PropID, lpszwDefault, Priority);
+    pub fn AddString(self: *const IITResultSet, PropID: u32, lpszwDefault: ?[*:0]const u16, Priority: PRIORITY) callconv(.@"inline") HRESULT {
+        return self.vtable.AddString(self, PropID, lpszwDefault, Priority);
     }
-    pub fn Add_TODO_C(self: *const IITResultSet, PropID: u32, lpvDefaultData: ?*anyopaque, cbData: u32, Priority: PRIORITY) callconv(.@"inline") HRESULT {
-        return self.vtable.Add_TODO_C(self, PropID, lpvDefaultData, cbData, Priority);
+    pub fn AddPointer(self: *const IITResultSet, PropID: u32, lpvDefaultData: ?*anyopaque, cbData: u32, Priority: PRIORITY) callconv(.@"inline") HRESULT {
+        return self.vtable.AddPointer(self, PropID, lpvDefaultData, cbData, Priority);
     }
-    pub fn Add_TODO_D(self: *const IITResultSet, lpvHdr: ?*anyopaque) callconv(.@"inline") HRESULT {
-        return self.vtable.Add_TODO_D(self, lpvHdr);
+    pub fn AddHeader(self: *const IITResultSet, lpvHdr: ?*anyopaque) callconv(.@"inline") HRESULT {
+        return self.vtable.AddHeader(self, lpvHdr);
     }
     pub fn Append(self: *const IITResultSet, lpvHdr: ?*anyopaque, lpvData: ?*anyopaque) callconv(.@"inline") HRESULT {
         return self.vtable.Append(self, lpvHdr, lpvData);
     }
-    pub fn Set_TODO_A(self: *const IITResultSet, lRowIndex: i32, lColumnIndex: i32, lpvData: ?*anyopaque, cbData: u32) callconv(.@"inline") HRESULT {
-        return self.vtable.Set_TODO_A(self, lRowIndex, lColumnIndex, lpvData, cbData);
+    pub fn SetPointer(self: *const IITResultSet, lRowIndex: i32, lColumnIndex: i32, lpvData: ?*anyopaque, cbData: u32) callconv(.@"inline") HRESULT {
+        return self.vtable.SetPointer(self, lRowIndex, lColumnIndex, lpvData, cbData);
     }
-    pub fn Set_TODO_B(self: *const IITResultSet, lRowIndex: i32, lColumnIndex: i32, lpwStr: ?[*:0]const u16) callconv(.@"inline") HRESULT {
-        return self.vtable.Set_TODO_B(self, lRowIndex, lColumnIndex, lpwStr);
+    pub fn SetString(self: *const IITResultSet, lRowIndex: i32, lColumnIndex: i32, lpwStr: ?[*:0]const u16) callconv(.@"inline") HRESULT {
+        return self.vtable.SetString(self, lRowIndex, lColumnIndex, lpwStr);
     }
-    pub fn Set_TODO_C(self: *const IITResultSet, lRowIndex: i32, lColumnIndex: i32, dwData: usize) callconv(.@"inline") HRESULT {
-        return self.vtable.Set_TODO_C(self, lRowIndex, lColumnIndex, dwData);
+    pub fn SetDword(self: *const IITResultSet, lRowIndex: i32, lColumnIndex: i32, dwData: usize) callconv(.@"inline") HRESULT {
+        return self.vtable.SetDword(self, lRowIndex, lColumnIndex, dwData);
     }
-    pub fn Set_TODO_D(self: *const IITResultSet, lRowIndex: i32, lpvHdr: ?*anyopaque, lpvData: ?*anyopaque) callconv(.@"inline") HRESULT {
-        return self.vtable.Set_TODO_D(self, lRowIndex, lpvHdr, lpvData);
+    pub fn SetRow(self: *const IITResultSet, lRowIndex: i32, lpvHdr: ?*anyopaque, lpvData: ?*anyopaque) callconv(.@"inline") HRESULT {
+        return self.vtable.SetRow(self, lRowIndex, lpvHdr, lpvData);
     }
     pub fn Copy(self: *const IITResultSet, pRSCopy: ?*IITResultSet) callconv(.@"inline") HRESULT {
         return self.vtable.Copy(self, pRSCopy);
@@ -1183,11 +1183,11 @@ pub const IITResultSet = extern union {
     pub fn GetColumnCount(self: *const IITResultSet, lNumberOfColumns: ?*i32) callconv(.@"inline") HRESULT {
         return self.vtable.GetColumnCount(self, lNumberOfColumns);
     }
-    pub fn GetColumn_TODO_A(self: *const IITResultSet, lColumnIndex: i32, PropID: ?*u32, dwType: ?*u32, lpvDefaultValue: ?*?*anyopaque, cbSize: ?*u32, ColumnPriority: ?*PRIORITY) callconv(.@"inline") HRESULT {
-        return self.vtable.GetColumn_TODO_A(self, lColumnIndex, PropID, dwType, lpvDefaultValue, cbSize, ColumnPriority);
+    pub fn GetColumnAll(self: *const IITResultSet, lColumnIndex: i32, PropID: ?*u32, dwType: ?*u32, lpvDefaultValue: ?*?*anyopaque, cbSize: ?*u32, ColumnPriority: ?*PRIORITY) callconv(.@"inline") HRESULT {
+        return self.vtable.GetColumnAll(self, lColumnIndex, PropID, dwType, lpvDefaultValue, cbSize, ColumnPriority);
     }
-    pub fn GetColumn_TODO_B(self: *const IITResultSet, lColumnIndex: i32, PropID: ?*u32) callconv(.@"inline") HRESULT {
-        return self.vtable.GetColumn_TODO_B(self, lColumnIndex, PropID);
+    pub fn GetColumnPropId(self: *const IITResultSet, lColumnIndex: i32, PropID: ?*u32) callconv(.@"inline") HRESULT {
+        return self.vtable.GetColumnPropId(self, lColumnIndex, PropID);
     }
     pub fn GetColumnFromPropID(self: *const IITResultSet, PropID: u32, lColumnIndex: ?*i32) callconv(.@"inline") HRESULT {
         return self.vtable.GetColumnFromPropID(self, PropID, lColumnIndex);

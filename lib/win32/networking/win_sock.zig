@@ -1432,7 +1432,7 @@ pub const RIO_RQ_t = extern struct {
 pub const HWSAEVENT = *opaque{};
 
 // TODO: this type has a FreeFunc 'closesocket', what can Zig do with this information?
-pub const SOCKET = @import("std").os.windows.ws2_32.SOCKET;
+pub const SOCKET = if (@import("builtin").zig_version.order(.{ .major = 0, .minor = 16, .patch = 0 }) != .lt) *opaque{} else @import("std").os.windows.ws2_32.SOCKET;
 
 pub const FLOWSPEC = extern struct {
     TokenRate: u32,

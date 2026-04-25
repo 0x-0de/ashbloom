@@ -75,12 +75,15 @@ pub fn enumerate_system_fonts(allocator: *const std.mem.Allocator) ![]FontEntry
 {
     if(comptime builtin.os.tag == .windows)
     {
+        var io: std.Io.Threaded = .init(allocator.*, .{});
+        defer io.deinit();
+
         const prefix_str: *const [17:0]u8 = "C:\\Windows\\Fonts\\";
-        var dir = try std.fs.openDirAbsolute(prefix_str, .{
+        var dir = try std.Io.Dir.openDirAbsolute(io.io(), prefix_str, .{
             .iterate = true
         });
 
-        defer dir.close();
+        defer dir.close(io.io());
 
         var walker = try dir.walk(allocator.*);
         defer walker.deinit();
@@ -88,7 +91,7 @@ pub fn enumerate_system_fonts(allocator: *const std.mem.Allocator) ![]FontEntry
         var font_list = try std.ArrayList(FontEntry).initCapacity(allocator.*, 0);
         defer font_list.deinit(allocator.*);
 
-        while(try walker.next()) |entry|
+        while(try walker.next(io.io())) |entry|
         {
             const is_font = std.mem.endsWith(u8, entry.path, ".ttf") or std.mem.endsWith(u8, entry.path, ".otf");
             if(entry.kind == .file and is_font)

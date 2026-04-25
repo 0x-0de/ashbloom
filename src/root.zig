@@ -66,8 +66,9 @@ pub const Element = vk_ui.Element;
 pub const ContainerRendering = vk_ui.ContainerRendering;
 pub const Container = vk_ui.Container;
 
+var stdout_io: std.Io.Threaded = undefined;
 var stdout_buffer: [2048]u8 = undefined;
-var stdout_writer: std.fs.File.Writer = undefined;
+var stdout_writer: std.Io.File.Writer = undefined;
 
 var stdout: *std.Io.Writer = undefined;
 
@@ -78,9 +79,10 @@ pub fn deinit_graphics() void
 }
 
 /// Initializes the graphical side of the ashbloom framework, and all its dependencies (including GLFW).
-pub fn init_graphics() !void
+pub fn init_graphics(allocator: *const std.mem.Allocator) !void
 {
-    stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    stdout_io = .init(allocator.*, .{});
+    stdout_writer = std.Io.File.stdout().writer(stdout_io.io(), &stdout_buffer);
     stdout = &stdout_writer.interface;
 
     try glfw.init();

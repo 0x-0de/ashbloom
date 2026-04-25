@@ -4673,14 +4673,14 @@ pub const IDWriteFactory3 = extern union {
             gridFitMode: DWRITE_GRID_FIT_MODE,
             renderingParams: **IDWriteRenderingParams3,
         ) callconv(.winapi) HRESULT,
-        CreateFontFaceReference_TODO_A: *const fn(
+        CreateFontFaceReferenceFile: *const fn(
             self: *const IDWriteFactory3,
             fontFile: ?*IDWriteFontFile,
             faceIndex: u32,
             fontSimulations: DWRITE_FONT_SIMULATIONS,
             fontFaceReference: **IDWriteFontFaceReference,
         ) callconv(.winapi) HRESULT,
-        CreateFontFaceReference_TODO_B: *const fn(
+        CreateFontFaceReferencePath: *const fn(
             self: *const IDWriteFactory3,
             filePath: ?[*:0]const u16,
             lastWriteTime: ?*const FILETIME,
@@ -4717,18 +4717,18 @@ pub const IDWriteFactory3 = extern union {
     IDWriteFactory1: IDWriteFactory1,
     IDWriteFactory: IDWriteFactory,
     IUnknown: IUnknown,
-    pub const CreateFontFaceReference = @compileError("COM method 'CreateFontFaceReference' must be called using one of the following overload names: CreateFontFaceReference_TODO_B, CreateFontFaceReference_TODO_A");
+    pub const CreateFontFaceReference = @compileError("COM method 'CreateFontFaceReference' must be called using one of the following overload names: CreateFontFaceReferencePath, CreateFontFaceReferenceFile");
     pub fn CreateGlyphRunAnalysis(self: *const IDWriteFactory3, glyphRun: ?*const DWRITE_GLYPH_RUN, transform: ?*const DWRITE_MATRIX, renderingMode: DWRITE_RENDERING_MODE1, measuringMode: DWRITE_MEASURING_MODE, gridFitMode: DWRITE_GRID_FIT_MODE, antialiasMode: DWRITE_TEXT_ANTIALIAS_MODE, baselineOriginX: f32, baselineOriginY: f32, glyphRunAnalysis: **IDWriteGlyphRunAnalysis) callconv(.@"inline") HRESULT {
         return self.vtable.CreateGlyphRunAnalysis(self, glyphRun, transform, renderingMode, measuringMode, gridFitMode, antialiasMode, baselineOriginX, baselineOriginY, glyphRunAnalysis);
     }
     pub fn CreateCustomRenderingParams(self: *const IDWriteFactory3, gamma: f32, enhancedContrast: f32, grayscaleEnhancedContrast: f32, clearTypeLevel: f32, pixelGeometry: DWRITE_PIXEL_GEOMETRY, renderingMode: DWRITE_RENDERING_MODE1, gridFitMode: DWRITE_GRID_FIT_MODE, renderingParams: **IDWriteRenderingParams3) callconv(.@"inline") HRESULT {
         return self.vtable.CreateCustomRenderingParams(self, gamma, enhancedContrast, grayscaleEnhancedContrast, clearTypeLevel, pixelGeometry, renderingMode, gridFitMode, renderingParams);
     }
-    pub fn CreateFontFaceReference_TODO_A(self: *const IDWriteFactory3, fontFile: ?*IDWriteFontFile, faceIndex: u32, fontSimulations: DWRITE_FONT_SIMULATIONS, fontFaceReference: **IDWriteFontFaceReference) callconv(.@"inline") HRESULT {
-        return self.vtable.CreateFontFaceReference_TODO_A(self, fontFile, faceIndex, fontSimulations, fontFaceReference);
+    pub fn CreateFontFaceReferenceFile(self: *const IDWriteFactory3, fontFile: ?*IDWriteFontFile, faceIndex: u32, fontSimulations: DWRITE_FONT_SIMULATIONS, fontFaceReference: **IDWriteFontFaceReference) callconv(.@"inline") HRESULT {
+        return self.vtable.CreateFontFaceReferenceFile(self, fontFile, faceIndex, fontSimulations, fontFaceReference);
     }
-    pub fn CreateFontFaceReference_TODO_B(self: *const IDWriteFactory3, filePath: ?[*:0]const u16, lastWriteTime: ?*const FILETIME, faceIndex: u32, fontSimulations: DWRITE_FONT_SIMULATIONS, fontFaceReference: **IDWriteFontFaceReference) callconv(.@"inline") HRESULT {
-        return self.vtable.CreateFontFaceReference_TODO_B(self, filePath, lastWriteTime, faceIndex, fontSimulations, fontFaceReference);
+    pub fn CreateFontFaceReferencePath(self: *const IDWriteFactory3, filePath: ?[*:0]const u16, lastWriteTime: ?*const FILETIME, faceIndex: u32, fontSimulations: DWRITE_FONT_SIMULATIONS, fontFaceReference: **IDWriteFontFaceReference) callconv(.@"inline") HRESULT {
+        return self.vtable.CreateFontFaceReferencePath(self, filePath, lastWriteTime, faceIndex, fontSimulations, fontFaceReference);
     }
     pub fn GetSystemFontSet(self: *const IDWriteFactory3, fontSet: **IDWriteFontSet) callconv(.@"inline") HRESULT {
         return self.vtable.GetSystemFontSet(self, fontSet);
@@ -4773,18 +4773,18 @@ pub const IDWriteFontSet = extern union {
             listIndex: ?*u32,
             exists: ?*BOOL,
         ) callconv(.winapi) HRESULT,
-        GetPropertyValues_TODO_A: *const fn(
+        GetPropertyValuesById: *const fn(
             self: *const IDWriteFontSet,
             propertyID: DWRITE_FONT_PROPERTY_ID,
             values: **IDWriteStringList,
         ) callconv(.winapi) HRESULT,
-        GetPropertyValues_TODO_B: *const fn(
+        GetPropertyValuesByIdPreferLocale: *const fn(
             self: *const IDWriteFontSet,
             propertyID: DWRITE_FONT_PROPERTY_ID,
             preferredLocaleNames: ?[*:0]const u16,
             values: **IDWriteStringList,
         ) callconv(.winapi) HRESULT,
-        GetPropertyValues_TODO_C: *const fn(
+        GetPropertyValuesForFont: *const fn(
             self: *const IDWriteFontSet,
             listIndex: u32,
             propertyId: DWRITE_FONT_PROPERTY_ID,
@@ -4796,7 +4796,7 @@ pub const IDWriteFontSet = extern union {
             property: ?*const DWRITE_FONT_PROPERTY,
             propertyOccurrenceCount: ?*u32,
         ) callconv(.winapi) HRESULT,
-        GetMatchingFonts_TODO_A: *const fn(
+        GetMatchingFontsWeightStretchStyle: *const fn(
             self: *const IDWriteFontSet,
             familyName: ?[*:0]const u16,
             fontWeight: DWRITE_FONT_WEIGHT,
@@ -4804,7 +4804,7 @@ pub const IDWriteFontSet = extern union {
             fontStyle: DWRITE_FONT_STYLE,
             filteredSet: **IDWriteFontSet,
         ) callconv(.winapi) HRESULT,
-        GetMatchingFonts_TODO_B: *const fn(
+        GetMatchingFontsProperties: *const fn(
             self: *const IDWriteFontSet,
             properties: [*]const DWRITE_FONT_PROPERTY,
             propertyCount: u32,
@@ -4813,8 +4813,8 @@ pub const IDWriteFontSet = extern union {
     };
     vtable: *const VTable,
     IUnknown: IUnknown,
-    pub const GetPropertyValues = @compileError("COM method 'GetPropertyValues' must be called using one of the following overload names: GetPropertyValues_TODO_A, GetPropertyValues_TODO_C, GetPropertyValues_TODO_B");
-    pub const GetMatchingFonts = @compileError("COM method 'GetMatchingFonts' must be called using one of the following overload names: GetMatchingFonts_TODO_A, GetMatchingFonts_TODO_B");
+    pub const GetPropertyValues = @compileError("COM method 'GetPropertyValues' must be called using one of the following overload names: GetPropertyValuesById, GetPropertyValuesForFont, GetPropertyValuesByIdPreferLocale");
+    pub const GetMatchingFonts = @compileError("COM method 'GetMatchingFonts' must be called using one of the following overload names: GetMatchingFontsWeightStretchStyle, GetMatchingFontsProperties");
     pub fn GetFontCount(self: *const IDWriteFontSet) callconv(.@"inline") u32 {
         return self.vtable.GetFontCount(self);
     }
@@ -4827,23 +4827,23 @@ pub const IDWriteFontSet = extern union {
     pub fn FindFontFace(self: *const IDWriteFontSet, fontFace: ?*IDWriteFontFace, listIndex: ?*u32, exists: ?*BOOL) callconv(.@"inline") HRESULT {
         return self.vtable.FindFontFace(self, fontFace, listIndex, exists);
     }
-    pub fn GetPropertyValues_TODO_A(self: *const IDWriteFontSet, propertyID: DWRITE_FONT_PROPERTY_ID, values: **IDWriteStringList) callconv(.@"inline") HRESULT {
-        return self.vtable.GetPropertyValues_TODO_A(self, propertyID, values);
+    pub fn GetPropertyValuesById(self: *const IDWriteFontSet, propertyID: DWRITE_FONT_PROPERTY_ID, values: **IDWriteStringList) callconv(.@"inline") HRESULT {
+        return self.vtable.GetPropertyValuesById(self, propertyID, values);
     }
-    pub fn GetPropertyValues_TODO_B(self: *const IDWriteFontSet, propertyID: DWRITE_FONT_PROPERTY_ID, preferredLocaleNames: ?[*:0]const u16, values: **IDWriteStringList) callconv(.@"inline") HRESULT {
-        return self.vtable.GetPropertyValues_TODO_B(self, propertyID, preferredLocaleNames, values);
+    pub fn GetPropertyValuesByIdPreferLocale(self: *const IDWriteFontSet, propertyID: DWRITE_FONT_PROPERTY_ID, preferredLocaleNames: ?[*:0]const u16, values: **IDWriteStringList) callconv(.@"inline") HRESULT {
+        return self.vtable.GetPropertyValuesByIdPreferLocale(self, propertyID, preferredLocaleNames, values);
     }
-    pub fn GetPropertyValues_TODO_C(self: *const IDWriteFontSet, listIndex: u32, propertyId: DWRITE_FONT_PROPERTY_ID, exists: ?*BOOL, values: ?**IDWriteLocalizedStrings) callconv(.@"inline") HRESULT {
-        return self.vtable.GetPropertyValues_TODO_C(self, listIndex, propertyId, exists, values);
+    pub fn GetPropertyValuesForFont(self: *const IDWriteFontSet, listIndex: u32, propertyId: DWRITE_FONT_PROPERTY_ID, exists: ?*BOOL, values: ?**IDWriteLocalizedStrings) callconv(.@"inline") HRESULT {
+        return self.vtable.GetPropertyValuesForFont(self, listIndex, propertyId, exists, values);
     }
     pub fn GetPropertyOccurrenceCount(self: *const IDWriteFontSet, property: ?*const DWRITE_FONT_PROPERTY, propertyOccurrenceCount: ?*u32) callconv(.@"inline") HRESULT {
         return self.vtable.GetPropertyOccurrenceCount(self, property, propertyOccurrenceCount);
     }
-    pub fn GetMatchingFonts_TODO_A(self: *const IDWriteFontSet, familyName: ?[*:0]const u16, fontWeight: DWRITE_FONT_WEIGHT, fontStretch: DWRITE_FONT_STRETCH, fontStyle: DWRITE_FONT_STYLE, filteredSet: **IDWriteFontSet) callconv(.@"inline") HRESULT {
-        return self.vtable.GetMatchingFonts_TODO_A(self, familyName, fontWeight, fontStretch, fontStyle, filteredSet);
+    pub fn GetMatchingFontsWeightStretchStyle(self: *const IDWriteFontSet, familyName: ?[*:0]const u16, fontWeight: DWRITE_FONT_WEIGHT, fontStretch: DWRITE_FONT_STRETCH, fontStyle: DWRITE_FONT_STYLE, filteredSet: **IDWriteFontSet) callconv(.@"inline") HRESULT {
+        return self.vtable.GetMatchingFontsWeightStretchStyle(self, familyName, fontWeight, fontStretch, fontStyle, filteredSet);
     }
-    pub fn GetMatchingFonts_TODO_B(self: *const IDWriteFontSet, properties: [*]const DWRITE_FONT_PROPERTY, propertyCount: u32, filteredSet: **IDWriteFontSet) callconv(.@"inline") HRESULT {
-        return self.vtable.GetMatchingFonts_TODO_B(self, properties, propertyCount, filteredSet);
+    pub fn GetMatchingFontsProperties(self: *const IDWriteFontSet, properties: [*]const DWRITE_FONT_PROPERTY, propertyCount: u32, filteredSet: **IDWriteFontSet) callconv(.@"inline") HRESULT {
+        return self.vtable.GetMatchingFontsProperties(self, properties, propertyCount, filteredSet);
     }
 };
 
@@ -4852,13 +4852,13 @@ pub const IID_IDWriteFontSetBuilder = &IID_IDWriteFontSetBuilder_Value;
 pub const IDWriteFontSetBuilder = extern union {
     pub const VTable = extern struct {
         base: IUnknown.VTable,
-        AddFontFaceReference_TODO_A: *const fn(
+        AddFontFaceReferenceWithProperties: *const fn(
             self: *const IDWriteFontSetBuilder,
             fontFaceReference: ?*IDWriteFontFaceReference,
             properties: [*]const DWRITE_FONT_PROPERTY,
             propertyCount: u32,
         ) callconv(.winapi) HRESULT,
-        AddFontFaceReference_TODO_B: *const fn(
+        AddFontFaceReferenceDefault: *const fn(
             self: *const IDWriteFontSetBuilder,
             fontFaceReference: ?*IDWriteFontFaceReference,
         ) callconv(.winapi) HRESULT,
@@ -4873,12 +4873,12 @@ pub const IDWriteFontSetBuilder = extern union {
     };
     vtable: *const VTable,
     IUnknown: IUnknown,
-    pub const AddFontFaceReference = @compileError("COM method 'AddFontFaceReference' must be called using one of the following overload names: AddFontFaceReference_TODO_A, AddFontFaceReference_TODO_B");
-    pub fn AddFontFaceReference_TODO_A(self: *const IDWriteFontSetBuilder, fontFaceReference: ?*IDWriteFontFaceReference, properties: [*]const DWRITE_FONT_PROPERTY, propertyCount: u32) callconv(.@"inline") HRESULT {
-        return self.vtable.AddFontFaceReference_TODO_A(self, fontFaceReference, properties, propertyCount);
+    pub const AddFontFaceReference = @compileError("COM method 'AddFontFaceReference' must be called using one of the following overload names: AddFontFaceReferenceWithProperties, AddFontFaceReferenceDefault");
+    pub fn AddFontFaceReferenceWithProperties(self: *const IDWriteFontSetBuilder, fontFaceReference: ?*IDWriteFontFaceReference, properties: [*]const DWRITE_FONT_PROPERTY, propertyCount: u32) callconv(.@"inline") HRESULT {
+        return self.vtable.AddFontFaceReferenceWithProperties(self, fontFaceReference, properties, propertyCount);
     }
-    pub fn AddFontFaceReference_TODO_B(self: *const IDWriteFontSetBuilder, fontFaceReference: ?*IDWriteFontFaceReference) callconv(.@"inline") HRESULT {
-        return self.vtable.AddFontFaceReference_TODO_B(self, fontFaceReference);
+    pub fn AddFontFaceReferenceDefault(self: *const IDWriteFontSetBuilder, fontFaceReference: ?*IDWriteFontFaceReference) callconv(.@"inline") HRESULT {
+        return self.vtable.AddFontFaceReferenceDefault(self, fontFaceReference);
     }
     pub fn AddFontSet(self: *const IDWriteFontSetBuilder, fontSet: ?*IDWriteFontSet) callconv(.@"inline") HRESULT {
         return self.vtable.AddFontSet(self, fontSet);
@@ -5399,12 +5399,12 @@ pub const IDWriteGdiInterop1 = extern union {
             fontCollection: ?*IDWriteFontCollection,
             font: **IDWriteFont,
         ) callconv(.winapi) HRESULT,
-        GetFontSignature_TODO_A: *const fn(
+        GetFontSignatureFromFontFace: *const fn(
             self: *const IDWriteGdiInterop1,
             fontFace: ?*IDWriteFontFace,
             fontSignature: ?*FONTSIGNATURE,
         ) callconv(.winapi) HRESULT,
-        GetFontSignature_TODO_B: *const fn(
+        GetFontSignatureFromFont: *const fn(
             self: *const IDWriteGdiInterop1,
             font: ?*IDWriteFont,
             fontSignature: ?*FONTSIGNATURE,
@@ -5419,15 +5419,15 @@ pub const IDWriteGdiInterop1 = extern union {
     vtable: *const VTable,
     IDWriteGdiInterop: IDWriteGdiInterop,
     IUnknown: IUnknown,
-    pub const GetFontSignature = @compileError("COM method 'GetFontSignature' must be called using one of the following overload names: GetFontSignature_TODO_B, GetFontSignature_TODO_A");
+    pub const GetFontSignature = @compileError("COM method 'GetFontSignature' must be called using one of the following overload names: GetFontSignatureFromFont, GetFontSignatureFromFontFace");
     pub fn CreateFontFromLOGFONT(self: *const IDWriteGdiInterop1, logFont: ?*const LOGFONTW, fontCollection: ?*IDWriteFontCollection, font: **IDWriteFont) callconv(.@"inline") HRESULT {
         return self.vtable.CreateFontFromLOGFONT(self, logFont, fontCollection, font);
     }
-    pub fn GetFontSignature_TODO_A(self: *const IDWriteGdiInterop1, fontFace: ?*IDWriteFontFace, fontSignature: ?*FONTSIGNATURE) callconv(.@"inline") HRESULT {
-        return self.vtable.GetFontSignature_TODO_A(self, fontFace, fontSignature);
+    pub fn GetFontSignatureFromFontFace(self: *const IDWriteGdiInterop1, fontFace: ?*IDWriteFontFace, fontSignature: ?*FONTSIGNATURE) callconv(.@"inline") HRESULT {
+        return self.vtable.GetFontSignatureFromFontFace(self, fontFace, fontSignature);
     }
-    pub fn GetFontSignature_TODO_B(self: *const IDWriteGdiInterop1, font: ?*IDWriteFont, fontSignature: ?*FONTSIGNATURE) callconv(.@"inline") HRESULT {
-        return self.vtable.GetFontSignature_TODO_B(self, font, fontSignature);
+    pub fn GetFontSignatureFromFont(self: *const IDWriteGdiInterop1, font: ?*IDWriteFont, fontSignature: ?*FONTSIGNATURE) callconv(.@"inline") HRESULT {
+        return self.vtable.GetFontSignatureFromFont(self, font, fontSignature);
     }
     pub fn GetMatchingFontsByLOGFONT(self: *const IDWriteGdiInterop1, logFont: ?*const LOGFONTA, fontSet: ?*IDWriteFontSet, filteredSet: **IDWriteFontSet) callconv(.@"inline") HRESULT {
         return self.vtable.GetMatchingFontsByLOGFONT(self, logFont, fontSet, filteredSet);
@@ -5569,14 +5569,14 @@ pub const IID_IDWriteFontFace4 = &IID_IDWriteFontFace4_Value;
 pub const IDWriteFontFace4 = extern union {
     pub const VTable = extern struct {
         base: IDWriteFontFace3.VTable,
-        GetGlyphImageFormats_TODO_A: *const fn(
+        GetGlyphImageFormatsForGlyph: *const fn(
             self: *const IDWriteFontFace4,
             glyphId: u16,
             pixelsPerEmFirst: u32,
             pixelsPerEmLast: u32,
             glyphImageFormats: ?*DWRITE_GLYPH_IMAGE_FORMATS,
         ) callconv(.winapi) HRESULT,
-        GetGlyphImageFormats_TODO_B: *const fn(
+        GetGlyphImageFormatsAll: *const fn(
             self: *const IDWriteFontFace4,
         ) callconv(.winapi) DWRITE_GLYPH_IMAGE_FORMATS,
         GetGlyphImageData: *const fn(
@@ -5598,12 +5598,12 @@ pub const IDWriteFontFace4 = extern union {
     IDWriteFontFace1: IDWriteFontFace1,
     IDWriteFontFace: IDWriteFontFace,
     IUnknown: IUnknown,
-    pub const GetGlyphImageFormats = @compileError("COM method 'GetGlyphImageFormats' must be called using one of the following overload names: GetGlyphImageFormats_TODO_A, GetGlyphImageFormats_TODO_B");
-    pub fn GetGlyphImageFormats_TODO_A(self: *const IDWriteFontFace4, glyphId: u16, pixelsPerEmFirst: u32, pixelsPerEmLast: u32, glyphImageFormats: ?*DWRITE_GLYPH_IMAGE_FORMATS) callconv(.@"inline") HRESULT {
-        return self.vtable.GetGlyphImageFormats_TODO_A(self, glyphId, pixelsPerEmFirst, pixelsPerEmLast, glyphImageFormats);
+    pub const GetGlyphImageFormats = @compileError("COM method 'GetGlyphImageFormats' must be called using one of the following overload names: GetGlyphImageFormatsForGlyph, GetGlyphImageFormatsAll");
+    pub fn GetGlyphImageFormatsForGlyph(self: *const IDWriteFontFace4, glyphId: u16, pixelsPerEmFirst: u32, pixelsPerEmLast: u32, glyphImageFormats: ?*DWRITE_GLYPH_IMAGE_FORMATS) callconv(.@"inline") HRESULT {
+        return self.vtable.GetGlyphImageFormatsForGlyph(self, glyphId, pixelsPerEmFirst, pixelsPerEmLast, glyphImageFormats);
     }
-    pub fn GetGlyphImageFormats_TODO_B(self: *const IDWriteFontFace4) callconv(.@"inline") DWRITE_GLYPH_IMAGE_FORMATS {
-        return self.vtable.GetGlyphImageFormats_TODO_B(self);
+    pub fn GetGlyphImageFormatsAll(self: *const IDWriteFontFace4) callconv(.@"inline") DWRITE_GLYPH_IMAGE_FORMATS {
+        return self.vtable.GetGlyphImageFormatsAll(self);
     }
     pub fn GetGlyphImageData(self: *const IDWriteFontFace4, glyphId: u16, pixelsPerEm: u32, glyphImageFormat: DWRITE_GLYPH_IMAGE_FORMATS, glyphData: ?*DWRITE_GLYPH_IMAGE_DATA, glyphDataContext: ?*?*anyopaque) callconv(.@"inline") HRESULT {
         return self.vtable.GetGlyphImageData(self, glyphId, pixelsPerEm, glyphImageFormat, glyphData, glyphDataContext);
@@ -5629,13 +5629,13 @@ pub const IDWriteFactory4 = extern union {
             colorPaletteIndex: u32,
             colorLayers: **IDWriteColorGlyphRunEnumerator1,
         ) callconv(.winapi) HRESULT,
-        ComputeGlyphOrigins_TODO_A: *const fn(
+        ComputeGlyphOriginsDefault: *const fn(
             self: *const IDWriteFactory4,
             glyphRun: ?*const DWRITE_GLYPH_RUN,
             baselineOrigin: D2D_POINT_2F,
             glyphOrigins: ?*D2D_POINT_2F,
         ) callconv(.winapi) HRESULT,
-        ComputeGlyphOrigins_TODO_B: *const fn(
+        ComputeGlyphOriginsWithTransform: *const fn(
             self: *const IDWriteFactory4,
             glyphRun: ?*const DWRITE_GLYPH_RUN,
             measuringMode: DWRITE_MEASURING_MODE,
@@ -5650,15 +5650,15 @@ pub const IDWriteFactory4 = extern union {
     IDWriteFactory1: IDWriteFactory1,
     IDWriteFactory: IDWriteFactory,
     IUnknown: IUnknown,
-    pub const ComputeGlyphOrigins = @compileError("COM method 'ComputeGlyphOrigins' must be called using one of the following overload names: ComputeGlyphOrigins_TODO_B, ComputeGlyphOrigins_TODO_A");
+    pub const ComputeGlyphOrigins = @compileError("COM method 'ComputeGlyphOrigins' must be called using one of the following overload names: ComputeGlyphOriginsWithTransform, ComputeGlyphOriginsDefault");
     pub fn TranslateColorGlyphRun(self: *const IDWriteFactory4, baselineOrigin: D2D_POINT_2F, glyphRun: ?*const DWRITE_GLYPH_RUN, glyphRunDescription: ?*const DWRITE_GLYPH_RUN_DESCRIPTION, desiredGlyphImageFormats: DWRITE_GLYPH_IMAGE_FORMATS, measuringMode: DWRITE_MEASURING_MODE, worldAndDpiTransform: ?*const DWRITE_MATRIX, colorPaletteIndex: u32, colorLayers: **IDWriteColorGlyphRunEnumerator1) callconv(.@"inline") HRESULT {
         return self.vtable.TranslateColorGlyphRun(self, baselineOrigin, glyphRun, glyphRunDescription, desiredGlyphImageFormats, measuringMode, worldAndDpiTransform, colorPaletteIndex, colorLayers);
     }
-    pub fn ComputeGlyphOrigins_TODO_A(self: *const IDWriteFactory4, glyphRun: ?*const DWRITE_GLYPH_RUN, baselineOrigin: D2D_POINT_2F, glyphOrigins: ?*D2D_POINT_2F) callconv(.@"inline") HRESULT {
-        return self.vtable.ComputeGlyphOrigins_TODO_A(self, glyphRun, baselineOrigin, glyphOrigins);
+    pub fn ComputeGlyphOriginsDefault(self: *const IDWriteFactory4, glyphRun: ?*const DWRITE_GLYPH_RUN, baselineOrigin: D2D_POINT_2F, glyphOrigins: ?*D2D_POINT_2F) callconv(.@"inline") HRESULT {
+        return self.vtable.ComputeGlyphOriginsDefault(self, glyphRun, baselineOrigin, glyphOrigins);
     }
-    pub fn ComputeGlyphOrigins_TODO_B(self: *const IDWriteFactory4, glyphRun: ?*const DWRITE_GLYPH_RUN, measuringMode: DWRITE_MEASURING_MODE, baselineOrigin: D2D_POINT_2F, worldAndDpiTransform: ?*const DWRITE_MATRIX, glyphOrigins: ?*D2D_POINT_2F) callconv(.@"inline") HRESULT {
-        return self.vtable.ComputeGlyphOrigins_TODO_B(self, glyphRun, measuringMode, baselineOrigin, worldAndDpiTransform, glyphOrigins);
+    pub fn ComputeGlyphOriginsWithTransform(self: *const IDWriteFactory4, glyphRun: ?*const DWRITE_GLYPH_RUN, measuringMode: DWRITE_MEASURING_MODE, baselineOrigin: D2D_POINT_2F, worldAndDpiTransform: ?*const DWRITE_MATRIX, glyphOrigins: ?*D2D_POINT_2F) callconv(.@"inline") HRESULT {
+        return self.vtable.ComputeGlyphOriginsWithTransform(self, glyphRun, measuringMode, baselineOrigin, worldAndDpiTransform, glyphOrigins);
     }
 };
 
@@ -6298,27 +6298,27 @@ pub const IDWriteFontSet1 = extern union {
             self: *const IDWriteFontSet1,
             filteredFontSet: **IDWriteFontSet1,
         ) callconv(.winapi) HRESULT,
-        GetFilteredFonts_TODO_A: *const fn(
+        GetFilteredFontsByIndices: *const fn(
             self: *const IDWriteFontSet1,
             indices: [*]const u32,
             indexCount: u32,
             filteredFontSet: **IDWriteFontSet1,
         ) callconv(.winapi) HRESULT,
-        GetFilteredFonts_TODO_B: *const fn(
+        GetFilteredFontsByAxisRanges: *const fn(
             self: *const IDWriteFontSet1,
             fontAxisRanges: [*]const DWRITE_FONT_AXIS_RANGE,
             fontAxisRangeCount: u32,
             selectAnyRange: BOOL,
             filteredFontSet: **IDWriteFontSet1,
         ) callconv(.winapi) HRESULT,
-        GetFilteredFonts_TODO_C: *const fn(
+        GetFilteredFontsByProperties: *const fn(
             self: *const IDWriteFontSet1,
             properties: ?[*]const DWRITE_FONT_PROPERTY,
             propertyCount: u32,
             selectAnyProperty: BOOL,
             filteredFontSet: **IDWriteFontSet1,
         ) callconv(.winapi) HRESULT,
-        GetFilteredFontIndices_TODO_A: *const fn(
+        GetFilteredFontIndicesByAxisRanges: *const fn(
             self: *const IDWriteFontSet1,
             fontAxisRanges: [*]const DWRITE_FONT_AXIS_RANGE,
             fontAxisRangeCount: u32,
@@ -6327,7 +6327,7 @@ pub const IDWriteFontSet1 = extern union {
             maxIndexCount: u32,
             actualIndexCount: ?*u32,
         ) callconv(.winapi) HRESULT,
-        GetFilteredFontIndices_TODO_C: *const fn(
+        GetFilteredFontIndicesByProperties: *const fn(
             self: *const IDWriteFontSet1,
             properties: [*]const DWRITE_FONT_PROPERTY,
             propertyCount: u32,
@@ -6336,14 +6336,14 @@ pub const IDWriteFontSet1 = extern union {
             maxIndexCount: u32,
             actualIndexCount: ?*u32,
         ) callconv(.winapi) HRESULT,
-        GetFontAxisRanges_TODO_A: *const fn(
+        GetFontAxisRangesForFont: *const fn(
             self: *const IDWriteFontSet1,
             listIndex: u32,
             fontAxisRanges: [*]DWRITE_FONT_AXIS_RANGE,
             maxFontAxisRangeCount: u32,
             actualFontAxisRangeCount: ?*u32,
         ) callconv(.winapi) HRESULT,
-        GetFontAxisRanges_TODO_B: *const fn(
+        GetFontAxisRangesAll: *const fn(
             self: *const IDWriteFontSet1,
             fontAxisRanges: [*]DWRITE_FONT_AXIS_RANGE,
             maxFontAxisRangeCount: u32,
@@ -6372,35 +6372,35 @@ pub const IDWriteFontSet1 = extern union {
     vtable: *const VTable,
     IDWriteFontSet: IDWriteFontSet,
     IUnknown: IUnknown,
-    pub const GetFilteredFontIndices = @compileError("COM method 'GetFilteredFontIndices' must be called using one of the following overload names: GetFilteredFontIndices_TODO_C, GetFilteredFontIndices_TODO_A");
-    pub const GetFontAxisRanges = @compileError("COM method 'GetFontAxisRanges' must be called using one of the following overload names: GetFontAxisRanges_TODO_B, GetFontAxisRanges_TODO_A");
-    pub const GetFilteredFonts = @compileError("COM method 'GetFilteredFonts' must be called using one of the following overload names: GetFilteredFonts_TODO_B, GetFilteredFonts_TODO_C, GetFilteredFonts_TODO_A");
+    pub const GetFilteredFontIndices = @compileError("COM method 'GetFilteredFontIndices' must be called using one of the following overload names: GetFilteredFontIndicesByProperties, GetFilteredFontIndicesByAxisRanges");
+    pub const GetFontAxisRanges = @compileError("COM method 'GetFontAxisRanges' must be called using one of the following overload names: GetFontAxisRangesAll, GetFontAxisRangesForFont");
+    pub const GetFilteredFonts = @compileError("COM method 'GetFilteredFonts' must be called using one of the following overload names: GetFilteredFontsByAxisRanges, GetFilteredFontsByProperties, GetFilteredFontsByIndices");
     pub fn GetMatchingFonts(self: *const IDWriteFontSet1, fontProperty: ?*const DWRITE_FONT_PROPERTY, fontAxisValues: [*]const DWRITE_FONT_AXIS_VALUE, fontAxisValueCount: u32, matchingFonts: **IDWriteFontSet1) callconv(.@"inline") HRESULT {
         return self.vtable.GetMatchingFonts(self, fontProperty, fontAxisValues, fontAxisValueCount, matchingFonts);
     }
     pub fn GetFirstFontResources(self: *const IDWriteFontSet1, filteredFontSet: **IDWriteFontSet1) callconv(.@"inline") HRESULT {
         return self.vtable.GetFirstFontResources(self, filteredFontSet);
     }
-    pub fn GetFilteredFonts_TODO_A(self: *const IDWriteFontSet1, indices: [*]const u32, indexCount: u32, filteredFontSet: **IDWriteFontSet1) callconv(.@"inline") HRESULT {
-        return self.vtable.GetFilteredFonts_TODO_A(self, indices, indexCount, filteredFontSet);
+    pub fn GetFilteredFontsByIndices(self: *const IDWriteFontSet1, indices: [*]const u32, indexCount: u32, filteredFontSet: **IDWriteFontSet1) callconv(.@"inline") HRESULT {
+        return self.vtable.GetFilteredFontsByIndices(self, indices, indexCount, filteredFontSet);
     }
-    pub fn GetFilteredFonts_TODO_B(self: *const IDWriteFontSet1, fontAxisRanges: [*]const DWRITE_FONT_AXIS_RANGE, fontAxisRangeCount: u32, selectAnyRange: BOOL, filteredFontSet: **IDWriteFontSet1) callconv(.@"inline") HRESULT {
-        return self.vtable.GetFilteredFonts_TODO_B(self, fontAxisRanges, fontAxisRangeCount, selectAnyRange, filteredFontSet);
+    pub fn GetFilteredFontsByAxisRanges(self: *const IDWriteFontSet1, fontAxisRanges: [*]const DWRITE_FONT_AXIS_RANGE, fontAxisRangeCount: u32, selectAnyRange: BOOL, filteredFontSet: **IDWriteFontSet1) callconv(.@"inline") HRESULT {
+        return self.vtable.GetFilteredFontsByAxisRanges(self, fontAxisRanges, fontAxisRangeCount, selectAnyRange, filteredFontSet);
     }
-    pub fn GetFilteredFonts_TODO_C(self: *const IDWriteFontSet1, properties: ?[*]const DWRITE_FONT_PROPERTY, propertyCount: u32, selectAnyProperty: BOOL, filteredFontSet: **IDWriteFontSet1) callconv(.@"inline") HRESULT {
-        return self.vtable.GetFilteredFonts_TODO_C(self, properties, propertyCount, selectAnyProperty, filteredFontSet);
+    pub fn GetFilteredFontsByProperties(self: *const IDWriteFontSet1, properties: ?[*]const DWRITE_FONT_PROPERTY, propertyCount: u32, selectAnyProperty: BOOL, filteredFontSet: **IDWriteFontSet1) callconv(.@"inline") HRESULT {
+        return self.vtable.GetFilteredFontsByProperties(self, properties, propertyCount, selectAnyProperty, filteredFontSet);
     }
-    pub fn GetFilteredFontIndices_TODO_A(self: *const IDWriteFontSet1, fontAxisRanges: [*]const DWRITE_FONT_AXIS_RANGE, fontAxisRangeCount: u32, selectAnyRange: BOOL, indices: [*]u32, maxIndexCount: u32, actualIndexCount: ?*u32) callconv(.@"inline") HRESULT {
-        return self.vtable.GetFilteredFontIndices_TODO_A(self, fontAxisRanges, fontAxisRangeCount, selectAnyRange, indices, maxIndexCount, actualIndexCount);
+    pub fn GetFilteredFontIndicesByAxisRanges(self: *const IDWriteFontSet1, fontAxisRanges: [*]const DWRITE_FONT_AXIS_RANGE, fontAxisRangeCount: u32, selectAnyRange: BOOL, indices: [*]u32, maxIndexCount: u32, actualIndexCount: ?*u32) callconv(.@"inline") HRESULT {
+        return self.vtable.GetFilteredFontIndicesByAxisRanges(self, fontAxisRanges, fontAxisRangeCount, selectAnyRange, indices, maxIndexCount, actualIndexCount);
     }
-    pub fn GetFilteredFontIndices_TODO_C(self: *const IDWriteFontSet1, properties: [*]const DWRITE_FONT_PROPERTY, propertyCount: u32, selectAnyProperty: BOOL, indices: [*]u32, maxIndexCount: u32, actualIndexCount: ?*u32) callconv(.@"inline") HRESULT {
-        return self.vtable.GetFilteredFontIndices_TODO_C(self, properties, propertyCount, selectAnyProperty, indices, maxIndexCount, actualIndexCount);
+    pub fn GetFilteredFontIndicesByProperties(self: *const IDWriteFontSet1, properties: [*]const DWRITE_FONT_PROPERTY, propertyCount: u32, selectAnyProperty: BOOL, indices: [*]u32, maxIndexCount: u32, actualIndexCount: ?*u32) callconv(.@"inline") HRESULT {
+        return self.vtable.GetFilteredFontIndicesByProperties(self, properties, propertyCount, selectAnyProperty, indices, maxIndexCount, actualIndexCount);
     }
-    pub fn GetFontAxisRanges_TODO_A(self: *const IDWriteFontSet1, listIndex: u32, fontAxisRanges: [*]DWRITE_FONT_AXIS_RANGE, maxFontAxisRangeCount: u32, actualFontAxisRangeCount: ?*u32) callconv(.@"inline") HRESULT {
-        return self.vtable.GetFontAxisRanges_TODO_A(self, listIndex, fontAxisRanges, maxFontAxisRangeCount, actualFontAxisRangeCount);
+    pub fn GetFontAxisRangesForFont(self: *const IDWriteFontSet1, listIndex: u32, fontAxisRanges: [*]DWRITE_FONT_AXIS_RANGE, maxFontAxisRangeCount: u32, actualFontAxisRangeCount: ?*u32) callconv(.@"inline") HRESULT {
+        return self.vtable.GetFontAxisRangesForFont(self, listIndex, fontAxisRanges, maxFontAxisRangeCount, actualFontAxisRangeCount);
     }
-    pub fn GetFontAxisRanges_TODO_B(self: *const IDWriteFontSet1, fontAxisRanges: [*]DWRITE_FONT_AXIS_RANGE, maxFontAxisRangeCount: u32, actualFontAxisRangeCount: ?*u32) callconv(.@"inline") HRESULT {
-        return self.vtable.GetFontAxisRanges_TODO_B(self, fontAxisRanges, maxFontAxisRangeCount, actualFontAxisRangeCount);
+    pub fn GetFontAxisRangesAll(self: *const IDWriteFontSet1, fontAxisRanges: [*]DWRITE_FONT_AXIS_RANGE, maxFontAxisRangeCount: u32, actualFontAxisRangeCount: ?*u32) callconv(.@"inline") HRESULT {
+        return self.vtable.GetFontAxisRangesAll(self, fontAxisRanges, maxFontAxisRangeCount, actualFontAxisRangeCount);
     }
     pub fn GetFontFaceReference(self: *const IDWriteFontSet1, listIndex: u32, fontFaceReference: **IDWriteFontFaceReference1) callconv(.@"inline") HRESULT {
         return self.vtable.GetFontFaceReference(self, listIndex, fontFaceReference);

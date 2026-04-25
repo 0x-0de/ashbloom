@@ -19,11 +19,8 @@ const PipelineVertexInput = pipelines.PipelineVertexInput;
 
 const Font = @import("font.zig").Font;
 
-/// FreeType imports.
-pub const freetype = @cImport({
-    @cInclude("ft2build.h");
-    @cInclude("freetype/freetype.h");
-});
+/// FreeType import.
+pub const freetype = @import("freetype");
 
 /// FreeType library instance. init() must be called before this is accessed.
 pub var ft: freetype.FT_Library = undefined;
@@ -852,8 +849,6 @@ pub const Container = struct
     {
         try self.ui_rendering.uniform_callback(self.*, @truncate(swapchain.current_image_index));
 
-        var offset: vk.DeviceSize = 0;
-
         try command_buffer.reset();
 
         try command_buffer.begin_recording();
@@ -872,7 +867,7 @@ pub const Container = struct
                 .height = @intFromFloat(self.bounds.scl_y)
             }
         });
-        command_buffer.cmd_bind_vertex_buffer(&self.instance_buffer.?.buffer, &offset);
+        command_buffer.cmd_bind_vertex_buffer(self.instance_buffer.?.buffer, @as(vk.DeviceSize, 0));
         command_buffer.cmd_draw(6, @truncate(self.element_draw_count));
         command_buffer.cmd_end_render_pass();
         try command_buffer.end_recording();

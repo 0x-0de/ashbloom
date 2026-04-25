@@ -268,7 +268,7 @@ pub const Swapchain = struct
     /// has otherwise expired. Sets the value of current_image_index to the index of the acquired image.
     pub fn acquire_next_image(self: *Swapchain) !AcquireImageResult
     {
-        try self.context.device.resetFences(1, @ptrCast(&self.fence_image_acquired));
+        try self.context.device.resetFences(&.{ self.fence_image_acquired });
         var result = try self.context.device.acquireNextImageKHR(self.handle, std.math.maxInt(u64), .null_handle, self.fence_image_acquired);
 
         var window_width: c_long = undefined;
@@ -293,7 +293,7 @@ pub const Swapchain = struct
             self.deinit();
             try self.create_swapchain();
 
-            try self.context.device.resetFences(1, @ptrCast(&self.fence_image_acquired));
+            try self.context.device.resetFences(&.{ self.fence_image_acquired });
             result = try self.context.device.acquireNextImageKHR(self.handle, std.math.maxInt(u64), .null_handle, self.fence_image_acquired);
         }
         else if(result.result != .success)
@@ -384,8 +384,8 @@ pub const Swapchain = struct
     {
         const index = self.current_image_index;
         const stage = self.current_render_stage;
-        _ = try self.context.device.waitForFences(1, @ptrCast(&self.fences_command_buffers_finished[stage].items[index]), .true, std.math.maxInt(u64));
-        try self.context.device.resetFences(1, @ptrCast(&self.fences_command_buffers_finished[stage].items[index]));
+        _ = try self.context.device.waitForFences(&.{ self.fences_command_buffers_finished[stage].items[index] }, .true, std.math.maxInt(u64));
+        try self.context.device.resetFences(&.{ self.fences_command_buffers_finished[stage].items[index] });
         return &self.command_buffers[stage].items[self.current_image_index];
     }
 
@@ -464,10 +464,10 @@ pub const Swapchain = struct
         }
         else
         {
-            _ = try self.context.device.waitForFences(1, @ptrCast(&self.fence_image_acquired), .true, std.math.maxInt(u64));
+            _ = try self.context.device.waitForFences(&.{ self.fence_image_acquired }, .true, std.math.maxInt(u64));
         }
 
-        try self.context.device.queueSubmit(render_queue, 1, @ptrCast(&info_submit), self.fences_command_buffers_finished[stage].items[index]);
+        try self.context.device.queueSubmit(render_queue, &.{ info_submit }, self.fences_command_buffers_finished[stage].items[index]);
 
         self.current_render_stage += 1;
     }

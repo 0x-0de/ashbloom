@@ -50,16 +50,30 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
 pub fn build(b: *std.Build) void
 {
     const std_target = b.standardTargetOptions(.{});
-	const std_optimize = b.standardOptimizeOption(.{});
+    const std_optimize = b.standardOptimizeOption(.{});
 
-    var ashbloom_mod = b.addModule("ashbloom", .{
+    const c_freetype = b.addTranslateC(.{
+        .root_source_file = b.path("src/utils/inc_freetype.h"),
+        .target = std_target,
+        .optimize = std_optimize
+    });
+
+    c_freetype.addIncludePath(b.path("include/freetype"));
+
+    // May need to link libfreetype with c_freetype.
+
+    const ashbloom_mod = b.addModule("ashbloom", .{
         .root_source_file = b.path("src/root.zig"),
         .target = std_target,
         .optimize = std_optimize,
-        .link_libc = true
+        .link_libc = true,
+        .imports = &.{
+            .{
+                .name = "freetype",
+                .module = c_freetype.createModule()
+            }
+        }
     });
-
-    ashbloom_mod.addIncludePath(.{ .cwd_relative = "../../include/freetype" });
 
     const lib = b.addLibrary(.{
         .linkage = .static,
@@ -73,18 +87,18 @@ pub fn build(b: *std.Build) void
             .root_source_file = b.path("src/root.zig"),
             .target = std_target,
             .optimize = std_optimize,
-            .link_libc = true
+            .link_libc = true,
+            .imports = &.{
+                .{
+                    .name = "freetype",
+                    .module = c_freetype.createModule()
+                }
+            }
         })
     });
 
-    // const install_glfw = b.addInstallFile(b.path("deps/glfw.dll"), ".");
-    // const install_freetype = b.addInstallFile(b.path("deps/libfreetype.dll"), ".");
-
     add_libraries(b, exe_test, std_target, std_optimize);
-    exe_test.addIncludePath(.{ .cwd_relative = "include/freetype" });
-
     add_libraries(b, lib, std_target, std_optimize);
-    lib.addIncludePath(.{ .cwd_relative = "include/freetype" });
 
     // Building library documentation.
 

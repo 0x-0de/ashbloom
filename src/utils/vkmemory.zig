@@ -88,7 +88,7 @@ transfer_queue: vk.Queue, src_offset: vk.DeviceSize, dst_offset: vk.DeviceSize) 
         .size = size
     };
 
-    context.device.cmdCopyBuffer(command_buffer, src_buffer, dst_buffer, 1, @ptrCast(&info_buffer_copy));
+    context.device.cmdCopyBuffer(command_buffer, src_buffer, dst_buffer, &.{ info_buffer_copy });
     try commands.end_and_submit_single_time_command_buffer(context, command_pool, command_buffer, transfer_queue);
 }
 
@@ -106,7 +106,7 @@ transfer_queue: vk.Queue) !void
         .size = size
     };
 
-    context.device.cmdCopyBuffer(command_buffer, src_buffer, dst_buffer, 1, @ptrCast(&info_buffer_copy));
+    context.device.cmdCopyBuffer(command_buffer, src_buffer, dst_buffer, &.{ info_buffer_copy });
     try commands.end_and_submit_single_time_command_buffer(context, command_pool, command_buffer, transfer_queue);
 }
 
@@ -124,7 +124,7 @@ src_subresource: vk.ImageSubresourceLayers, dst_subresource: vk.ImageSubresource
         .dst_subresource = dst_subresource
     };
 
-    context.device.cmdCopyImage(command_buffer, src_image, src_layout, dst_image, dst_layout, 1, @ptrCast(&image_copy));
+    context.device.cmdCopyImage(command_buffer, src_image, src_layout, dst_image, dst_layout, &.{ image_copy });
     try commands.end_and_submit_single_time_command_buffer(context, command_pool, command_buffer, transfer_queue);
 }
 
@@ -153,8 +153,7 @@ transfer_queue: vk.Queue) !void
         .image_extent = image_extent
     };
 
-    context.device.cmdCopyBufferToImage(command_buffer, src_buffer, dst_image, .transfer_dst_optimal, 1,
-    @ptrCast(&info_buffer_image_copy));
+    context.device.cmdCopyBufferToImage(command_buffer, src_buffer, dst_image, .transfer_dst_optimal, &.{ info_buffer_image_copy });
     try commands.end_and_submit_single_time_command_buffer(context, command_pool, command_buffer, transfer_queue);
 }
 

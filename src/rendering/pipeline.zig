@@ -90,13 +90,16 @@ const PipelineShaderModule = struct
     /// Load a shader .spv file and return it's data as a slice.
     fn load_spv_file(allocator: *const std.mem.Allocator, path: [*:0]const u8) ![]u8
     {
-        const cwd = std.fs.cwd();
+        var io: std.Io.Threaded = .init(allocator.*, .{});
+        defer io.deinit();
+
+        const cwd = std.Io.Dir.cwd();
         const path_slice = std.mem.span(path);
         
         var dummy_buffer: [1]u8 = undefined;
         
-        const file = try cwd.openFile(path_slice, .{.mode = .read_only});
-        var file_reader = file.reader(@ptrCast(&dummy_buffer));
+        const file = try cwd.openFile(io.io(), path_slice, .{.mode = .read_only});
+        var file_reader = file.reader(io.io(), @ptrCast(&dummy_buffer));
 
         const file_buffer = try file_reader.interface.allocRemaining(allocator.*, .unlimited);
 
@@ -330,7 +333,7 @@ pub const PipelineDescriptorSet = struct
                 }
             }
 
-            self.context.device.updateDescriptorSets(@truncate(descriptor_writes.len), @ptrCast(descriptor_writes), 0, null);
+            self.context.device.updateDescriptorSets(descriptor_writes, null);
         }
     }
 
@@ -622,7 +625,7 @@ pub const Pipeline = struct
 
         if(self.info_depth_stencil_testing != null) info_pipeline.p_depth_stencil_state = &self.info_depth_stencil_testing.?;
 
-        _ = try self.vkc.device.createGraphicsPipelines(.null_handle, 1, @ptrCast(&info_pipeline), null, @ptrCast(&self.pipeline));
+        _ = try self.vkc.device.createGraphicsPipelines(.null_handle, &.{ info_pipeline }, null, @ptrCast(&self.pipeline));
 
         shader_stage_list.deinit(self.vkc.allocator.*);
 

@@ -68,11 +68,11 @@ pub fn build(b: *std.Build) void
     const exe = b.addExecutable(.{
         .name = "todo",
         .root_module = b.createModule(.{
-			.root_source_file = b.path("src/main.zig"),
-			.target = std_target,
+            .root_source_file = b.path("src/main.zig"),
+            .target = std_target,
             .optimize = std_optimize,
             .link_libc = true
-		})
+	})
     });
 
     const exe_test = b.addTest(.{

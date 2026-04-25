@@ -25,13 +25,16 @@ const ImageTransitionError = error
 /// Load a .bmp image, and return its data as a slice.
 pub fn load_bmp_image(allocator: *const std.mem.Allocator, path: [*:0]const u8, image_width: *u32, image_height: *u32) ![]u8
 {
-    const cwd = std.fs.cwd();
+    var io: std.Io.Threaded = .init(allocator.*, .{});
+    defer io.deinit();
+
+    const cwd = std.Io.Dir.cwd();
     const path_slice = std.mem.span(path);
     
     var dummy_buffer: [1]u8 = undefined;
     
-    const file = try cwd.openFile(path_slice, .{.mode = .read_only});
-    var file_reader = file.reader(@ptrCast(&dummy_buffer));
+    const file = try cwd.openFile(io.io(), path_slice, .{.mode = .read_only});
+    var file_reader = file.reader(io.io(), @ptrCast(&dummy_buffer));
 
     const bitmap_header = try file_reader.interface.readAlloc(allocator.*, 18);
 
@@ -216,8 +219,7 @@ command_pool: vk.CommandPool, transfer_queue: vk.Queue) !void
         }
     }
 
-    context.device.cmdPipelineBarrier(command_buffer, src_stage, dst_stage, .{},
-    0, null, 0, null, 1, @ptrCast(&pipeline_barrier));
+    context.device.cmdPipelineBarrier(command_buffer, src_stage, dst_stage, .{}, null, null, &.{ pipeline_barrier });
 
     try commands.end_and_submit_single_time_command_buffer(context, command_pool, command_buffer, transfer_queue);
 }
