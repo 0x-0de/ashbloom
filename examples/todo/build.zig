@@ -1,6 +1,22 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+/// Adding other dependencies for ashbloom.
+fn add_library_dependencies(b: *std.Build, ashbloom: *std.Build.Dependency) void
+{
+    const install_glfw = b.addInstallFile(ashbloom.path("deps/glfw.dll"), "../bin/glfw.dll");
+    const install_freetype = b.addInstallFile(ashbloom.path("deps/libfreetype.dll"), "../bin/libfreetype.dll");
+
+    const install_shader_ui_basic_vert = b.addInstallFile(ashbloom.path("src/utils/ui_themes/ui_basic_vert.spv"), "../bin/shaders/ui_basic_vert.spv");
+    const install_shader_ui_basic_frag = b.addInstallFile(ashbloom.path("src/utils/ui_themes/ui_basic_frag.spv"), "../bin/shaders/ui_basic_frag.spv");
+
+    b.getInstallStep().dependOn(&install_glfw.step);
+    b.getInstallStep().dependOn(&install_freetype.step);
+
+    b.getInstallStep().dependOn(&install_shader_ui_basic_vert.step);
+    b.getInstallStep().dependOn(&install_shader_ui_basic_frag.step);
+}
+
 /// Adding the Ashbloom library to the compile object.
 fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void
 {
@@ -8,6 +24,8 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
         .target = target,
         .optimize = optimize,
     });
+
+    add_library_dependencies(b, ashbloom);
 
     cmp.root_module.addImport("ashbloom", ashbloom.module("ashbloom"));
 
