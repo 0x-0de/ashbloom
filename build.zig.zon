@@ -8,6 +8,7 @@
         "build.zig.zon",
         "src",
         "deps",
+        "lib",
         "LICENSE",
         "README.md",
         "res",
