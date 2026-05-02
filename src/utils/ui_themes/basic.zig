@@ -1941,6 +1941,9 @@ fn textfield_callback_rebuild(e: *Element, data: ContainerInputData) !void
     const diff: isize = @as(isize, @intCast(textfield_data.text.len)) - @as(isize, @intCast(previous_text_size));
     textfield_data.current_cursor_pos +%= @bitCast(diff);
 
+    if(textfield_data.current_cursor_pos > textfield_data.text.len)
+        textfield_data.current_cursor_pos = textfield_data.text.len;
+
     memcpy_anonymous(e.data.?.ptr, &textfield_data, @sizeOf(TextFieldData));
 
     const text_index = text_space.children.items.len - 1;
