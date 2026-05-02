@@ -758,6 +758,8 @@ pub const Container = struct
     /// Returns a list of all of the elements contained within this element which need to be refreshed.
     fn get_elements_refresh_list(self: *Container, element: *Element, list: *std.ArrayList(*Element)) !void
     {
+        if(!element.enabled) return;
+
         if(element.should_refresh)
         {
             if(element.enabled and element.draw_mode != .None)
