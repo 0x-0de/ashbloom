@@ -855,30 +855,31 @@ pub const Container = struct
     /// Draws the instance arrays using the command buffer onto the framebuffer.
     pub fn draw(self: *Container, command_buffer: *CommandBuffer, swapchain: *Swapchain, framebuffer: vk.Framebuffer) !void
     {
-        if(self.instance_buffer == null) return;
-
         try self.ui_rendering.uniform_callback(self.*, @truncate(swapchain.current_image_index));
 
         try command_buffer.reset();
 
         try command_buffer.begin_recording();
         command_buffer.cmd_begin_render_pass(self.ui_rendering.render_pass, framebuffer, swapchain.extent, .{0, 0, 0, 1});
-        command_buffer.cmd_bind_pipeline(self.ui_rendering.pipeline);
-        command_buffer.cmd_bind_descriptor_set(self.ui_rendering.pipeline, 
-        &self.ui_rendering.descriptor_set.sets[swapchain.current_image_index]);
-        command_buffer.cmd_set_viewport_full(swapchain.extent);
-        command_buffer.cmd_set_scissor(.{
-            .offset = .{
-                .x = @intFromFloat(self.bounds.pos_x),
-                .y = @intFromFloat(self.bounds.pos_y)
-            },
-            .extent = .{
-                .width = @intFromFloat(self.bounds.scl_x),
-                .height = @intFromFloat(self.bounds.scl_y)
-            }
-        });
-        command_buffer.cmd_bind_vertex_buffer(self.instance_buffer.?.buffer, @as(vk.DeviceSize, 0));
-        command_buffer.cmd_draw(6, @truncate(self.element_draw_count));
+        if(self.instance_buffer != null)
+        {
+            command_buffer.cmd_bind_pipeline(self.ui_rendering.pipeline);
+            command_buffer.cmd_bind_descriptor_set(self.ui_rendering.pipeline, 
+            &self.ui_rendering.descriptor_set.sets[swapchain.current_image_index]);
+            command_buffer.cmd_set_viewport_full(swapchain.extent);
+            command_buffer.cmd_set_scissor(.{
+                .offset = .{
+                    .x = @intFromFloat(self.bounds.pos_x),
+                    .y = @intFromFloat(self.bounds.pos_y)
+                },
+                .extent = .{
+                    .width = @intFromFloat(self.bounds.scl_x),
+                    .height = @intFromFloat(self.bounds.scl_y)
+                }
+            });
+            command_buffer.cmd_bind_vertex_buffer(self.instance_buffer.?.buffer, @as(vk.DeviceSize, 0));
+            command_buffer.cmd_draw(6, @truncate(self.element_draw_count));
+        }
         command_buffer.cmd_end_render_pass();
         try command_buffer.end_recording();
 
