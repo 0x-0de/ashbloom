@@ -412,6 +412,12 @@ pub const VkContext = struct
         return qf;
     }
 
+    /// Calls self.get_physical_device_queue_families() with self.physical_device as the parameter.
+    pub fn get_queue_families(self: VkContext) !PhysicalDeviceQueueFamilies
+    {
+        return self.get_physical_device_queue_families(self.physical_device);
+    }
+
     /// Checking if a physical device can support the provided list of extensions.
     fn check_device_extension_support(self: VkContext, physical_device: vk.PhysicalDevice, extensions: [][*:0]const u8) !bool
     {
