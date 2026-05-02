@@ -841,7 +841,7 @@ pub const Container = struct
         var data_list = try self.get_all_element_data();
         defer data_list.deinit(self.context.allocator.*);
 
-        self.instance_buffer = try self.vk_allocator.alloc_buffer(f32, data_list.items, .exclusive, .VertexBuffer);
+        self.instance_buffer = if(data_list.items.len == 0) null else try self.vk_allocator.alloc_buffer(f32, data_list.items, .exclusive, .VertexBuffer);
     }
 
     /// Deinitializes the container, destroying all elements it holds and freeing all memory it uses.
@@ -855,6 +855,8 @@ pub const Container = struct
     /// Draws the instance arrays using the command buffer onto the framebuffer.
     pub fn draw(self: *Container, command_buffer: *CommandBuffer, swapchain: *Swapchain, framebuffer: vk.Framebuffer) !void
     {
+        if(self.instance_buffer == null) return;
+
         try self.ui_rendering.uniform_callback(self.*, @truncate(swapchain.current_image_index));
 
         try command_buffer.reset();
