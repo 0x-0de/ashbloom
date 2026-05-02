@@ -291,7 +291,7 @@ pub const Element = struct
         var e = try self.allocator.create(Element);
         e.* = try .init(self.allocator, element.draw_mode, element.placement, element.coordinates);
 
-        e.enabled = self.enabled;
+        e.enabled = element.enabled;
         e.parent = self;
         e.space = element.space;
         e.freeze = element.freeze;
