@@ -11,15 +11,13 @@ const RenderPass = @import("renderpass.zig").RenderPass;
 const Pipeline = @import("pipeline.zig").Pipeline;
 
 /// Creates a command pool to allocate graphics command buffers.
-pub fn create_command_pool(vkc: *vkcontext.VkContext) !vk.CommandPool
+pub fn create_command_pool(vkc: *vkcontext.VkContext, queue_family_index: u32) !vk.CommandPool
 {
-    const queue_family = try vkc.get_physical_device_queue_families(vkc.physical_device);
-
     const info_command_pool: vk.CommandPoolCreateInfo = .{
         .flags = .{
             .reset_command_buffer_bit = true
         },
-        .queue_family_index = @truncate(queue_family.graphics_family_index.?)
+        .queue_family_index = queue_family_index 
     };
 
     return try vkc.device.createCommandPool(&info_command_pool, null);
