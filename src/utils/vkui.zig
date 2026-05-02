@@ -168,6 +168,8 @@ pub const Element = struct
 {
     /// Allocator handle.
     allocator: *const std.mem.Allocator,
+    /// Controls whether the element and its children should draw and update, at all.
+    enabled: bool,
     /// This element's draw mode.
     draw_mode: ElementDrawMode,
     /// The placement of the element. This, alongside the final calculated draw boundaries of this element's parent object, will determine the final
@@ -426,7 +428,7 @@ pub const Element = struct
 
     pub fn get_element_instance_data(self: *Element, origin: *Element, origin_bounds: Bounds) ?[13]f32
     {
-        if(self.draw_mode == .None or self.lineage == null)
+        if(!self.enabled or self.draw_mode == .None or self.lineage == null)
         {
             return null;
         }
@@ -461,6 +463,7 @@ pub const Element = struct
     {
         return .{
             .allocator = allocator,
+            .enabled = true,
             .placement = placement,
             .space = .{
                 .pos_x = 0,
@@ -487,6 +490,8 @@ pub const Element = struct
     /// Gets the instance data for this element, alongside it's children, and fills a std.ArrayList with it.
     pub fn place_instance_data(self: *Element, data_list: *std.ArrayList(f32), parent_bounds: RuntimeBounds) !void
     {
+        if(!self.enabled) return;
+
         const erb = self.get_runtime_bounds_from_parent(parent_bounds);
 
         if(self.draw_mode != .None)
@@ -755,7 +760,7 @@ pub const Container = struct
     {
         if(element.should_refresh)
         {
-            if(element.draw_mode != .None)
+            if(element.enabled and element.draw_mode != .None)
             {
                 try list.append(self.context.allocator.*, element);
             }
