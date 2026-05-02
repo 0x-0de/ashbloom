@@ -82,7 +82,7 @@ pub fn create_text_character(allocator: *const std.mem.Allocator, placement: Pla
 }
 
 /// Utility struct storing information about a line of UI text.
-const TextLine = struct
+pub const TextLine = struct
 {
     /// Offset of the text array where the line starts.
     start: usize,
@@ -95,7 +95,7 @@ const TextLine = struct
 };
 
 /// Data structure contained within the 'data' slice of a text element.
-const TextData = struct
+pub const TextData = struct
 {
     /// Font used.
     font: *Font,
@@ -986,7 +986,7 @@ pub fn empty_checkbox_callback(e: *Element, value: bool) void
     _ = value;
 }
 
-const CheckboxData = struct
+pub const CheckboxData = struct
 {
     ticked: bool,
     hovered: bool,
@@ -1284,7 +1284,7 @@ fn empty_slider_callback(e: *Element, value: f32) void
     _ = value;
 }
 
-const SliderData = struct
+pub const SliderData = struct
 {
     input_value: f32,
     discrete_values: u32,
@@ -1565,7 +1565,7 @@ pub fn create_slider(allocator: *const std.mem.Allocator, properties: SliderProp
     return e;
 }
 
-const TextFieldData = struct
+pub const TextFieldData = struct
 {
     update: bool,
 
