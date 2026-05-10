@@ -128,6 +128,16 @@ pub fn Vec(comptime T: type, comptime len: u32) type
             }
             std.debug.print(")\n", .{});
         }
+
+        pub fn length(self: Self) f64
+        {
+            var l: f64 = 0;
+            for(self.data) |d|
+            {
+                l += std.math.pow(f64, @floatCast(d), 2);
+            }
+            return std.math.sqrt(l);
+        }
     };
 }
 
@@ -150,6 +160,15 @@ pub fn cross(comptime vec_type: type, a: Vec(vec_type, 3), b: Vec(vec_type, 3)) 
     vec.data[2] = a.data[0] * b.data[1] - a.data[1] * b.data[0];
 
     return vec;
+}
+
+/// Returns a normalized version of the vector "vec".
+pub fn normalize(comptime vec_size: u32, comptime vec_type: type, vec: Vec(vec_type, vec_size)) Vec(vec_type, vec_size)
+{
+    const length = vec.length();
+    var v = vec;
+    v.div(@floatCast(length));
+    return v;
 }
 
 /// Returns a Matrix type, of type T, and with data of order columns x rows.
@@ -489,8 +508,10 @@ pub fn mat_look_at(allocator: *const std.mem.Allocator, pos: Vec(f32, 3), rot: V
 
     var forward = rot;
     forward.negate();
-    const side = cross(f32, Vec(f32, 3).init(.{0, -1, 0}), forward);
-    const above = cross(f32, side, forward);
+    var side = cross(f32, Vec(f32, 3).init(.{0, -1, 0}), forward);
+    side = normalize(3, f32, side);
+    var above = cross(f32, side, forward);
+    above = normalize(3, f32, above);
 
     for(0..3) |i|
     {

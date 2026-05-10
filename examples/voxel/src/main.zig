@@ -196,6 +196,10 @@ fn get_tick_count(time_start_frame: *f64, tick_timer: *f64) usize
     return ticks;
 }
 
+const Camera = @import("utils/camera.zig").Camera;
+
+var camera: Camera = undefined;
+
 fn update_shader_uniforms() !void
 {
     const fov = 70.0 * std.math.pi / 180.0;
@@ -214,10 +218,7 @@ fn update_shader_uniforms() !void
 
     allocator.free(projection_data);
 
-    const camera_pos: ash.math.Vec(f32, 3) = .init(.{0, 0, -3});
-    const camera_rot: ash.math.Vec(f32, 3) = .init(.{0, 0, 1});
-
-    var view = try ash.math.mat_look_at(&allocator, camera_pos, camera_rot);
+    var view = try ash.math.mat_look_at(&allocator, camera.pos, camera.rot);
     const view_data = try ash.math.mat_slice_data(f32, view);
     view.deinit();
 
@@ -269,6 +270,9 @@ pub fn main() !void
     var vertices: [12]f32 = .{0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1};
     const vertex_buffer = try vk_allocator.alloc_buffer(f32, &vertices, .exclusive, .VertexBuffer);
 
+    camera = .init();
+    camera.pos = .init(.{0, 0, -3});
+
     var frames: usize = 0;
     
     var fps_timer: f64 = ash.glfw.getTime();
@@ -281,7 +285,6 @@ pub fn main() !void
         glfw.pollEvents();
 
         const ticks = get_tick_count(&time_start_frame, &tick_timer);
-        _ = ticks;
 
         if(ash.glfw.getTime() - fps_timer > 1)
         {
@@ -305,6 +308,23 @@ pub fn main() !void
                 framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry));
             }
         }
+
+        if(window.get_mouse_button(glfw.MouseButton1) == glfw.Press)
+        {
+            glfw.setInputMode(window.glfw_handle, glfw.Cursor, glfw.CursorDisabled);
+        }
+
+        if(glfw.getKey(window.glfw_handle, glfw.KeyEscape) == glfw.Press)
+        {
+            glfw.setInputMode(window.glfw_handle, glfw.Cursor, glfw.CursorNormal);
+        }
+
+        for(0..ticks) |_|
+        {
+            camera.tick(window);
+        }
+
+        camera.update_input(window, 0.002);
 
         try update_shader_uniforms();
         const command_buffer = try swapchain.get_next_command_buffer();
