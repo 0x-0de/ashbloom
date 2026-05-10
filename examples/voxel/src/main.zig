@@ -115,11 +115,17 @@ fn deinit_render_passes() void
     render_passes.getPtr(.DebugGeometry).deinit();
 }
 
+const PipelineDescriptorSets = enum(u8)
+{
+    DebugGeometryModelView
+};
+
 const Pipelines = enum(u8)
 {
     DebugGeometry
 };
 
+var pipeline_descriptor_sets: std.EnumArray(PipelineDescriptorSets, ash.PipelineDescriptorSet) = .initUndefined();
 var pipeline_vertex_inputs: std.EnumArray(Pipelines, ash.PipelineVertexInput) = .initUndefined();
 var pipelines: std.EnumArray(Pipelines, ash.Pipeline) = .initUndefined();
 
@@ -132,12 +138,27 @@ fn init_graphics_pipelines() !void
     try pvi_debug_geometry.add_attribute(0, 0, .r32g32_sfloat, 0);
     try pvi_debug_geometry.build(0, .vertex);
 
+    const pds_debug_geometry = pipeline_descriptor_sets.getPtr(.DebugGeometryModelView);
+
+    pds_debug_geometry.* = try .init(&vk_context, &vk_allocator, @truncate(swapchain.image_count));
+
+    try pds_debug_geometry.add_binding(.{
+        .binding_index = 0,
+        .shader_stage = .{ .vertex_bit = true },
+        .type = .uniform_buffer,
+        .buffer_size = 16 * @sizeOf(f32)
+    });
+
+    try pds_debug_geometry.build();
+
     const p_debug_geometry = pipelines.getPtr(.DebugGeometry);
 
     p_debug_geometry.* = try .init(&vk_context);
 
     try p_debug_geometry.add_dynamic_state(.viewport);
     try p_debug_geometry.add_dynamic_state(.scissor);
+
+    try p_debug_geometry.add_descriptor_set(pipeline_descriptor_sets.get(.DebugGeometryModelView));
 
     try p_debug_geometry.add_shader_module("../res/shaders/debug/geometry_vert.spv", .{.vertex_bit = true});
     try p_debug_geometry.add_shader_module("../res/shaders/debug/geometry_frag.spv", .{.fragment_bit = true});
@@ -154,6 +175,8 @@ fn deinit_graphics_pipelines() void
     pipelines.getPtr(.DebugGeometry).deinit();
 
     pipeline_vertex_inputs.getPtr(.DebugGeometry).deinit();
+
+    pipeline_descriptor_sets.getPtr(.DebugGeometryModelView).deinit() catch unreachable;
 }
 
 fn get_tick_count(time_start_frame: *f64, tick_timer: *f64) usize
@@ -171,6 +194,25 @@ fn get_tick_count(time_start_frame: *f64, tick_timer: *f64) usize
     }
 
     return ticks;
+}
+
+fn update_shader_uniforms() !void
+{
+    const fov = 70.0 * std.math.pi / 180.0;
+    
+    const width: u32 = swapchain.extent.width;
+    const height: u32 = swapchain.extent.height;
+
+    const aspect: f32 = @as(f32, @floatFromInt(width)) / @as(f32, @floatFromInt(height));
+
+    var projection = try ash.math.mat_projection_perspective(&allocator, fov, aspect, 0.01, 1000.0);
+    const projection_data = try ash.math.mat_slice_data(f32, projection);
+    projection.deinit();
+
+    const pds_debug_geometry = pipeline_descriptor_sets.getPtr(.DebugGeometryModelView);
+    try pds_debug_geometry.place_data(@truncate(swapchain.current_image_index), 0, f32, projection_data, 0);
+
+    allocator.free(projection_data);
 }
 
 pub fn main() !void
@@ -213,7 +255,7 @@ pub fn main() !void
         framebuffers.deinit(allocator);
     }
 
-    var vertices: [12]f32 = .{0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1};
+    var vertices: [12]f32 = .{0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1};
     const vertex_buffer = try vk_allocator.alloc_buffer(f32, &vertices, .exclusive, .VertexBuffer);
 
     var frames: usize = 0;
@@ -253,6 +295,7 @@ pub fn main() !void
             }
         }
 
+        try update_shader_uniforms();
         const command_buffer = try swapchain.get_next_command_buffer();
 
         try command_buffer.reset();
@@ -260,6 +303,7 @@ pub fn main() !void
         command_buffer.cmd_begin_render_pass(render_passes.getPtr(.DebugGeometry), framebuffers.items[swapchain.current_image_index], swapchain.extent, .{0, 0, 0, 1});
         command_buffer.cmd_set_viewport_scissor_full(swapchain.extent);
         command_buffer.cmd_bind_pipeline(pipelines.getPtr(.DebugGeometry));
+        command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(.DebugGeometry), &pipeline_descriptor_sets.getPtr(.DebugGeometryModelView).sets[swapchain.current_image_index]);
         command_buffer.cmd_bind_vertex_buffer(vertex_buffer.buffer, 0);
         command_buffer.cmd_draw(6, 1);
         command_buffer.cmd_end_render_pass();

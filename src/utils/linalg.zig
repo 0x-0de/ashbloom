@@ -437,7 +437,7 @@ pub fn mat_projection_perspective(allocator: *const std.mem.Allocator, fov: f32,
     const f = std.math.cos(ang) / std.math.sin(ang);
 
     matrix.set(0, 0, f / aspect);
-    matrix.set(1, 1, f);
+    matrix.set(1, 1, -f);
     matrix.set(2, 2, (far_plane + near_plane) / (near_plane - far_plane));
     matrix.set(3, 2, (2 * far_plane * near_plane) / (near_plane - far_plane));
     matrix.set(2, 3, -1);
