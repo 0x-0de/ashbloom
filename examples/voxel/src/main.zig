@@ -4,12 +4,15 @@ const ash = @import("ashbloom");
 const glfw = ash.glfw;
 const vk = ash.vk;
 
-const Window = ash.Window;
+const Window = ash.ABWindow;
 
 const VkContext = ash.VkContext;
 const VulkanAllocator = ash.VulkanAllocator;
 
 const Swapchain = ash.Swapchain;
+
+const TICKS_PER_SECOND = 60.0;
+const TICK_RATE = 1.0 / TICKS_PER_SECOND;
 
 var allocator: std.mem.Allocator = undefined;
 
@@ -58,7 +61,7 @@ fn init_vk_context() !void
     vk_queues.set(.Graphics, vk_context.get_queue(queue_families.graphics_family_index.?, 0));
     vk_queues.set(.Presentation, vk_context.get_queue(queue_families.present_family_index.?, 0));
 
-    vk_command_pool = try ash.commands.create_command_pool(&vk_context);
+    vk_command_pool = try ash.commands.create_command_pool(&vk_context, @truncate(queue_families.graphics_family_index.?));
 
     vk_allocator = try .init(&vk_context, &allocator, &vk_command_pool, vk_queues.getPtr(.Graphics), .{
         .page_size = 128 << 20, // 128 MB.
@@ -74,11 +77,104 @@ fn deinit_vk_context() void
     vk_context.deinit();
 }
 
-pub fn main() !void
+const RenderPasses = enum(u8)
 {
-    try ash.init_graphics();
-    defer ash.deinit_graphics();
+    DebugGeometry
+};
 
+var swapchain: ash.Swapchain = undefined;
+var render_passes: std.EnumArray(RenderPasses, ash.RenderPass) = .initUndefined();
+
+fn init_render_passes() !void
+{
+    const p_debug_geometry = render_passes.getPtr(.DebugGeometry);
+
+    p_debug_geometry.* = try .init(&vk_context);
+
+    const sp_color: ash.RenderPass.Subpass = .{
+        .attachment_index = 0,
+        .attachment_layout = .color_attachment_optimal,
+        .subpass_bind_point = .graphics,
+        .subpass_dependency = .{
+            .src_subpass = vk.SUBPASS_EXTERNAL,
+            .dst_subpass = undefined,
+            .src_access_mask = .{},
+            .dst_access_mask = .{ .color_attachment_write_bit = true },
+            .src_stage_mask = .{ .color_attachment_output_bit = true },
+            .dst_stage_mask = .{ .color_attachment_output_bit = true }
+        }
+    };
+
+    try p_debug_geometry.add_attachment_description_no_stencil_multisample(swapchain.format.format, .clear, .store, .undefined, .present_src_khr);
+    try p_debug_geometry.add_subpass(sp_color);
+    try p_debug_geometry.build();
+}
+
+fn deinit_render_passes() void
+{
+    render_passes.getPtr(.DebugGeometry).deinit();
+}
+
+const Pipelines = enum(u8)
+{
+    DebugGeometry
+};
+
+var pipeline_vertex_inputs: std.EnumArray(Pipelines, ash.PipelineVertexInput) = .initUndefined();
+var pipelines: std.EnumArray(Pipelines, ash.Pipeline) = .initUndefined();
+
+fn init_graphics_pipelines() !void
+{
+    var pvi_debug_geometry = pipeline_vertex_inputs.getPtr(.DebugGeometry); 
+
+    pvi_debug_geometry.* = try .init(&allocator);
+
+    try pvi_debug_geometry.add_attribute(0, 0, .r32g32_sfloat, 0);
+    try pvi_debug_geometry.build(0, .vertex);
+
+    const p_debug_geometry = pipelines.getPtr(.DebugGeometry);
+
+    p_debug_geometry.* = try .init(&vk_context);
+
+    try p_debug_geometry.add_dynamic_state(.viewport);
+    try p_debug_geometry.add_dynamic_state(.scissor);
+
+    try p_debug_geometry.add_shader_module("../res/shaders/debug/geometry_vert.spv", .{.vertex_bit = true});
+    try p_debug_geometry.add_shader_module("../res/shaders/debug/geometry_frag.spv", .{.fragment_bit = true});
+
+    try p_debug_geometry.add_color_blend_attachment(ash.pipeline.pipeline_color_blend_attachment_alpha_blend());
+
+    p_debug_geometry.set_vertex_input(pvi_debug_geometry);
+
+    try p_debug_geometry.build(render_passes.getPtr(.DebugGeometry));
+}
+
+fn deinit_graphics_pipelines() void
+{
+    pipelines.getPtr(.DebugGeometry).deinit();
+
+    pipeline_vertex_inputs.getPtr(.DebugGeometry).deinit();
+}
+
+fn get_tick_count(time_start_frame: *f64, tick_timer: *f64) usize
+{
+    const time_of_last_frame = ash.glfw.getTime() - time_start_frame.*;
+    time_start_frame.* = ash.glfw.getTime();
+
+    tick_timer.* += time_of_last_frame;
+    var ticks: usize = 0;
+
+    while(tick_timer.* >= TICK_RATE)
+    {
+        tick_timer.* -= TICK_RATE;
+        ticks += 1;
+    }
+
+    return ticks;
+}
+
+pub fn main() !void
+{   
     var dba: std.heap.DebugAllocator(.{}) = .{};
     defer {
         const dba_result = dba.deinit();
@@ -90,6 +186,9 @@ pub fn main() !void
 
     allocator = dba.allocator();
 
+    try ash.init_graphics(&allocator);
+    defer ash.deinit_graphics();
+
     glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
 
     window = try .init(1280, 720, "Voxel demo");
@@ -98,11 +197,82 @@ pub fn main() !void
     try init_vk_context();
     defer deinit_vk_context();
 
-    var swapchain: Swapchain = .init(&window, &vk_context, &vk_command_pool, 1);
+    swapchain = try .init(&window, &vk_context, vk_command_pool, 1);
     defer swapchain.deinit();
+
+    try init_render_passes();
+    defer deinit_render_passes();
+
+    try init_graphics_pipelines();
+    defer deinit_graphics_pipelines();
+
+    var framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry));
+    defer
+    {
+        swapchain.deinit_framebuffers(framebuffers);
+        framebuffers.deinit(allocator);
+    }
+
+    var vertices: [12]f32 = .{0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1};
+    const vertex_buffer = try vk_allocator.alloc_buffer(f32, &vertices, .exclusive, .VertexBuffer);
+
+    var frames: usize = 0;
+    
+    var fps_timer: f64 = ash.glfw.getTime();
+    var tick_timer: f64 = 0;
+
+    var time_start_frame = ash.glfw.getTime();
 
     while(!window.should_close())
     {
         glfw.pollEvents();
+
+        const ticks = get_tick_count(&time_start_frame, &tick_timer);
+        _ = ticks;
+
+        if(ash.glfw.getTime() - fps_timer > 1)
+        {
+            ash.print_stdout("FPS: {d}\n", .{frames}) catch unreachable;
+            frames = 0;
+            fps_timer += 1;
+        }
+
+        const sc_next_image_result = try swapchain.acquire_next_image();
+        
+        switch(sc_next_image_result)
+        {
+            .NoIssue => {},
+            .Failure => { @panic("Failed to acquire next swapchain image."); },
+            .NewSwapchain => {
+                try vk_context.device.deviceWaitIdle();
+
+                swapchain.deinit_framebuffers(framebuffers);
+                framebuffers.deinit(allocator);
+
+                framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry));
+            }
+        }
+
+        const command_buffer = try swapchain.get_next_command_buffer();
+
+        try command_buffer.reset();
+        try command_buffer.begin_recording();
+        command_buffer.cmd_begin_render_pass(render_passes.getPtr(.DebugGeometry), framebuffers.items[swapchain.current_image_index], swapchain.extent, .{0, 0, 0, 1});
+        command_buffer.cmd_set_viewport_scissor_full(swapchain.extent);
+        command_buffer.cmd_bind_pipeline(pipelines.getPtr(.DebugGeometry));
+        command_buffer.cmd_bind_vertex_buffer(vertex_buffer.buffer, 0);
+        command_buffer.cmd_draw(6, 1);
+        command_buffer.cmd_end_render_pass();
+        try command_buffer.end_recording();
+
+        try swapchain.render(vk_queues.get(.Graphics));
+
+        try swapchain.present(vk_queues.get(.Presentation));
+
+        frames += 1;
     }
+
+    try vk_context.device.deviceWaitIdle();
+
+    try vk_allocator.free_buffer(vertex_buffer);
 }

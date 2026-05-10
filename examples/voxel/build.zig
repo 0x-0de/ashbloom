@@ -12,7 +12,7 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
     cmp.root_module.addImport("ashbloom", ashbloom.module("ashbloom"));
 
     cmp.root_module.addLibraryPath(.{ .cwd_relative = "bin" });
-    
+
     // Searching for the Vulkan drivers.
     // On Windows, they're located in System32.
     if(builtin.target.os.tag == .windows)
@@ -20,7 +20,7 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
         const sys32_path: std.Build.LazyPath = .{
             .cwd_relative = "C:/Windows/System32"
         };
-        
+
         cmp.root_module.addLibraryPath(sys32_path);
 
         const win32 = b.addModule("win32", .{
@@ -54,7 +54,7 @@ pub fn build(b: *std.Build) void
 			.target = std_target,
             .optimize = std_optimize,
             .link_libc = true
-		})
+	})
     });
 
     const exe_test = b.addTest(.{
@@ -86,4 +86,13 @@ pub fn build(b: *std.Build) void
 
     const test_step = b.step("app-test", "Build unit tests");
     test_step.dependOn(&install_exe_test.step);
+
+    // Run step.
+
+    const run_step = b.step("run", "Run the demo.");
+    const run_exe = b.addRunArtifact(exe);
+
+    run_exe.setCwd(b.path("bin"));
+
+    run_step.dependOn(&run_exe.step);
 }

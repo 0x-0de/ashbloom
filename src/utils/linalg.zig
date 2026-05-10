@@ -427,3 +427,21 @@ pub fn mat_projection_orthographic(allocator: *const std.mem.Allocator, left: f3
 
     return matrix;
 }
+
+/// Creates and returns a 3D perspective projection matrix.
+pub fn mat_projection_perspective(allocator: *const std.mem.Allocator, fov: f32, aspect: f32, near_plane: f32, far_plane: f32) !Mat(f32)
+{
+    var matrix = try Mat(f32).init(allocator, 4, 4);
+
+    const ang = fov / 2;
+    const f = std.math.cos(ang) / std.math.sin(ang);
+
+    matrix.set(0, 0, f / aspect);
+    matrix.set(1, 1, f);
+    matrix.set(2, 2, (far_plane + near_plane) / (near_plane - far_plane));
+    matrix.set(3, 2, (2 * far_plane * near_plane) / (near_plane - far_plane));
+    matrix.set(2, 3, -1);
+    matrix.set(3, 3, 0);
+
+    return matrix;
+}
