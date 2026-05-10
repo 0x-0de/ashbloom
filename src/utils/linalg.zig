@@ -94,11 +94,26 @@ pub fn Vec(comptime T: type, comptime len: u32) type
             }
         }
 
+        /// Muliplies the vector by -1.
+        pub fn negate(self: *Self) void
+        {
+            const factor: T = -1;
+            self.mul(factor);
+        }
+
         /// Initialize all members of the vector.
         pub fn init(data: [len]T) Self
         {
             return Self{
                 .data = data
+            };
+        }
+
+        /// Initializes all members of this vector to undefined.
+        pub fn init_undefined() Self
+        {
+            return Self{
+                .data = undefined
             };
         }
 
@@ -114,6 +129,27 @@ pub fn Vec(comptime T: type, comptime len: u32) type
             std.debug.print(")\n", .{});
         }
     };
+}
+
+pub fn dot(comptime vec_size: u32, comptime vec_type: type, a: Vec(vec_type, vec_size), b: Vec(vec_type, vec_size)) vec_type
+{
+    var dot_product: vec_type = 0;
+    for(0..vec_size) |i|
+    {
+        dot_product += a.data[i] * b.data[i];
+    }
+    return dot_product;
+}
+
+pub fn cross(comptime vec_type: type, a: Vec(vec_type, 3), b: Vec(vec_type, 3)) Vec(vec_type, 3)
+{
+    var vec: Vec(vec_type, 3) = .init_undefined();
+
+    vec.data[0] = a.data[1] * b.data[2] - a.data[2] * b.data[1];
+    vec.data[1] = a.data[2] * b.data[0] - a.data[0] * b.data[2];
+    vec.data[2] = a.data[0] * b.data[1] - a.data[1] * b.data[0];
+
+    return vec;
 }
 
 /// Returns a Matrix type, of type T, and with data of order columns x rows.
@@ -442,6 +478,30 @@ pub fn mat_projection_perspective(allocator: *const std.mem.Allocator, fov: f32,
     matrix.set(3, 2, (2 * far_plane * near_plane) / (near_plane - far_plane));
     matrix.set(2, 3, -1);
     matrix.set(3, 3, 0);
+
+    return matrix;
+}
+
+/// Creates and returns a 3D look-at matrix.
+pub fn mat_look_at(allocator: *const std.mem.Allocator, pos: Vec(f32, 3), rot: Vec(f32, 3))!Mat(f32)
+{
+    var matrix = try Mat(f32).init(allocator, 4, 4);
+
+    var forward = rot;
+    forward.negate();
+    const side = cross(f32, Vec(f32, 3).init(.{0, -1, 0}), forward);
+    const above = cross(f32, side, forward);
+
+    for(0..3) |i|
+    {
+        matrix.set(@truncate(i), 0, side.data[i]);
+        matrix.set(@truncate(i), 1, above.data[i]);
+        matrix.set(@truncate(i), 2, forward.data[i]);
+    }
+
+    matrix.set(3, 0, -dot(3, f32, pos, side));
+    matrix.set(3, 1, -dot(3, f32, pos, above));
+    matrix.set(3, 2, -dot(3, f32, pos, forward));
 
     return matrix;
 }

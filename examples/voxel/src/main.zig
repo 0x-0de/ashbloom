@@ -146,7 +146,7 @@ fn init_graphics_pipelines() !void
         .binding_index = 0,
         .shader_stage = .{ .vertex_bit = true },
         .type = .uniform_buffer,
-        .buffer_size = 16 * @sizeOf(f32)
+        .buffer_size = 32 * @sizeOf(f32)
     });
 
     try pds_debug_geometry.build();
@@ -213,6 +213,17 @@ fn update_shader_uniforms() !void
     try pds_debug_geometry.place_data(@truncate(swapchain.current_image_index), 0, f32, projection_data, 0);
 
     allocator.free(projection_data);
+
+    const camera_pos: ash.math.Vec(f32, 3) = .init(.{0, 0, -3});
+    const camera_rot: ash.math.Vec(f32, 3) = .init(.{0, 0, 1});
+
+    var view = try ash.math.mat_look_at(&allocator, camera_pos, camera_rot);
+    const view_data = try ash.math.mat_slice_data(f32, view);
+    view.deinit();
+
+    try pds_debug_geometry.place_data(@truncate(swapchain.current_image_index), 0, f32, view_data, 16 * @sizeOf(f32));
+
+    allocator.free(view_data);
 }
 
 pub fn main() !void
