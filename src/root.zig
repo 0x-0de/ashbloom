@@ -16,6 +16,7 @@ pub const commands = @import("rendering/commands.zig");
 pub const pipeline = @import("rendering/pipeline.zig");
 pub const vk_context = @import("rendering/vkcontext.zig");
 pub const window = @import("rendering/window.zig");
+pub const mesh = @import("rendering/mesh.zig");
 
 pub const font = @import("utils/font.zig");
 pub const image_utils = @import("utils/image_utils.zig");
@@ -40,6 +41,8 @@ pub const RenderPass = @import("rendering/renderpass.zig").RenderPass;
 pub const Swapchain = @import("rendering/swapchain.zig").Swapchain;
 
 pub const VkContext = vk_context.VkContext;
+
+pub const Mesh = mesh.Mesh;
 
 /// Named "ABWindow" because vulkan-zig will try to interface with it if it's just named "Window".
 pub const ABWindow = window.Window;
@@ -86,6 +89,8 @@ pub fn init_graphics(allocator: *const std.mem.Allocator) !void
     stdout = &stdout_writer.interface;
 
     try glfw.init();
+
+    glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
 }
 
 /// Prints to the standard output. Useful since Zig's `std.debug.print` prints to stderr. Ashbloom inits its own instance of stdout().writer so this is just a shortcut.
@@ -102,6 +107,7 @@ comptime
     _ = pipeline;
     _ = vk_context;
     _ = window;
+    _ = mesh;
 
     _ = font;
     _ = image_utils;

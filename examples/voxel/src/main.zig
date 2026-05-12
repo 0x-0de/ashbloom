@@ -243,8 +243,6 @@ pub fn main() !void
     try ash.init_graphics(&allocator);
     defer ash.deinit_graphics();
 
-    glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
-
     window = try .init(1280, 720, "Voxel demo");
     defer window.destroy();
     
@@ -267,8 +265,22 @@ pub fn main() !void
         framebuffers.deinit(allocator);
     }
 
-    var vertices: [12]f32 = .{0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1};
-    const vertex_buffer = try vk_allocator.alloc_buffer(f32, &vertices, .exclusive, .VertexBuffer);
+    var test_mesh: ash.Mesh = try .init(&allocator, &vk_allocator, pipeline_vertex_inputs.get(.DebugGeometry), 0);
+
+    var v = try test_mesh.add_vertex();
+    try v.add_attrib(@as([2]f32, .{0, 0}));
+    v = try test_mesh.add_vertex();
+    try v.add_attrib(@as([2]f32, .{1, 0}));
+    v = try test_mesh.add_vertex();
+    try v.add_attrib(@as([2]f32, .{1, 1}));
+    v = try test_mesh.add_vertex();
+    try v.add_attrib(@as([2]f32, .{0, 0}));
+    v = try test_mesh.add_vertex();
+    try v.add_attrib(@as([2]f32, .{1, 1}));
+    v = try test_mesh.add_vertex();
+    try v.add_attrib(@as([2]f32, .{0, 1}));
+
+    try test_mesh.build(true);
 
     camera = .init();
     camera.pos = .init(.{0, 0, -3});
@@ -335,8 +347,7 @@ pub fn main() !void
         command_buffer.cmd_set_viewport_scissor_full(swapchain.extent);
         command_buffer.cmd_bind_pipeline(pipelines.getPtr(.DebugGeometry));
         command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(.DebugGeometry), &pipeline_descriptor_sets.getPtr(.DebugGeometryModelView).sets[swapchain.current_image_index]);
-        command_buffer.cmd_bind_vertex_buffer(vertex_buffer.buffer, 0);
-        command_buffer.cmd_draw(6, 1);
+        test_mesh.bind_and_draw(command_buffer);
         command_buffer.cmd_end_render_pass();
         try command_buffer.end_recording();
 
@@ -349,5 +360,5 @@ pub fn main() !void
 
     try vk_context.device.deviceWaitIdle();
 
-    try vk_allocator.free_buffer(vertex_buffer);
+    try test_mesh.deinit();
 }
