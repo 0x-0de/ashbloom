@@ -205,3 +205,4 @@ pub const Mesh = struct
         command_buffer.cmd_draw(self.num_vertices, 1);
     }
 };
+

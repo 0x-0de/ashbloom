@@ -83,14 +83,8 @@ pub const CommandBuffer = struct
     }
 
     /// Activates a render pass and binds it to a framebuffer. You can also provide a render area for the render pass, as `extent`.
-    pub fn cmd_begin_render_pass(self: *CommandBuffer, render_pass: *RenderPass, framebuffer: vk.Framebuffer, extent: vk.Extent2D, clear_color: [4]f32) void
+    pub fn cmd_begin_render_pass(self: *CommandBuffer, render_pass: *RenderPass, framebuffer: vk.Framebuffer, extent: vk.Extent2D, clear_values: []const vk.ClearValue) void
     {
-        const clear_value: vk.ClearValue = .{
-            .color = .{
-                .float_32 = clear_color
-            }
-        };
-
         const info_begin_rp: vk.RenderPassBeginInfo = .{
             .render_pass = render_pass.render_pass,
             .framebuffer = framebuffer,
@@ -101,8 +95,8 @@ pub const CommandBuffer = struct
                     .y = 0
                 }
             },
-            .clear_value_count = 1,
-            .p_clear_values = @ptrCast(&clear_value),
+            .clear_value_count = @truncate(clear_values.len),
+            .p_clear_values = @ptrCast(clear_values),
         };
 
         self.vkc.device.cmdBeginRenderPass(self.handle, &info_begin_rp, vk.SubpassContents.@"inline");

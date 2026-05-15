@@ -91,22 +91,30 @@ fn init_render_passes() !void
 
     p_debug_geometry.* = try .init(&vk_context);
 
-    const sp_color: ash.RenderPass.Subpass = .{
-        .attachment_index = 0,
-        .attachment_layout = .color_attachment_optimal,
+    const sp_color_depth: ash.RenderPass.Subpass = .{
+        .color_attachment_index = 0,
+        .depth_stencil_attachment_index = 1,
+        .color_attachment_layout = .color_attachment_optimal,
+        .depth_stencil_attachment_layout = .depth_stencil_attachment_optimal,
         .subpass_bind_point = .graphics,
         .subpass_dependency = .{
             .src_subpass = vk.SUBPASS_EXTERNAL,
             .dst_subpass = undefined,
-            .src_access_mask = .{},
-            .dst_access_mask = .{ .color_attachment_write_bit = true },
-            .src_stage_mask = .{ .color_attachment_output_bit = true },
-            .dst_stage_mask = .{ .color_attachment_output_bit = true }
+            .src_access_mask = .{ .depth_stencil_attachment_write_bit = true },
+            .dst_access_mask = .{ .color_attachment_write_bit = true, .depth_stencil_attachment_write_bit = true },
+            .src_stage_mask = .{ .color_attachment_output_bit = true, .late_fragment_tests_bit = true },
+            .dst_stage_mask = .{ .color_attachment_output_bit = true, .early_fragment_tests_bit = true }
         }
     };
 
+    const depth_format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context);
+
+    // Color attachment.
     try p_debug_geometry.add_attachment_description_no_stencil_multisample(swapchain.format.format, .clear, .store, .undefined, .present_src_khr);
-    try p_debug_geometry.add_subpass(sp_color);
+    // Depth attachment.
+    try p_debug_geometry.add_attachment_description_no_stencil_multisample(depth_format, .clear, .dont_care, .undefined, .depth_stencil_attachment_optimal);
+
+    try p_debug_geometry.add_subpass(sp_color_depth);
     try p_debug_geometry.build();
 }
 
@@ -135,7 +143,7 @@ fn init_graphics_pipelines() !void
 
     pvi_debug_geometry.* = try .init(&allocator);
 
-    try pvi_debug_geometry.add_attribute(0, 0, .r32g32_sfloat, 0);
+    try pvi_debug_geometry.add_attribute(0, 0, .r32g32b32_sfloat, 0);
     try pvi_debug_geometry.build(0, .vertex);
 
     const pds_debug_geometry = pipeline_descriptor_sets.getPtr(.DebugGeometryModelView);
@@ -166,6 +174,8 @@ fn init_graphics_pipelines() !void
     try p_debug_geometry.add_color_blend_attachment(ash.pipeline.pipeline_color_blend_attachment_alpha_blend());
 
     p_debug_geometry.set_vertex_input(pvi_debug_geometry);
+
+    p_debug_geometry.info_depth_stencil_testing = ash.pipeline.pipeline_depth_stencil_state_default();
 
     try p_debug_geometry.build(render_passes.getPtr(.DebugGeometry));
 }
@@ -245,7 +255,7 @@ pub fn main() !void
 
     window = try .init(1280, 720, "Voxel demo");
     defer window.destroy();
-    
+
     try init_vk_context();
     defer deinit_vk_context();
 
@@ -258,7 +268,48 @@ pub fn main() !void
     try init_graphics_pipelines();
     defer deinit_graphics_pipelines();
 
-    var framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry));
+    const info_depth_buffer: vk.ImageCreateInfo = .{
+        .image_type = .@"2d",
+        .extent = .{
+            .width = swapchain.extent.width,
+            .height = swapchain.extent.height,
+            .depth = 1
+        },
+        .mip_levels = 1,
+        .array_layers = 1,
+        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
+        .tiling = .optimal,
+        .initial_layout = .undefined,
+        .usage = .{ .depth_stencil_attachment_bit = true },
+        .sharing_mode = .exclusive,
+        .samples = .{ .@"1_bit" = true }
+    };
+
+    const depth_image = try vk_allocator.alloc_image_empty(info_depth_buffer, .DepthAttachment);
+
+    const info_depth_image_view: vk.ImageViewCreateInfo = .{
+        .image = depth_image.image,
+        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
+        .components = .{
+            .r = .identity,
+            .g = .identity,
+            .b = .identity,
+            .a = .identity
+        },
+        .subresource_range = .{
+            .aspect_mask = .{ .depth_bit = true },
+            .base_array_layer = 0,
+            .base_mip_level = 0,
+            .layer_count = 1,
+            .level_count = 1
+        },
+        .view_type = .@"2d"
+    };
+
+    const depth_image_view = try vk_context.device.createImageView(&info_depth_image_view, null);
+    defer vk_context.device.destroyImageView(depth_image_view, null);
+
+    var framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry), &.{depth_image_view});
     defer
     {
         swapchain.deinit_framebuffers(framebuffers);
@@ -268,19 +319,36 @@ pub fn main() !void
     var test_mesh: ash.Mesh = try .init(&allocator, &vk_allocator, pipeline_vertex_inputs.get(.DebugGeometry), 0);
 
     var v = try test_mesh.add_vertex();
-    try v.add_attrib(@as([2]f32, .{0, 0}));
+    try v.add_attrib(@as([3]f32, .{0, 0, 0}));
     v = try test_mesh.add_vertex();
-    try v.add_attrib(@as([2]f32, .{1, 0}));
+    try v.add_attrib(@as([3]f32, .{1, 0, 0}));
     v = try test_mesh.add_vertex();
-    try v.add_attrib(@as([2]f32, .{1, 1}));
+    try v.add_attrib(@as([3]f32, .{1, 1, 0}));
     v = try test_mesh.add_vertex();
-    try v.add_attrib(@as([2]f32, .{0, 0}));
+    try v.add_attrib(@as([3]f32, .{0, 0, 0}));
     v = try test_mesh.add_vertex();
-    try v.add_attrib(@as([2]f32, .{1, 1}));
+    try v.add_attrib(@as([3]f32, .{1, 1, 0}));
     v = try test_mesh.add_vertex();
-    try v.add_attrib(@as([2]f32, .{0, 1}));
+    try v.add_attrib(@as([3]f32, .{0, 1, 0}));
 
     try test_mesh.build(true);
+    
+    var test_mesh_2: ash.Mesh = try .init(&allocator, &vk_allocator, pipeline_vertex_inputs.get(.DebugGeometry), 0);
+
+    v = try test_mesh_2.add_vertex();
+    try v.add_attrib(@as([3]f32, .{0, 0, 2}));
+    v = try test_mesh_2.add_vertex();
+    try v.add_attrib(@as([3]f32, .{1, 0, 2}));
+    v = try test_mesh_2.add_vertex();
+    try v.add_attrib(@as([3]f32, .{1, 1, 2}));
+    v = try test_mesh_2.add_vertex();
+    try v.add_attrib(@as([3]f32, .{0, 0, 2}));
+    v = try test_mesh_2.add_vertex();
+    try v.add_attrib(@as([3]f32, .{1, 1, 2}));
+    v = try test_mesh_2.add_vertex();
+    try v.add_attrib(@as([3]f32, .{0, 1, 2}));
+
+    try test_mesh_2.build(true);
 
     camera = .init();
     camera.pos = .init(.{0, 0, -3});
@@ -291,6 +359,19 @@ pub fn main() !void
     var tick_timer: f64 = 0;
 
     var time_start_frame = ash.glfw.getTime();
+
+    const cv_color: vk.ClearValue = .{
+        .color = .{
+            .float_32 = .{0, 0, 0, 1}
+        }
+    };
+
+    const cv_depth: vk.ClearValue = .{
+        .depth_stencil = .{
+            .depth = 1,
+            .stencil = 0
+        }
+    };
 
     while(!window.should_close())
     {
@@ -317,7 +398,7 @@ pub fn main() !void
                 swapchain.deinit_framebuffers(framebuffers);
                 framebuffers.deinit(allocator);
 
-                framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry));
+                framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry), &.{});
             }
         }
 
@@ -343,11 +424,12 @@ pub fn main() !void
 
         try command_buffer.reset();
         try command_buffer.begin_recording();
-        command_buffer.cmd_begin_render_pass(render_passes.getPtr(.DebugGeometry), framebuffers.items[swapchain.current_image_index], swapchain.extent, .{0, 0, 0, 1});
+        command_buffer.cmd_begin_render_pass(render_passes.getPtr(.DebugGeometry), framebuffers.items[swapchain.current_image_index], swapchain.extent, &.{cv_color, cv_depth});
         command_buffer.cmd_set_viewport_scissor_full(swapchain.extent);
         command_buffer.cmd_bind_pipeline(pipelines.getPtr(.DebugGeometry));
         command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(.DebugGeometry), &pipeline_descriptor_sets.getPtr(.DebugGeometryModelView).sets[swapchain.current_image_index]);
         test_mesh.bind_and_draw(command_buffer);
+        test_mesh_2.bind_and_draw(command_buffer);
         command_buffer.cmd_end_render_pass();
         try command_buffer.end_recording();
 
@@ -360,5 +442,8 @@ pub fn main() !void
 
     try vk_context.device.deviceWaitIdle();
 
+    try test_mesh_2.deinit();
     try test_mesh.deinit();
+
+    try vk_allocator.free_image(depth_image);
 }

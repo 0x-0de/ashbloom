@@ -163,7 +163,8 @@ pub const VulkanAllocatorUsage = enum
     IndexBuffer,
     UniformBuffer,
     Texture,
-    Subtexture
+    Subtexture,
+    DepthAttachment
 };
 
 pub const VulkanAllocatorError = error
@@ -202,6 +203,9 @@ pub fn get_allocator_image_usage_flags(allocator_usage: VulkanAllocatorUsage) Vu
             .transfer_src_bit = true,
             .transfer_dst_bit = true
         },
+        .DepthAttachment => .{
+            .depth_stencil_attachment_bit = true
+        },
         else => VulkanAllocatorError.InvalidAllocatorUsage
     };
 }
@@ -217,7 +221,7 @@ pub fn get_allocator_usage_memory_properties(allocator_usage: VulkanAllocatorUsa
             .host_visible_bit = true,
             .host_coherent_bit = true
         },
-        .Texture, .Subtexture => .{
+        .Texture, .Subtexture, .DepthAttachment => .{
             .device_local_bit = true
         }
     };

@@ -1,9 +1,11 @@
-const vk = @import("vulkan");
+const ash = @import("../root.zig");
+const vk = ash.vk;
 
 pub const VulkanFormatError = error
 {
     FormatNotSupported,
-    FormatHasNoSize
+    FormatHasNoSize,
+    NoValidFormatsFound
 };
 
 /// Returns the size, in bytes, of a complete pixel value in the given format.
@@ -60,4 +62,28 @@ pub fn get_vulkan_format_size(format: vk.Format) VulkanFormatError!u32
         130 => 5,
         else => VulkanFormatError.FormatNotSupported
     };
+}
+
+/// Picks the most well-suited from a list of image formats based on preferred image tiling and features.
+pub fn choose_image_format(vk_context: *ash.VkContext, preferred_tiling: vk.ImageTiling, preferred_features: vk.FormatFeatureFlags, formats: []const vk.Format) VulkanFormatError!vk.Format
+{
+    for(formats) |f|
+    {
+        const pf: vk.Flags = @bitCast(preferred_features);
+        const properties = vk_context.instance.getPhysicalDeviceFormatProperties(vk_context.physical_device, f);
+     
+        const ltf: vk.Flags = @bitCast(properties.linear_tiling_features);
+        const otf: vk.Flags = @bitCast(properties.optimal_tiling_features);
+
+        if(preferred_tiling == .linear and (ltf & pf) == pf) return f;
+        if(preferred_tiling == .optimal and (otf & pf) == pf) return f;
+    }
+
+    return VulkanFormatError.NoValidFormatsFound;
+}
+
+/// Calls choose_image_format for a list of depth buffer attachments with optimal tiling and the depth-stencil feature.
+pub fn choose_best_depth_buffer_format(vk_context: *ash.VkContext) VulkanFormatError!vk.Format
+{
+    return choose_image_format(vk_context, .optimal, .{ .depth_stencil_attachment_bit = true }, &.{ .d32_sfloat, .d32_sfloat_s8_uint, .d24_unorm_s8_uint });
 }

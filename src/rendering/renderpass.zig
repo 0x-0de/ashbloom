@@ -26,10 +26,14 @@ pub const RenderPass = struct
     /// Structure that describes a render pass subpass, including its attachment reference and its dependencies.
     pub const Subpass = struct
     {
-        /// Index of the vkAttachmentDescription that this subpass is using.
-        attachment_index: u32,
-        /// Layout that the framebuffer should have during the subpass.
-        attachment_layout: vk.ImageLayout,
+        /// Index of the vkAttachmentDescription that this subpass is using for the color attachment.
+        color_attachment_index: u32,
+        /// Index of the vkAttachmentDescription that this subpass is using for the depth-stencil attachment (if there is one).
+        depth_stencil_attachment_index: ?u32 = null,
+        /// Layout that the color attachment should have during the subpass.
+        color_attachment_layout: vk.ImageLayout,
+        /// Layout that the depth-stencil attachment should have during the subpass.
+        depth_stencil_attachment_layout: ?vk.ImageLayout = null,
 
         /// Specifies which part of the pipeline this subpass aims to perform with.
         subpass_bind_point: vk.PipelineBindPoint,
@@ -99,18 +103,31 @@ pub const RenderPass = struct
 
         for(self.subpasses.items) |subpass|
         {
-            const att_ref: vk.AttachmentReference = .{
-                .attachment = subpass.attachment_index,
-                .layout = subpass.attachment_layout
+            const att_ref_color: vk.AttachmentReference = .{
+                .attachment = subpass.color_attachment_index,
+                .layout = subpass.color_attachment_layout
             };
 
+            var att_ref_depth: ?vk.AttachmentReference = null;
+
             const ref_index = attachment_references.items.len;
-            try attachment_references.append(self.context.allocator.*, att_ref);
+            try attachment_references.append(self.context.allocator.*, att_ref_color);
+
+            if(subpass.depth_stencil_attachment_index != null)
+            {
+                att_ref_depth = .{
+                    .attachment = subpass.depth_stencil_attachment_index.?,
+                    .layout = subpass.depth_stencil_attachment_layout.?
+                };
+
+                try attachment_references.append(self.context.allocator.*, att_ref_depth.?);
+            }
 
             const sp_desc: vk.SubpassDescription = .{
                 .pipeline_bind_point = subpass.subpass_bind_point,
                 .color_attachment_count = 1,
-                .p_color_attachments = @ptrCast(&attachment_references.items[ref_index])
+                .p_color_attachments = @ptrCast(&attachment_references.items[ref_index]),
+                .p_depth_stencil_attachment = if(att_ref_depth != null) @ptrCast(&attachment_references.items[ref_index + 1]) else null
             };
 
             try subpass_descriptions.append(self.context.allocator.*, sp_desc);

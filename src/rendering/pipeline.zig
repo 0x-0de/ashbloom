@@ -19,6 +19,19 @@ const PipelineError = error
     InvalidDescriptorBinding
 };
 
+fn dummy_stencil_op_state() vk.StencilOpState
+{
+    return .{
+        .compare_mask = 0,
+        .write_mask = 0,
+        .reference = 0,
+        .fail_op = .zero,
+        .compare_op = .never,
+        .depth_fail_op = .zero,
+        .pass_op = .zero
+    };
+}
+
 /// Struct used for setting pipeline vertex input.
 pub const PipelineVertexInput = struct
 {
@@ -483,6 +496,23 @@ pub fn pipeline_color_blend_attachment_alpha_blend() vk.PipelineColorBlendAttach
     };
 }
 
+/// Helper function to return a common vk.PipelineDepthStencilStateCreateInfo use case:
+/// This pipeline will perform depth testing, preferring fragments with smaller Z values.
+pub fn pipeline_depth_stencil_state_default() vk.PipelineDepthStencilStateCreateInfo
+{
+    return .{
+        .depth_test_enable = .true,
+        .depth_write_enable = .true,
+        .depth_compare_op = .less,
+        .depth_bounds_test_enable = .false,
+        .min_depth_bounds = 0,
+        .max_depth_bounds = 1,
+        .stencil_test_enable = .false,
+        .front = dummy_stencil_op_state(),
+        .back = dummy_stencil_op_state()
+    };
+}
+
 /// Wraps a vk.Pipeline object, and describes a Vulkan graphics pipeline. The graphics pipeline is a combination of pre-compiled shader modules,
 /// configurable fixed functions, and a pipeline layout which describes the shader's uniforms (push constants and descriptor sets).
 pub const Pipeline = struct
@@ -607,7 +637,7 @@ pub const Pipeline = struct
 
         self.pipeline_layout = try self.vkc.device.createPipelineLayout(&info_pipeline_layout, null);
 
-        var info_pipeline: vk.GraphicsPipelineCreateInfo = .{
+        const info_pipeline: vk.GraphicsPipelineCreateInfo = .{
             .stage_count = 2,
             .p_stages = @ptrCast(shader_stage_list.items),
             .p_vertex_input_state = &self.info_vertex_input,
@@ -616,14 +646,13 @@ pub const Pipeline = struct
             .p_rasterization_state = &self.info_rasterizer,
             .p_multisample_state = &self.info_multisampling,
             .p_color_blend_state = &info_color_blend,
+            .p_depth_stencil_state = if(self.info_depth_stencil_testing != null) &self.info_depth_stencil_testing.? else null,
             .p_dynamic_state = &info_dynamic_state,
             .layout = self.pipeline_layout.?,
             .render_pass = render_pass.render_pass,
             .subpass = 0,
             .base_pipeline_index = -1
         };
-
-        if(self.info_depth_stencil_testing != null) info_pipeline.p_depth_stencil_state = &self.info_depth_stencil_testing.?;
 
         _ = try self.vkc.device.createGraphicsPipelines(.null_handle, &.{ info_pipeline }, null, @ptrCast(&self.pipeline));
 
