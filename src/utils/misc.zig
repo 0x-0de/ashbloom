@@ -9,6 +9,25 @@ pub fn memcpy_anonymous(dst: *anyopaque, src: *anyopaque, size: usize) void
     @memcpy(dest_data, copy_data);
 }
 
+/// Performs a wrapping left-shift.
+pub fn wrapping_leftshift(comptime T: type, value: T, shift: usize) T
+{
+    const type_size = @sizeOf(T) << 8;
+    const trunc_shift = shift % type_size;
+
+    const overflow = value >> (type_size - trunc_shift);
+    const product = value << trunc_shift;
+
+    return overflow | product;
+}
+
+/// Performs a wrapping right-shift.
+pub fn wrapping_rightshift(comptime T: type, value: T, shift: usize) T
+{
+    const type_size = @sizeOf(T) << 8;
+    return wrapping_leftshift(T, value, (type_size - shift));
+}
+
 /// Returns the path of the emitted .exe file (implementation is OS-specific, only works on Windows & Linux for now).
 pub fn get_exe_path() []u8
 {
