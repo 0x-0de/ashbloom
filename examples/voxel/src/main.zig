@@ -237,6 +237,8 @@ fn update_shader_uniforms() !void
     allocator.free(view_data);
 }
 
+const Chunk = @import("world/chunk.zig").Chunk;
+
 pub fn main() !void
 {   
     var dba: std.heap.DebugAllocator(.{}) = .{};
@@ -373,6 +375,9 @@ pub fn main() !void
         }
     };
 
+    Chunk.init_context(pipeline_vertex_inputs.get(.DebugGeometry));
+    var chunk: Chunk = try .init(&allocator, &vk_allocator, .init(.{0, 0, 1}), 0);
+
     while(!window.should_close())
     {
         glfw.pollEvents();
@@ -441,6 +446,8 @@ pub fn main() !void
     }
 
     try vk_context.device.deviceWaitIdle();
+
+    try chunk.deinit();
 
     try test_mesh_2.deinit();
     try test_mesh.deinit();

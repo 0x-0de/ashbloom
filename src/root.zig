@@ -18,9 +18,10 @@ pub const vk_context = @import("rendering/vkcontext.zig");
 pub const window = @import("rendering/window.zig");
 pub const mesh = @import("rendering/mesh.zig");
 
+pub const linalg = @import("math/linalg.zig");
+
 pub const font = @import("utils/font.zig");
 pub const image_utils = @import("utils/image_utils.zig");
-pub const math = @import("utils/linalg.zig");
 pub const misc = @import("utils/misc.zig");
 pub const vk_memory = @import("utils/vkmemory.zig");
 pub const vk_ui = @import("utils/vkui.zig");
@@ -53,8 +54,8 @@ pub const Font = font.Font;
 pub const Texture2D = image_utils.Texture2D;
 pub const TextureAtlas2D = image_utils.TextureAtlas2D;
 
-pub const Vec = math.Vec;
-pub const Mat = math.Mat;
+pub const Vec = linalg.Vec;
+pub const Mat = linalg.Mat;
 
 pub const FontEntry = misc.FontEntry;
 pub const FontFamily = misc.FontFamily;

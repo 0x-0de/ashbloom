@@ -1,6 +1,7 @@
+//! Implements linear algebra structures and functions: Vectors, Matrices, and calculations like matrix multiplication and the dot product of vectors.
 const std = @import("std");
 
-pub const MathError = error
+pub const LinalgError = error
 {
     MatrixOrderMismatch,
     OutOfRange
@@ -141,6 +142,7 @@ pub fn Vec(comptime T: type, comptime len: u32) type
     };
 }
 
+/// Calculate the dot product of two vectors.
 pub fn dot(comptime vec_size: u32, comptime vec_type: type, a: Vec(vec_type, vec_size), b: Vec(vec_type, vec_size)) vec_type
 {
     var dot_product: vec_type = 0;
@@ -151,6 +153,7 @@ pub fn dot(comptime vec_size: u32, comptime vec_type: type, a: Vec(vec_type, vec
     return dot_product;
 }
 
+/// Calculate the cross product of two 3-dimensional vectors.
 pub fn cross(comptime vec_type: type, a: Vec(vec_type, 3), b: Vec(vec_type, 3)) Vec(vec_type, 3)
 {
     var vec: Vec(vec_type, 3) = .init_undefined();
@@ -190,16 +193,16 @@ pub fn Mat(comptime T: type) type
         const Self = @This();
 
         /// Verifies that two matrices have the same order.
-        fn verify_matrices_same_order(self: Self, other: Self) MathError!void
+        fn verify_matrices_same_order(self: Self, other: Self) LinalgError!void
         {
             if(self.data.len != other.data.len or self.data[0].len != other.data[0].len)
             {
-                return MathError.MatrixOrderMismatch;
+                return LinalgError.MatrixOrderMismatch;
             }
         }
 
         /// Adds a matrix to this one. The two matrices must have the same order.
-        pub fn add(self: *Self, other: Self) MathError!void
+        pub fn add(self: *Self, other: Self) LinalgError!void
         {
             try self.verify_matrices_same_order(other);
 
@@ -228,7 +231,7 @@ pub fn Mat(comptime T: type) type
         {
             if(other.data.len + column_offset >= self.data.len or other.data[0].len + row_offset >= self.data[0].len)
             {
-                return MathError.OutOfRange;
+                return LinalgError.OutOfRange;
             }
 
             for(0..other.data.len) |i|
@@ -309,7 +312,7 @@ pub fn Mat(comptime T: type) type
         }
 
         /// Subtracts a matrix from this one. The two matrices must have the same order.
-        pub fn sub(self: *Self, other: Self) MathError!void
+        pub fn sub(self: *Self, other: Self) LinalgError!void
         {
             try self.verify_matrices_same_type_order(other);
 
@@ -329,7 +332,7 @@ pub fn multiply_matrices(comptime T: type, a: Mat(T), b: Mat(T)) !Mat(T)
 {
     if(a.data.len != b.data[0].len)
     {
-        return MathError.MatrixOrderMismatch;
+        return LinalgError.MatrixOrderMismatch;
     }
 
     const nm_sum_elements = a.data.len;
