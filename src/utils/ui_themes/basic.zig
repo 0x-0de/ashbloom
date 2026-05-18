@@ -6,7 +6,7 @@ const vk = @import("vulkan");
 const imp_font = @import("../font.zig");
 
 const vkui = @import("../vkui.zig");
-const math = @import("../linalg.zig");
+const math = @import("../../math/linalg.zig");
 
 const Font = imp_font.Font;
 const FontCharacter = imp_font.FontCharacter;

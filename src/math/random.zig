@@ -1,4 +1,5 @@
 //! Handles random number and noise generation.
+const misc = @import("../utils/misc.zig");
 
 const permutations: [256]u8 = .{
     144, 219, 232, 110, 171, 202, 50,  242, 55,  148, 87,  6,   12,  152, 143, 21,
@@ -19,18 +20,30 @@ const permutations: [256]u8 = .{
     140, 20,  191, 199, 150, 224, 133, 178, 250, 89,  33,  129, 22,  69,  107, 192
 };
 
-/// Returns a random integer value generated using the seed values.
+/// Returns a random integer value generated using the seed values. Type T must be an int of no greater than 256 bits.
 pub fn random_int(comptime T: type, comptime seed_count: u8, seeds: [seed_count]u256) T
 {
-    if(@typeInfo(T) != .int or @sizeOf(T) <= 32)
+    if(@typeInfo(T) != .int or @sizeOf(T) > 32)
     {
         @compileError("random_int return type isn't a valid integer type.");
     }
 
     const initial_bitstr: u256 = 0xdeef1d50602d630a240530cf3e4484f042ba4bf187067fb17e813480fc335823;
-    var value: T = @truncate(initial_bitstr);
+    var value: T = @truncate(misc.wrapping_leftshift(u256, initial_bitstr, permutations[@truncate(seeds[0] & 255)]));
 
-    
+    for(0..3) |_|
+    {
+        for(seeds) |s|
+        {
+            var ts: T = @truncate(s);
+            ts = misc.wrapping_leftshift(T, ts, (value ^ ts));
+            value +%= ts;
+            const p_index: u8 = @truncate(ts & 255);
+            value = misc.wrapping_rightshift(T, value, permutations[p_index]);
+            value ^= ts;
+        }
+    }
 
     return value;
 }
+

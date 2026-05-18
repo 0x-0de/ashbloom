@@ -219,8 +219,8 @@ fn update_shader_uniforms() !void
 
     const aspect: f32 = @as(f32, @floatFromInt(width)) / @as(f32, @floatFromInt(height));
 
-    var projection = try ash.math.mat_projection_perspective(&allocator, fov, aspect, 0.01, 1000.0);
-    const projection_data = try ash.math.mat_slice_data(f32, projection);
+    var projection = try ash.linalg.mat_projection_perspective(&allocator, fov, aspect, 0.01, 1000.0);
+    const projection_data = try ash.linalg.mat_slice_data(f32, projection);
     projection.deinit();
 
     const pds_debug_geometry = pipeline_descriptor_sets.getPtr(.DebugGeometryModelView);
@@ -228,8 +228,8 @@ fn update_shader_uniforms() !void
 
     allocator.free(projection_data);
 
-    var view = try ash.math.mat_look_at(&allocator, camera.pos, camera.rot);
-    const view_data = try ash.math.mat_slice_data(f32, view);
+    var view = try ash.linalg.mat_look_at(&allocator, camera.pos, camera.rot);
+    const view_data = try ash.linalg.mat_slice_data(f32, view);
     view.deinit();
 
     try pds_debug_geometry.place_data(@truncate(swapchain.current_image_index), 0, f32, view_data, 16 * @sizeOf(f32));
@@ -287,7 +287,7 @@ pub fn main() !void
         .samples = .{ .@"1_bit" = true }
     };
 
-    const depth_image = try vk_allocator.alloc_image_empty(info_depth_buffer, .DepthAttachment);
+    var depth_image = try vk_allocator.alloc_image_empty(info_depth_buffer, .DepthAttachment);
 
     const info_depth_image_view: vk.ImageViewCreateInfo = .{
         .image = depth_image.image,
@@ -308,7 +308,7 @@ pub fn main() !void
         .view_type = .@"2d"
     };
 
-    const depth_image_view = try vk_context.device.createImageView(&info_depth_image_view, null);
+    var depth_image_view = try vk_context.device.createImageView(&info_depth_image_view, null);
     defer vk_context.device.destroyImageView(depth_image_view, null);
 
     var framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry), &.{depth_image_view});
@@ -378,6 +378,9 @@ pub fn main() !void
     Chunk.init_context(pipeline_vertex_inputs.get(.DebugGeometry));
     var chunk: Chunk = try .init(&allocator, &vk_allocator, .init(.{0, 0, 1}), 0);
 
+    chunk.generate();
+    try chunk.build(true);
+
     while(!window.should_close())
     {
         glfw.pollEvents();
@@ -403,7 +406,50 @@ pub fn main() !void
                 swapchain.deinit_framebuffers(framebuffers);
                 framebuffers.deinit(allocator);
 
-                framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry), &.{});
+                vk_context.device.destroyImageView(depth_image_view, null);
+                try vk_allocator.free_image(depth_image);
+
+                const info_new_depth_buffer: vk.ImageCreateInfo = .{
+                    .image_type = .@"2d",
+                    .extent = .{
+                        .width = swapchain.extent.width,
+                        .height = swapchain.extent.height,
+                        .depth = 1
+                    },
+                    .mip_levels = 1,
+                    .array_layers = 1,
+                    .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
+                    .tiling = .optimal,
+                    .initial_layout = .undefined,
+                    .usage = .{ .depth_stencil_attachment_bit = true },
+                    .sharing_mode = .exclusive,
+                    .samples = .{ .@"1_bit" = true }
+                };
+
+                depth_image = try vk_allocator.alloc_image_empty(info_new_depth_buffer, .DepthAttachment);
+
+                const new_info_depth_image_view: vk.ImageViewCreateInfo = .{
+                    .image = depth_image.image,
+                    .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
+                    .components = .{
+                        .r = .identity,
+                        .g = .identity,
+                        .b = .identity,
+                        .a = .identity
+                    },
+                    .subresource_range = .{
+                        .aspect_mask = .{ .depth_bit = true },
+                        .base_array_layer = 0,
+                        .base_mip_level = 0,
+                        .layer_count = 1,
+                        .level_count = 1
+                    },
+                    .view_type = .@"2d"
+                };
+
+                depth_image_view = try vk_context.device.createImageView(&new_info_depth_image_view, null);
+
+                framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry), &.{depth_image_view});
             }
         }
 
@@ -435,6 +481,7 @@ pub fn main() !void
         command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(.DebugGeometry), &pipeline_descriptor_sets.getPtr(.DebugGeometryModelView).sets[swapchain.current_image_index]);
         test_mesh.bind_and_draw(command_buffer);
         test_mesh_2.bind_and_draw(command_buffer);
+        chunk.draw(command_buffer);
         command_buffer.cmd_end_render_pass();
         try command_buffer.end_recording();
 

@@ -3,7 +3,7 @@ const ash = @import("ashbloom");
 
 const glfw = ash.glfw;
 
-const Vec = ash.math.Vec;
+const Vec = ash.linalg.Vec;
 
 const CAMERA_SPEED = 0.05;
 
@@ -36,14 +36,20 @@ pub const Camera = struct
         
         var forward_compressed = forward;
         forward_compressed.data[1] = 0;
-        forward_compressed = ash.math.normalize(3, f32, forward_compressed);
+        forward_compressed = ash.linalg.normalize(3, f32, forward_compressed);
 
-        var side = ash.math.cross(f32, Vec(f32, 3).init(.{0, 1, 0}), forward_compressed);
+        var side = ash.linalg.cross(f32, Vec(f32, 3).init(.{0, 1, 0}), forward_compressed);
 
         const speed: f32 = CAMERA_SPEED;
 
-        forward.mul(speed);
-        side.mul(speed);
+        var modifier: f32 = 1;
+        if(glfw.getKey(window.glfw_handle, glfw.KeyLeftShift) == glfw.Press)
+        {
+            modifier = 10;
+        }
+
+        forward.mul(speed * modifier);
+        side.mul(speed * modifier);
 
         if(glfw.getKey(window.glfw_handle, glfw.KeyW) == glfw.Press)
         {

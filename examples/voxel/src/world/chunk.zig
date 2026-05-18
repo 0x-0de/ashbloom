@@ -1,6 +1,8 @@
 const std = @import("std");
 const ash = @import("ashbloom");
 
+const CommandBuffer = ash.commands.CommandBuffer;
+
 /// Size of each chunk, in voxels.
 pub const CHUNK_SIZE: ash.Vec(usize, 3) = .init(.{64, 64, 64});
 
@@ -24,6 +26,116 @@ pub const Chunk = struct
     /// Voxels.
     voxels: [][][]u32,
 
+    pub fn build(self: *Chunk, fill_borders: bool) !void
+    {
+        for(0..CHUNK_SIZE.data[0]) |i| {
+        for(0..CHUNK_SIZE.data[1]) |j| {
+        for(0..CHUNK_SIZE.data[2]) |k|
+        {
+            const fi = @as(f32, @floatFromInt(i));
+            const fj = @as(f32, @floatFromInt(j));
+            const fk = @as(f32, @floatFromInt(k));
+
+            if(self.voxels[i][j][k] == 0) continue;
+
+            if(fill_borders)
+            {
+                if(i == 0 or self.voxels[i - 1][j][k] == 0)
+                {
+                    var v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk + 1}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk + 1}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj, fk + 1}));
+                }
+                if(i == CHUNK_SIZE.data[0] - 1 or self.voxels[i + 1][j][k] == 0)
+                {
+                    var v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk + 1}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk + 1}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk + 1}));
+                }
+                if(j == 0 or self.voxels[i][j - 1][k] == 0)
+                {
+                    var v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk + 1}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj, fk + 1}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk + 1}));
+                }
+                if(j == CHUNK_SIZE.data[1] - 1 or self.voxels[i][j + 1][k] == 0)
+                {
+                    var v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk + 1}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk + 1}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk + 1}));
+                }
+                if(k == 0 or self.voxels[i][j][k - 1] == 0)
+                {
+                    var v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk}));
+                }
+                if(k == CHUNK_SIZE.data[2] - 1 or self.voxels[i][j][k + 1] == 0)
+                {
+                    var v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj, fk + 1}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk + 1}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk + 1}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj, fk + 1}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk + 1}));
+                    v = try self.mesh.add_vertex();
+                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk + 1}));
+                }
+            }
+        }}}
+
+        try self.mesh.build(true);
+    }
+
     pub fn deinit(self: *Chunk) !void
     {
         try self.mesh.deinit();
@@ -38,6 +150,11 @@ pub const Chunk = struct
             self.allocator.free(v.*);
         }
         self.allocator.free(self.voxels);
+    }
+
+    pub fn draw(self: *Chunk, command_buffer: *CommandBuffer) void
+    {
+        self.mesh.bind_and_draw(command_buffer);
     }
 
     pub fn init(allocator: *const std.mem.Allocator, vk_allocator: *ash.VulkanAllocator, position: ash.Vec(isize, 3), scale: u8) !Chunk
@@ -73,5 +190,27 @@ pub const Chunk = struct
     pub fn init_context(pipeline_layout: ash.PipelineVertexInput) void
     {
         chunk_pl = pipeline_layout;
+    }
+
+    /// Sets all of the voxels in the chunk.
+    pub fn generate(self: *Chunk) void
+    {
+        for(0..CHUNK_SIZE.data[0]) |i| {
+        for(0..CHUNK_SIZE.data[1]) |j| {
+        for(0..CHUNK_SIZE.data[2]) |k|
+        {
+            const r = ash.random.random_int(u8, 3, .{12812, @intCast(i), @intCast(k)}) & 63;
+
+
+
+            if(j < r)
+            {
+                self.voxels[i][j][k] = 1;
+            }
+            else
+            {
+                self.voxels[i][j][k] = 0;
+            }
+        }}}
     }
 };

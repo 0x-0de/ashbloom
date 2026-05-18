@@ -19,6 +19,7 @@ pub const window = @import("rendering/window.zig");
 pub const mesh = @import("rendering/mesh.zig");
 
 pub const linalg = @import("math/linalg.zig");
+pub const random = @import("math/random.zig");
 
 pub const font = @import("utils/font.zig");
 pub const image_utils = @import("utils/image_utils.zig");
@@ -110,9 +111,11 @@ comptime
     _ = window;
     _ = mesh;
 
+    _ = linalg;
+    _ = random;
+
     _ = font;
     _ = image_utils;
-    _ = math;
     _ = misc;
     _ = vk_memory;
     _ = vk_ui;

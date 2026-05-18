@@ -15,8 +15,8 @@ pub fn wrapping_leftshift(comptime T: type, value: T, shift: usize) T
     const type_size = @sizeOf(T) << 8;
     const trunc_shift = shift % type_size;
 
-    const overflow = value >> (type_size - trunc_shift);
-    const product = value << trunc_shift;
+    const overflow = value >> @truncate(type_size - trunc_shift);
+    const product = value << @truncate(trunc_shift);
 
     return overflow | product;
 }
