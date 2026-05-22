@@ -19,6 +19,7 @@ pub const window = @import("rendering/window.zig");
 pub const mesh = @import("rendering/mesh.zig");
 
 pub const linalg = @import("math/linalg.zig");
+pub const interp = @import("math/interp.zig");
 pub const random = @import("math/random.zig");
 
 pub const font = @import("utils/font.zig");
@@ -112,6 +113,7 @@ comptime
     _ = mesh;
 
     _ = linalg;
+    _ = interp;
     _ = random;
 
     _ = font;

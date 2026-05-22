@@ -196,21 +196,20 @@ pub const Chunk = struct
     pub fn generate(self: *Chunk) void
     {
         for(0..CHUNK_SIZE.data[0]) |i| {
-        for(0..CHUNK_SIZE.data[1]) |j| {
         for(0..CHUNK_SIZE.data[2]) |k|
         {
             const r = ash.random.random_int(u8, 3, .{12812, @intCast(i), @intCast(k)}) & 63;
-
-
-
-            if(j < r)
+            for(0..CHUNK_SIZE.data[1]) |j|
             {
-                self.voxels[i][j][k] = 1;
+                if(j < r)
+                {
+                    self.voxels[i][j][k] = 1;
+                }
+                else
+                {
+                    self.voxels[i][j][k] = 0;
+                }
             }
-            else
-            {
-                self.voxels[i][j][k] = 0;
-            }
-        }}}
+        }}
     }
 };
