@@ -198,10 +198,20 @@ pub const Chunk = struct
         for(0..CHUNK_SIZE.data[0]) |i| {
         for(0..CHUNK_SIZE.data[2]) |k|
         {
-            const r = ash.random.random_int(u8, 3, .{12812, @intCast(i), @intCast(k)}) & 63;
+            const x: f64 = @floatFromInt(i);
+            const z: f64 = @floatFromInt(k);
+
+            const r = (ash.random.value_noise_2d(128124, x / 24, z / 24, .{
+                .octaves = 4,
+                .focus = 2,
+                .persistance = 0.333
+            }) + 1) * 32;
+
+            const ri: u8 = @intFromFloat(r);
+
             for(0..CHUNK_SIZE.data[1]) |j|
             {
-                if(j < r)
+                if(j < ri)
                 {
                     self.voxels[i][j][k] = 1;
                 }

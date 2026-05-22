@@ -1,5 +1,8 @@
 //! Handles random number and noise generation.
+const std = @import("std");
 const misc = @import("../utils/misc.zig");
+
+const interp = @import("interp.zig");
 
 const permutations: [256]u8 = .{
     144, 219, 232, 110, 171, 202, 50,  242, 55,  148, 87,  6,   12,  152, 143, 21,
@@ -47,3 +50,150 @@ pub fn random_int(comptime T: type, comptime seed_count: u8, seeds: [seed_count]
     return value;
 }
 
+/// Returns a random float between two boundary values. Type T must be a float of no greater than 256 bits.
+pub fn random_float(comptime T_float: type, comptime T_int: type, comptime seed_count: u8, seeds: [seed_count]u256, min: T_float, max: T_float) T_float
+{
+    if(@typeInfo(T_float) != .float or @sizeOf(T_float) > 32)
+    {
+        @compileError("random_float return type isn't a value floating-point type.");
+    }
+
+    const r = random_int(T_int, seed_count, seeds);
+    var fr: T_float = @floatFromInt(r);
+    fr /= std.math.maxInt(T_int);
+
+    const bounds = max - min;
+
+    const value = fr * bounds + min;
+    std.debug.assert(value >= min and value <= max);
+    return value;
+}
+
+/// Properties used for generating value noise.
+pub const NoiseProperties = struct
+{
+    /// Number of layers of detail to generate.
+    octaves: u8,
+
+    /// Controls how much each additional layer of noise scales down.
+    focus: f64,
+    /// Controls how much each additional layer should add to the noise.
+    persistance: f64
+};
+
+/// Returns a value noise value, between -1 and 1 (inclusive). Generated along one axis.
+pub fn value_noise_1d(seed: u256, x: f64, properties: NoiseProperties) f64
+{
+    var value: f64 = 0;
+
+    var scale: f64 = 1;
+    var division_factor: f64 = 0;
+    var mult_factor: f64 = 1;
+    
+    for(0..properties.octaves) |_|
+    {
+        const xs = x * scale;
+
+        const ax: f64 = @floor(xs);
+        const bx: f64 = @ceil(xs);
+
+        const axi: u256 = @intFromFloat(ax);
+        const bxi: u256 = @intFromFloat(bx);
+
+        const ar = @as(f64, random_float(f128, u64, 2, .{seed, axi}, -1, 1));
+        if(ax == bx)
+        {
+            value += ar * mult_factor;
+        }
+        else
+        {
+            const br = @as(f64, random_float(f128, u64, 2, .{seed, bxi}, -1, 1));
+            const dx = xs - ax;
+
+            value += interp.linear(f64, ar, br, dx) * mult_factor;
+        }
+
+        division_factor += mult_factor;
+        mult_factor *= properties.persistance;
+        scale *= properties.focus;
+    }
+
+    return value / division_factor;
+}
+
+/// Returns a value noise value, between -1 and 1 (inclusive). Generated along two axes.
+pub fn value_noise_2d(seed: u256, x: f64, y: f64, properties: NoiseProperties) f64
+{
+    var value: f64 = 0;
+
+    var scale: f64 = 1;
+    var division_factor: f64 = 0;
+    var mult_factor: f64 = 1;
+    
+    for(0..properties.octaves) |_|
+    {
+        const xs = x * scale;
+        const ys = y * scale;
+
+        const ax: f64 = @floor(xs);
+        const bx: f64 = @ceil(xs);
+
+        const ay: f64 = @floor(ys);
+        const by: f64 = @ceil(ys);
+
+        const axi: u256 = @intFromFloat(ax);
+        const bxi: u256 = @intFromFloat(bx);
+
+        const ayi: u256 = @intFromFloat(ay);
+        const byi: u256 = @intFromFloat(by);
+        
+        const aa = @as(f64, @floatCast(random_float(f128, u64, 3, .{seed, axi, ayi}, -1, 1)));
+        std.debug.assert(aa <= 1 and aa >= -1);
+
+        if(ax == bx and ay == by)
+        {
+            value += aa * mult_factor;
+        }
+        else
+        {
+            if(ay == by)
+            {
+                const ba = @as(f64, @floatCast(random_float(f128, u64, 3, .{seed, bxi, ayi}, -1, 1)));
+                const dx = xs - ax;
+
+                std.debug.assert(ba <= 1 and ba >= -1);
+                value += interp.linear(f64, aa, ba, dx) * mult_factor;
+            }
+            else if(ax == bx)
+            {
+                const ab = @as(f64, @floatCast(random_float(f128, u64, 3, .{seed, axi, byi}, -1, 1)));
+                const dy = ys - ay;
+
+                std.debug.assert(ab <= 1 and ab >= -1);
+                value += interp.linear(f64, aa, ab, dy) * mult_factor;
+            }
+            else
+            {
+                const ba = @as(f64, @floatCast(random_float(f128, u64, 3, .{seed, bxi, ayi}, -1, 1)));
+                const ab = @as(f64, @floatCast(random_float(f128, u64, 3, .{seed, axi, byi}, -1, 1)));
+                const bb = @as(f64, @floatCast(random_float(f128, u64, 3, .{seed, bxi, byi}, -1, 1)));
+
+                std.debug.assert(ba <= 1 and ba >= -1);
+                std.debug.assert(ab <= 1 and ab >= -1);
+                std.debug.assert(bb <= 1 and bb >= -1);
+
+                const dx = xs - ax;
+                const dy = ys - ay;
+
+                value += interp.linear_2d(f64, aa, ba, ab, bb, dx, dy) * mult_factor;
+            }
+        }
+
+        division_factor += mult_factor;
+        mult_factor *= properties.persistance;
+        scale *= properties.focus;
+    }
+
+    std.debug.assert(@abs(value) <= division_factor);
+    return value / division_factor;
+}

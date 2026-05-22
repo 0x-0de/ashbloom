@@ -4,11 +4,11 @@ const std = @import("std");
 /// Returns the linearly interpolated value between a and b, at offset t.
 pub fn linear(comptime T: type, a: T, b: T, t: T) T
 {
-    return a * (1 - t) + b * t;
+    return (b - a) * t + a;
 }
 
 /// Does linear interpolation across two axes.
-pub fn linear_2d(comptime T: type, aa: T, ab: T, ba: T, bb: T, tx: T, ty: T) T
+pub fn linear_2d(comptime T: type, aa: T, ba: T, ab: T, bb: T, tx: T, ty: T) T
 {
     const a = linear(T, aa, ba, tx);
     const b = linear(T, ab, bb, tx);
@@ -19,8 +19,8 @@ pub fn linear_2d(comptime T: type, aa: T, ab: T, ba: T, bb: T, tx: T, ty: T) T
 /// Does linear interpolation across three axes.
 pub fn linear_3d(comptime T: type, aaa: T, baa: T, aba: T, bba: T, aab: T, bab: T, abb: T, bbb: T, tx: T, ty: T, tz: T) T
 {
-    const a = linear_2d(T, aaa, aba, baa, bba, tx, ty);
-    const b = linear_2d(T, aab, abb, bab, bbb, tx, ty);
+    const a = linear_2d(T, aaa, baa, aba, bba, tx, ty);
+    const b = linear_2d(T, aab, bab, abb, bbb, tx, ty);
 
     return linear(T, a, b, tz);
 }
@@ -33,7 +33,7 @@ pub fn cosine(comptime T: type, a: T, b: T, t: T) T
 }
 
 /// Does cosine interpolation across two axes.
-pub fn cosine_2d(comptime T: type, aa: T, ab: T, ba: T, bb: T, tx: T, ty: T) T
+pub fn cosine_2d(comptime T: type, aa: T, ba: T, ab: T, bb: T, tx: T, ty: T) T
 {
     const a = cosine(T, aa, ba, tx);
     const b = cosine(T, ab, bb, tx);
@@ -44,8 +44,8 @@ pub fn cosine_2d(comptime T: type, aa: T, ab: T, ba: T, bb: T, tx: T, ty: T) T
 /// Does cosine interpolation across three axes.
 pub fn cosine_3d(comptime T: type, aaa: T, baa: T, aba: T, bba: T, aab: T, bab: T, abb: T, bbb: T, tx: T, ty: T, tz: T) T
 {
-    const a = cosine_2d(T, aaa, aba, baa, bba, tx, ty);
-    const b = cosine_2d(T, aab, abb, bab, bbb, tx, ty);
+    const a = cosine_2d(T, aaa, baa, aba, bba, tx, ty);
+    const b = cosine_2d(T, aab, bab, abb, bbb, tx, ty);
 
     return cosine(T, a, b, tz);
 }
