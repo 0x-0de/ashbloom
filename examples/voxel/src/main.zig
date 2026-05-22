@@ -125,20 +125,23 @@ fn deinit_render_passes() void
 
 const PipelineDescriptorSets = enum(u8)
 {
-    DebugGeometryModelView
+    DebugGeometryModelView,
+    ModelView
 };
 
 const Pipelines = enum(u8)
 {
-    DebugGeometry
+    DebugGeometry,
+    Main
 };
 
 var pipeline_descriptor_sets: std.EnumArray(PipelineDescriptorSets, ash.PipelineDescriptorSet) = .initUndefined();
 var pipeline_vertex_inputs: std.EnumArray(Pipelines, ash.PipelineVertexInput) = .initUndefined();
 var pipelines: std.EnumArray(Pipelines, ash.Pipeline) = .initUndefined();
 
-fn init_graphics_pipelines() !void
+fn init_graphics_pipeline_vertex_inputs() !void
 {
+    // Debug geometry.
     var pvi_debug_geometry = pipeline_vertex_inputs.getPtr(.DebugGeometry); 
 
     pvi_debug_geometry.* = try .init(&allocator);
@@ -146,6 +149,18 @@ fn init_graphics_pipelines() !void
     try pvi_debug_geometry.add_attribute(0, 0, .r32g32b32_sfloat, 0);
     try pvi_debug_geometry.build(0, .vertex);
 
+    // Main.
+    var pvi_main = pipeline_vertex_inputs.getPtr(.Main);
+
+    pvi_main.* = try .init(&allocator);
+
+    try pvi_main.add_attribute(0, 0, .r32g32b32_sfloat, 0);
+    try pvi_main.build(0, .vertex);
+}
+
+fn init_graphics_pipeline_descriptor_sets() !void
+{
+    // Debug geometry model view.
     const pds_debug_geometry = pipeline_descriptor_sets.getPtr(.DebugGeometryModelView);
 
     pds_debug_geometry.* = try .init(&vk_context, &vk_allocator, @truncate(swapchain.image_count));
@@ -159,6 +174,27 @@ fn init_graphics_pipelines() !void
 
     try pds_debug_geometry.build();
 
+    // Model view.
+    const pds_main = pipeline_descriptor_sets.getPtr(.ModelView);
+
+    pds_main.* = try .init(&vk_context, &vk_allocator, @truncate(swapchain.image_count));
+
+    try pds_main.add_binding(.{
+        .binding_index = 0,
+        .shader_stage = .{ .vertex_bit = true },
+        .type = .uniform_buffer,
+        .buffer_size = 32 * @sizeOf(f32)
+    });
+
+    try pds_main.build();
+}
+
+fn init_graphics_pipelines() !void
+{
+    try init_graphics_pipeline_vertex_inputs();
+    try init_graphics_pipeline_descriptor_sets();
+   
+    // Debug geometry.
     const p_debug_geometry = pipelines.getPtr(.DebugGeometry);
 
     p_debug_geometry.* = try .init(&vk_context);
@@ -173,20 +209,44 @@ fn init_graphics_pipelines() !void
 
     try p_debug_geometry.add_color_blend_attachment(ash.pipeline.pipeline_color_blend_attachment_alpha_blend());
 
-    p_debug_geometry.set_vertex_input(pvi_debug_geometry);
+    p_debug_geometry.set_vertex_input(pipeline_vertex_inputs.getPtr(.DebugGeometry));
 
     p_debug_geometry.info_depth_stencil_testing = ash.pipeline.pipeline_depth_stencil_state_default();
 
     try p_debug_geometry.build(render_passes.getPtr(.DebugGeometry));
+
+    // Main.
+    const p_main = pipelines.getPtr(.Main);
+
+    p_main.* = try .init(&vk_context);
+
+    try p_main.add_dynamic_state(.viewport);
+    try p_main.add_dynamic_state(.scissor);
+
+    try p_main.add_descriptor_set(pipeline_descriptor_sets.get(.ModelView));
+
+    try p_main.add_shader_module("../res/shaders/main_vert.spv", .{.vertex_bit = true});
+    try p_main.add_shader_module("../res/shaders/main_frag.spv", .{.fragment_bit = true});
+
+    try p_main.add_color_blend_attachment(ash.pipeline.pipeline_color_blend_attachment_alpha_blend());
+
+    p_main.set_vertex_input(pipeline_vertex_inputs.getPtr(.Main));
+
+    p_main.info_depth_stencil_testing = ash.pipeline.pipeline_depth_stencil_state_default();
+
+    try p_main.build(render_passes.getPtr(.DebugGeometry));
 }
 
 fn deinit_graphics_pipelines() void
 {
     pipelines.getPtr(.DebugGeometry).deinit();
+    pipelines.getPtr(.Main).deinit();
 
     pipeline_vertex_inputs.getPtr(.DebugGeometry).deinit();
+    pipeline_vertex_inputs.getPtr(.Main).deinit();
 
     pipeline_descriptor_sets.getPtr(.DebugGeometryModelView).deinit() catch unreachable;
+    pipeline_descriptor_sets.getPtr(.ModelView).deinit() catch unreachable;
 }
 
 fn get_tick_count(time_start_frame: *f64, tick_timer: *f64) usize
@@ -212,6 +272,9 @@ var camera: Camera = undefined;
 
 fn update_shader_uniforms() !void
 {
+    const pds_debug_geometry = pipeline_descriptor_sets.getPtr(.DebugGeometryModelView);
+    const pds_main = pipeline_descriptor_sets.getPtr(.ModelView);
+
     const fov = 70.0 * std.math.pi / 180.0;
     
     const width: u32 = swapchain.extent.width;
@@ -223,8 +286,8 @@ fn update_shader_uniforms() !void
     const projection_data = try ash.linalg.mat_slice_data(f32, projection);
     projection.deinit();
 
-    const pds_debug_geometry = pipeline_descriptor_sets.getPtr(.DebugGeometryModelView);
     try pds_debug_geometry.place_data(@truncate(swapchain.current_image_index), 0, f32, projection_data, 0);
+    try pds_main.place_data(@truncate(swapchain.current_image_index), 0, f32, projection_data, 0);
 
     allocator.free(projection_data);
 
@@ -233,7 +296,8 @@ fn update_shader_uniforms() !void
     view.deinit();
 
     try pds_debug_geometry.place_data(@truncate(swapchain.current_image_index), 0, f32, view_data, 16 * @sizeOf(f32));
-
+    try pds_main.place_data(@truncate(swapchain.current_image_index), 0, f32, view_data, 16 * @sizeOf(f32));
+    
     allocator.free(view_data);
 }
 
@@ -318,40 +382,6 @@ pub fn main() !void
         framebuffers.deinit(allocator);
     }
 
-    var test_mesh: ash.Mesh = try .init(&allocator, &vk_allocator, pipeline_vertex_inputs.get(.DebugGeometry), 0);
-
-    var v = try test_mesh.add_vertex();
-    try v.add_attrib(@as([3]f32, .{0, 0, 0}));
-    v = try test_mesh.add_vertex();
-    try v.add_attrib(@as([3]f32, .{1, 0, 0}));
-    v = try test_mesh.add_vertex();
-    try v.add_attrib(@as([3]f32, .{1, 1, 0}));
-    v = try test_mesh.add_vertex();
-    try v.add_attrib(@as([3]f32, .{0, 0, 0}));
-    v = try test_mesh.add_vertex();
-    try v.add_attrib(@as([3]f32, .{1, 1, 0}));
-    v = try test_mesh.add_vertex();
-    try v.add_attrib(@as([3]f32, .{0, 1, 0}));
-
-    try test_mesh.build(true);
-    
-    var test_mesh_2: ash.Mesh = try .init(&allocator, &vk_allocator, pipeline_vertex_inputs.get(.DebugGeometry), 0);
-
-    v = try test_mesh_2.add_vertex();
-    try v.add_attrib(@as([3]f32, .{0, 0, 2}));
-    v = try test_mesh_2.add_vertex();
-    try v.add_attrib(@as([3]f32, .{1, 0, 2}));
-    v = try test_mesh_2.add_vertex();
-    try v.add_attrib(@as([3]f32, .{1, 1, 2}));
-    v = try test_mesh_2.add_vertex();
-    try v.add_attrib(@as([3]f32, .{0, 0, 2}));
-    v = try test_mesh_2.add_vertex();
-    try v.add_attrib(@as([3]f32, .{1, 1, 2}));
-    v = try test_mesh_2.add_vertex();
-    try v.add_attrib(@as([3]f32, .{0, 1, 2}));
-
-    try test_mesh_2.build(true);
-
     camera = .init();
     camera.pos = .init(.{0, 0, -3});
 
@@ -380,6 +410,8 @@ pub fn main() !void
 
     chunk.generate();
     try chunk.build(true);
+
+    var draw_pipeline: Pipelines = .Main;
 
     while(!window.should_close())
     {
@@ -463,6 +495,15 @@ pub fn main() !void
             glfw.setInputMode(window.glfw_handle, glfw.Cursor, glfw.CursorNormal);
         }
 
+        if(glfw.getKey(window.glfw_handle, glfw.KeyF1) == glfw.Press)
+        {
+            draw_pipeline = .Main;
+        }
+        else if(glfw.getKey(window.glfw_handle, glfw.KeyF2) == glfw.Press)
+        {
+            draw_pipeline = .DebugGeometry;
+        }
+
         for(0..ticks) |_|
         {
             camera.tick(window);
@@ -473,14 +514,18 @@ pub fn main() !void
         try update_shader_uniforms();
         const command_buffer = try swapchain.get_next_command_buffer();
 
+        const descriptor_set: PipelineDescriptorSets = switch(draw_pipeline)
+        {
+            .DebugGeometry => .DebugGeometryModelView,
+            .Main => .ModelView
+        };
+
         try command_buffer.reset();
         try command_buffer.begin_recording();
         command_buffer.cmd_begin_render_pass(render_passes.getPtr(.DebugGeometry), framebuffers.items[swapchain.current_image_index], swapchain.extent, &.{cv_color, cv_depth});
         command_buffer.cmd_set_viewport_scissor_full(swapchain.extent);
-        command_buffer.cmd_bind_pipeline(pipelines.getPtr(.DebugGeometry));
-        command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(.DebugGeometry), &pipeline_descriptor_sets.getPtr(.DebugGeometryModelView).sets[swapchain.current_image_index]);
-        test_mesh.bind_and_draw(command_buffer);
-        test_mesh_2.bind_and_draw(command_buffer);
+        command_buffer.cmd_bind_pipeline(pipelines.getPtr(draw_pipeline));
+        command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(draw_pipeline), &pipeline_descriptor_sets.getPtr(descriptor_set).sets[swapchain.current_image_index]);
         chunk.draw(command_buffer);
         command_buffer.cmd_end_render_pass();
         try command_buffer.end_recording();
@@ -495,9 +540,6 @@ pub fn main() !void
     try vk_context.device.deviceWaitIdle();
 
     try chunk.deinit();
-
-    try test_mesh_2.deinit();
-    try test_mesh.deinit();
 
     try vk_allocator.free_image(depth_image);
 }

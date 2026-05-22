@@ -202,9 +202,9 @@ pub const Chunk = struct
             const z: f64 = @floatFromInt(k);
 
             const r = (ash.random.value_noise_2d(128124, x / 24, z / 24, .{
-                .octaves = 4,
-                .focus = 2,
-                .persistance = 0.333
+                .octaves = 5,
+                .focus = 1.6,
+                .persistance = 0.45
             }) + 1) * 32;
 
             const ri: u8 = @intFromFloat(r);
