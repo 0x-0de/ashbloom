@@ -26,6 +26,78 @@ pub const Chunk = struct
     /// Voxels.
     voxels: [][][]u32,
 
+    fn add_left_face(self: *Chunk, x: f32, y: f32, z: f32) !void
+    {
+        var verts = try self.mesh.add_vertices(6);
+
+        try verts[0].add_attrib(@as([3]f32, .{x, y, z}));
+        try verts[1].add_attrib(@as([3]f32, .{x, y + 1, z}));
+        try verts[2].add_attrib(@as([3]f32, .{x, y + 1, z + 1}));
+        try verts[3].add_attrib(@as([3]f32, .{x, y, z}));
+        try verts[4].add_attrib(@as([3]f32, .{x, y + 1, z + 1}));
+        try verts[5].add_attrib(@as([3]f32, .{x, y, z + 1}));
+    }
+
+    fn add_right_face(self: *Chunk, x: f32, y: f32, z: f32) !void
+    {
+        var verts = try self.mesh.add_vertices(6);
+
+        try verts[0].add_attrib(@as([3]f32, .{x + 1, y, z}));
+        try verts[1].add_attrib(@as([3]f32, .{x + 1, y + 1, z + 1}));
+        try verts[2].add_attrib(@as([3]f32, .{x + 1, y + 1, z}));
+        try verts[3].add_attrib(@as([3]f32, .{x + 1, y, z}));
+        try verts[4].add_attrib(@as([3]f32, .{x + 1, y, z + 1}));
+        try verts[5].add_attrib(@as([3]f32, .{x + 1, y + 1, z + 1}));
+    }
+
+    fn add_bottom_face(self: *Chunk, x: f32, y: f32, z: f32) !void
+    {
+        var verts = try self.mesh.add_vertices(6);
+
+        try verts[0].add_attrib(@as([3]f32, .{x, y, z}));
+        try verts[1].add_attrib(@as([3]f32, .{x + 1, y, z + 1}));
+        try verts[2].add_attrib(@as([3]f32, .{x + 1, y, z}));
+        try verts[3].add_attrib(@as([3]f32, .{x, y, z}));
+        try verts[4].add_attrib(@as([3]f32, .{x, y, z + 1}));
+        try verts[5].add_attrib(@as([3]f32, .{x + 1, y, z + 1}));
+    }
+
+    fn add_top_face(self: *Chunk, x: f32, y: f32, z: f32) !void
+    {
+        var verts = try self.mesh.add_vertices(6);
+
+        try verts[0].add_attrib(@as([3]f32, .{x, y + 1, z}));
+        try verts[1].add_attrib(@as([3]f32, .{x + 1, y + 1, z}));
+        try verts[2].add_attrib(@as([3]f32, .{x + 1, y + 1, z + 1}));
+        try verts[3].add_attrib(@as([3]f32, .{x, y + 1, z}));
+        try verts[4].add_attrib(@as([3]f32, .{x + 1, y + 1, z + 1}));
+        try verts[5].add_attrib(@as([3]f32, .{x, y + 1, z + 1}));
+    }
+
+    fn add_front_face(self: *Chunk, x: f32, y: f32, z: f32) !void
+    {
+        var verts = try self.mesh.add_vertices(6);
+        
+        try verts[0].add_attrib(@as([3]f32, .{x, y, z}));
+        try verts[1].add_attrib(@as([3]f32, .{x + 1, y, z}));
+        try verts[2].add_attrib(@as([3]f32, .{x + 1, y + 1, z}));
+        try verts[3].add_attrib(@as([3]f32, .{x, y, z}));
+        try verts[4].add_attrib(@as([3]f32, .{x + 1, y + 1, z}));
+        try verts[5].add_attrib(@as([3]f32, .{x, y + 1, z}));
+    }
+
+    fn add_back_face(self: *Chunk, x: f32, y: f32, z: f32) !void
+    {
+        var verts = try self.mesh.add_vertices(6);
+
+        try verts[0].add_attrib(@as([3]f32, .{x, y, z + 1}));
+        try verts[1].add_attrib(@as([3]f32, .{x + 1, y + 1, z + 1}));
+        try verts[2].add_attrib(@as([3]f32, .{x + 1, y, z + 1}));
+        try verts[3].add_attrib(@as([3]f32, .{x, y, z + 1}));
+        try verts[4].add_attrib(@as([3]f32, .{x, y + 1, z + 1}));
+        try verts[5].add_attrib(@as([3]f32, .{x + 1, y + 1, z + 1}));
+    }
+
     pub fn build(self: *Chunk, fill_borders: bool) !void
     {
         for(0..CHUNK_SIZE.data[0]) |i| {
@@ -42,93 +114,27 @@ pub const Chunk = struct
             {
                 if(i == 0 or self.voxels[i - 1][j][k] == 0)
                 {
-                    var v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk + 1}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk + 1}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj, fk + 1}));
+                    try self.add_left_face(fi, fj, fk);
                 }
                 if(i == CHUNK_SIZE.data[0] - 1 or self.voxels[i + 1][j][k] == 0)
                 {
-                    var v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk + 1}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk + 1}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk + 1}));
+                    try self.add_right_face(fi, fj, fk);
                 }
                 if(j == 0 or self.voxels[i][j - 1][k] == 0)
                 {
-                    var v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk + 1}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj, fk + 1}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk + 1}));
+                    try self.add_bottom_face(fi, fj, fk);
                 }
                 if(j == CHUNK_SIZE.data[1] - 1 or self.voxels[i][j + 1][k] == 0)
                 {
-                    var v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk + 1}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk + 1}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk + 1}));
+                    try self.add_top_face(fi, fj, fk);
                 }
                 if(k == 0 or self.voxels[i][j][k - 1] == 0)
                 {
-                    var v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk}));
+                    try self.add_front_face(fi, fj, fk);
                 }
                 if(k == CHUNK_SIZE.data[2] - 1 or self.voxels[i][j][k + 1] == 0)
                 {
-                    var v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj, fk + 1}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk + 1}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj, fk + 1}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj, fk + 1}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi, fj + 1, fk + 1}));
-                    v = try self.mesh.add_vertex();
-                    try v.add_attrib(@as([3]f32, .{fi + 1, fj + 1, fk + 1}));
+                    try self.add_back_face(fi, fj, fk);
                 }
             }
         }}}

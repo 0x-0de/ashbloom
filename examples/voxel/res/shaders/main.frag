@@ -79,6 +79,5 @@ void main()
 
 	vec3 col = base + weighted_rand;
 
-
 	color = vec4(col, 1);
 }

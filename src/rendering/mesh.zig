@@ -153,6 +153,16 @@ pub const Mesh = struct
         return vertex;
     }
 
+    pub fn add_vertices(self: *Mesh, n: usize) ![]Vertex
+    {
+        const vertices = try self.vertices.addManyAsSlice(self.allocator.*, n);
+        for(0..n) |i|
+        {
+            vertices[i] = try .init(self.allocator, self.layout);
+        }
+        return vertices;
+    }
+
     /// Use the `command_buffer` to bind the Mesh's vertex buffer.
     pub fn bind(self: *Mesh, command_buffer: *ash.CommandBuffer) void
     {

@@ -328,12 +328,6 @@ pub fn main() !void
     swapchain = try .init(&window, &vk_context, vk_command_pool, 1);
     defer swapchain.deinit();
 
-    try init_render_passes();
-    defer deinit_render_passes();
-
-    try init_graphics_pipelines();
-    defer deinit_graphics_pipelines();
-
     const info_depth_buffer: vk.ImageCreateInfo = .{
         .image_type = .@"2d",
         .extent = .{
@@ -374,6 +368,12 @@ pub fn main() !void
 
     var depth_image_view = try vk_context.device.createImageView(&info_depth_image_view, null);
     defer vk_context.device.destroyImageView(depth_image_view, null);
+
+    try init_render_passes();
+    defer deinit_render_passes();
+
+    try init_graphics_pipelines();
+    defer deinit_graphics_pipelines();
 
     var framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry), &.{depth_image_view});
     defer
