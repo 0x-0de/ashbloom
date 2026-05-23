@@ -1,5 +1,4 @@
 const std = @import("std");
-const print = std.debug.print;
 
 const vk = @import("vulkan");
 const glfw = @import("glfw");
@@ -10,6 +9,19 @@ const CommandBuffer = @import("commands.zig").CommandBuffer;
 
 const Window = @import("window.zig").Window;
 
+const vk_memory = @import("../utils/vkmemory.zig");
+
+pub const SwapchainResource = struct
+{
+    info_image: vk.ImageCreateInfo,
+    info_image_view: vk.ImageViewCreateInfo,
+
+    image_usage: vk_memory.VulkanAllocatorUsage,
+
+    image: vk_memory.VulkanAllocator.VulkanImageAllocation = undefined,
+    image_view: vk.ImageView = undefined
+};
+
 /// Describes a VkSwapchainKHR object, or Vulkan swap chain. A swap chain is a 'chain', list, or queue, of images that Vulkan can render to.
 /// The reason we want multiple images rather than just a single image is to prevent screen tearing, which is caused by rendering to and displaying
 /// an image at the same time. This structure also contains a command buffer and some synchronization objects for each image.
@@ -19,6 +31,8 @@ pub const Swapchain = struct
     window: *c_long,
     /// Vulkan context.
     context: *vkcontext.VkContext,
+    /// Vulkan allocator.
+    vk_allocator: *vk_memory.VulkanAllocator,
     /// Command pool used to create the swap chain command buffers.
     command_pool: vk.CommandPool,
 
@@ -55,6 +69,9 @@ pub const Swapchain = struct
 
     /// List of command buffers to use for rendering each render stage to each image. Do not access this field directly, instead use get_current_command_buffer.
     command_buffers: []std.ArrayList(CommandBuffer) = undefined,
+
+    /// List of resources that the swapchain keeps track of. Includes things like depth buffers. Add with `add_resource`.
+    resources: std.ArrayList(SwapchainResource) = undefined,
 
     pub const AcquireImageResult = enum
     {
@@ -290,7 +307,7 @@ pub const Swapchain = struct
 
             try self.context.device.deviceWaitIdle();
             
-            self.deinit();
+            self.deinit(false);
             try self.create_swapchain();
 
             try self.context.device.resetFences(&.{ self.fence_image_acquired });
@@ -306,9 +323,38 @@ pub const Swapchain = struct
         return if(swapchain_expired) AcquireImageResult.NewSwapchain else AcquireImageResult.NoIssue;
     }
 
+    /// Add a resource to the swapchain. Resources are seperate images that are included with the swapchain, but aren't any of the swapchain images directly.
+    /// Examples include a depth buffer, or some kind of G-buffer.
+    pub fn add_resource(self: *Swapchain, resource: SwapchainResource) !void
+    {
+        try self.resources.append(self.context.allocator.*, resource);
+        var sr = &self.resources.items[self.resources.items.len - 1];
+
+        sr.info_image.extent = .{
+            .width = self.extent.width,
+            .height = self.extent.height,
+            .depth = 1
+        };
+
+        sr.image = try self.vk_allocator.alloc_image_empty(sr.info_image, sr.image_usage);
+
+        sr.info_image_view.image = sr.image.image;
+        sr.image_view = try self.context.device.createImageView(&sr.info_image_view, null);
+    }
+
+    /// Clears all swapchain resources. Used when the swapchain needs to be refreshed, or during swapchain deinitialization.
+    pub fn clear_resources(self: *Swapchain) void
+    {
+        for(self.resources.items) |*sr|
+        {
+            self.context.device.destroyImageView(sr.image_view, null);
+            self.vk_allocator.free_image(sr.image) catch unreachable;
+        }
+    }
+
     /// Creates framebuffers using the swap chain's images (or image views) and associates them with a render pass.
-    /// Additional attachments can be applied to each framebuffer (such as a depth buffer).
-    pub fn create_framebuffers(self: *Swapchain, render_pass: *rp.RenderPass, additional_attachments: []const vk.ImageView) !std.ArrayList(vk.Framebuffer)
+    /// Includes swapchain resources as additional attachments to the framebuffer.
+    pub fn create_framebuffers(self: *Swapchain, render_pass: *rp.RenderPass) !std.ArrayList(vk.Framebuffer)
     {
         // A framebuffer attaches an ImageView to a render pass.
         // Both framebuffers and render passes are actually considered legacy features now with Vulkan 1.4, where the paradigm has shifted to
@@ -324,13 +370,13 @@ pub const Swapchain = struct
 
         for(0..num_images) |i|
         {
-            var attachments = try self.context.allocator.alloc(vk.ImageView, additional_attachments.len + 1);
+            var attachments = try self.context.allocator.alloc(vk.ImageView, self.resources.items.len + 1);
             defer self.context.allocator.free(attachments);
 
             attachments[0] = self.image_views.items[i];
             for(1..attachments.len) |j|
             {
-                attachments[j] = additional_attachments[j - 1];
+                attachments[j] = self.resources.items[j - 1].image_view;
             }
 
             // As you can see, creating them is rather straightforward.
@@ -349,8 +395,8 @@ pub const Swapchain = struct
         return framebuffers;
     }
 
-    /// Deinitializes the swap chain.
-    pub fn deinit(self: *Swapchain) void
+    /// Deinitializes the swap chain. Set `include_resources` to true if this is the final call to deinit, and not just part of a swapchain refresh operation.
+    pub fn deinit(self: *Swapchain, include_resources: bool) void
     {
         for(self.image_views.items, 0..) |_, i|
         {
@@ -373,7 +419,13 @@ pub const Swapchain = struct
         self.context.allocator.free(self.semaphores_render_stage_finished);
         self.context.allocator.free(self.fences_command_buffers_finished);
         self.context.allocator.free(self.command_buffers);
-        
+     
+        if(include_resources)
+        {
+            self.clear_resources();
+            self.resources.deinit(self.context.allocator.*);
+        }
+
         self.image_views.deinit(self.context.allocator.*);
 
         self.context.device.destroySwapchainKHR(self.handle, null);
@@ -400,18 +452,21 @@ pub const Swapchain = struct
     }
 
     /// Creates the swap chain, along with its image views.
-    pub fn init(window: *Window, context: *vkcontext.VkContext, command_pool: vk.CommandPool, render_stages: u16) !Swapchain
+    pub fn init(window: *Window, context: *vkcontext.VkContext, vk_allocator: *vk_memory.VulkanAllocator, command_pool: vk.CommandPool, render_stages: u16) !Swapchain
     {
         std.debug.assert(render_stages > 0);
 
         var sc: Swapchain = .{
             .window = window.glfw_handle,
             .context = context,
+            .vk_allocator = vk_allocator,
             .command_pool = command_pool,
             .render_stages = render_stages
         };
 
         try sc.create_swapchain();
+
+        sc.resources = try .initCapacity(context.allocator.*, 0);
 
         return sc;
     }
@@ -440,6 +495,26 @@ pub const Swapchain = struct
         _ = try self.context.device.queuePresentKHR(present_queue, &info_present);
 
         self.current_render_stage = 0;
+    }
+
+    /// Refreshes all resources (recreates them with up-to-date extents). Must be called whenever the swapchain needs to be refreshed.
+    pub fn refresh_resources(self: *Swapchain) !void
+    {
+        self.clear_resources();
+
+        for(self.resources.items) |*sr|
+        {
+            sr.info_image.extent = .{
+                .width = self.extent.width,
+                .height = self.extent.height,
+                .depth = 1
+            };
+
+            sr.image = try self.vk_allocator.alloc_image_empty(sr.info_image, sr.image_usage);
+
+            sr.info_image_view.image = sr.image.image;
+            sr.image_view = try self.context.device.createImageView(&sr.info_image_view, null);
+        }
     }
 
     /// Submits a rendering command buffer to Vulkan, using the synchronization objects (fences and semaphores) provided by the swap chain and it's currently selected image.

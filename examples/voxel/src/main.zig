@@ -325,16 +325,12 @@ pub fn main() !void
     try init_vk_context();
     defer deinit_vk_context();
 
-    swapchain = try .init(&window, &vk_context, vk_command_pool, 1);
-    defer swapchain.deinit();
+    swapchain = try .init(&window, &vk_context, &vk_allocator, vk_command_pool, 1);
+    defer swapchain.deinit(true);
 
     const info_depth_buffer: vk.ImageCreateInfo = .{
         .image_type = .@"2d",
-        .extent = .{
-            .width = swapchain.extent.width,
-            .height = swapchain.extent.height,
-            .depth = 1
-        },
+        .extent = undefined,
         .mip_levels = 1,
         .array_layers = 1,
         .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
@@ -345,10 +341,8 @@ pub fn main() !void
         .samples = .{ .@"1_bit" = true }
     };
 
-    var depth_image = try vk_allocator.alloc_image_empty(info_depth_buffer, .DepthAttachment);
-
     const info_depth_image_view: vk.ImageViewCreateInfo = .{
-        .image = depth_image.image,
+        .image = undefined,
         .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
         .components = .{
             .r = .identity,
@@ -366,8 +360,11 @@ pub fn main() !void
         .view_type = .@"2d"
     };
 
-    var depth_image_view = try vk_context.device.createImageView(&info_depth_image_view, null);
-    defer vk_context.device.destroyImageView(depth_image_view, null);
+    try swapchain.add_resource(.{
+        .info_image = info_depth_buffer,
+        .info_image_view = info_depth_image_view,
+        .image_usage = .DepthAttachment
+    });
 
     try init_render_passes();
     defer deinit_render_passes();
@@ -375,7 +372,7 @@ pub fn main() !void
     try init_graphics_pipelines();
     defer deinit_graphics_pipelines();
 
-    var framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry), &.{depth_image_view});
+    var framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry));
     defer
     {
         swapchain.deinit_framebuffers(framebuffers);
@@ -438,50 +435,9 @@ pub fn main() !void
                 swapchain.deinit_framebuffers(framebuffers);
                 framebuffers.deinit(allocator);
 
-                vk_context.device.destroyImageView(depth_image_view, null);
-                try vk_allocator.free_image(depth_image);
+                try swapchain.refresh_resources();
 
-                const info_new_depth_buffer: vk.ImageCreateInfo = .{
-                    .image_type = .@"2d",
-                    .extent = .{
-                        .width = swapchain.extent.width,
-                        .height = swapchain.extent.height,
-                        .depth = 1
-                    },
-                    .mip_levels = 1,
-                    .array_layers = 1,
-                    .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
-                    .tiling = .optimal,
-                    .initial_layout = .undefined,
-                    .usage = .{ .depth_stencil_attachment_bit = true },
-                    .sharing_mode = .exclusive,
-                    .samples = .{ .@"1_bit" = true }
-                };
-
-                depth_image = try vk_allocator.alloc_image_empty(info_new_depth_buffer, .DepthAttachment);
-
-                const new_info_depth_image_view: vk.ImageViewCreateInfo = .{
-                    .image = depth_image.image,
-                    .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
-                    .components = .{
-                        .r = .identity,
-                        .g = .identity,
-                        .b = .identity,
-                        .a = .identity
-                    },
-                    .subresource_range = .{
-                        .aspect_mask = .{ .depth_bit = true },
-                        .base_array_layer = 0,
-                        .base_mip_level = 0,
-                        .layer_count = 1,
-                        .level_count = 1
-                    },
-                    .view_type = .@"2d"
-                };
-
-                depth_image_view = try vk_context.device.createImageView(&new_info_depth_image_view, null);
-
-                framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry), &.{depth_image_view});
+                framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry));
             }
         }
 
@@ -540,6 +496,4 @@ pub fn main() !void
     try vk_context.device.deviceWaitIdle();
 
     try chunk.deinit();
-
-    try vk_allocator.free_image(depth_image);
 }
