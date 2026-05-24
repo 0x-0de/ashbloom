@@ -83,6 +83,55 @@ const RenderPasses = enum(u8)
 };
 
 var swapchain: ash.Swapchain = undefined;
+
+fn init_swapchain() !void
+{
+    swapchain = try .init(&window, &vk_context, &vk_allocator, vk_command_pool, 1);
+
+    const info_depth_buffer: vk.ImageCreateInfo = .{
+        .image_type = .@"2d",
+        .extent = undefined,
+        .mip_levels = 1,
+        .array_layers = 1,
+        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
+        .tiling = .optimal,
+        .initial_layout = .undefined,
+        .usage = .{ .depth_stencil_attachment_bit = true },
+        .sharing_mode = .exclusive,
+        .samples = .{ .@"1_bit" = true }
+    };
+
+    const info_depth_image_view: vk.ImageViewCreateInfo = .{
+        .image = undefined,
+        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
+        .components = .{
+            .r = .identity,
+            .g = .identity,
+            .b = .identity,
+            .a = .identity
+        },
+        .subresource_range = .{
+            .aspect_mask = .{ .depth_bit = true },
+            .base_array_layer = 0,
+            .base_mip_level = 0,
+            .layer_count = 1,
+            .level_count = 1
+        },
+        .view_type = .@"2d"
+    };
+
+    try swapchain.add_resource(.{
+        .info_image = info_depth_buffer,
+        .info_image_view = info_depth_image_view,
+        .image_usage = .DepthAttachment
+    });
+}
+
+fn deinit_swapchain() void
+{
+    swapchain.deinit(true);
+}
+
 var render_passes: std.EnumArray(RenderPasses, ash.RenderPass) = .initUndefined();
 
 fn init_render_passes() !void
@@ -132,7 +181,8 @@ const PipelineDescriptorSets = enum(u8)
 const Pipelines = enum(u8)
 {
     DebugGeometry,
-    Main
+    Main,
+    SelectionDisplay
 };
 
 var pipeline_descriptor_sets: std.EnumArray(PipelineDescriptorSets, ash.PipelineDescriptorSet) = .initUndefined();
@@ -156,6 +206,15 @@ fn init_graphics_pipeline_vertex_inputs() !void
 
     try pvi_main.add_attribute(0, 0, .r32g32b32_sfloat, 0);
     try pvi_main.build(0, .vertex);
+
+    // Selection display.
+    var pvi_selection_display = pipeline_vertex_inputs.getPtr(.SelectionDisplay);
+
+    pvi_selection_display.* = try .init(&allocator);
+
+    try pvi_selection_display.add_attribute(0, 0, .r32g32b32_sfloat, 0);
+    try pvi_selection_display.add_attribute(0, 1, .r32_uint, 3 * @sizeOf(f32));
+    try pvi_selection_display.build(0, .vertex);
 }
 
 fn init_graphics_pipeline_descriptor_sets() !void
@@ -235,15 +294,38 @@ fn init_graphics_pipelines() !void
     p_main.info_depth_stencil_testing = ash.pipeline.pipeline_depth_stencil_state_default();
 
     try p_main.build(render_passes.getPtr(.DebugGeometry));
+
+    // Selection display.
+    const p_selection_display = pipelines.getPtr(.SelectionDisplay);
+
+    p_selection_display.* = try .init(&vk_context);
+
+    try p_selection_display.add_dynamic_state(.viewport);
+    try p_selection_display.add_dynamic_state(.scissor);
+
+    try p_selection_display.add_descriptor_set(pipeline_descriptor_sets.get(.ModelView));
+
+    try p_selection_display.add_shader_module("../res/shaders/debug/selection_vert.spv", .{.vertex_bit = true});
+    try p_selection_display.add_shader_module("../res/shaders/debug/selection_frag.spv", .{.fragment_bit = true});
+
+    try p_selection_display.add_color_blend_attachment(ash.pipeline.pipeline_color_blend_attachment_no_blend());
+
+    p_selection_display.set_vertex_input(pipeline_vertex_inputs.getPtr(.SelectionDisplay));
+
+    p_selection_display.info_depth_stencil_testing = ash.pipeline.pipeline_depth_stencil_state_default();
+
+    try p_selection_display.build(render_passes.getPtr(.DebugGeometry));
 }
 
 fn deinit_graphics_pipelines() void
 {
     pipelines.getPtr(.DebugGeometry).deinit();
     pipelines.getPtr(.Main).deinit();
+    pipelines.getPtr(.SelectionDisplay).deinit();
 
     pipeline_vertex_inputs.getPtr(.DebugGeometry).deinit();
     pipeline_vertex_inputs.getPtr(.Main).deinit();
+    pipeline_vertex_inputs.getPtr(.SelectionDisplay).deinit();
 
     pipeline_descriptor_sets.getPtr(.DebugGeometryModelView).deinit() catch unreachable;
     pipeline_descriptor_sets.getPtr(.ModelView).deinit() catch unreachable;
@@ -303,6 +385,31 @@ fn update_shader_uniforms() !void
 
 const Chunk = @import("world/chunk.zig").Chunk;
 
+fn update_main_input(draw_pipeline: *Pipelines) void
+{
+    if(window.get_mouse_button(glfw.MouseButton1) == glfw.Press)
+    {
+        glfw.setInputMode(window.glfw_handle, glfw.Cursor, glfw.CursorDisabled);
+    }
+    if(glfw.getKey(window.glfw_handle, glfw.KeyEscape) == glfw.Press)
+    {
+        glfw.setInputMode(window.glfw_handle, glfw.Cursor, glfw.CursorNormal);
+    }
+
+    if(glfw.getKey(window.glfw_handle, glfw.KeyF1) == glfw.Press)
+    {
+        draw_pipeline.* = .Main;
+    }
+    else if(glfw.getKey(window.glfw_handle, glfw.KeyF2) == glfw.Press)
+    {
+        draw_pipeline.* = .DebugGeometry;
+    }
+    else if(glfw.getKey(window.glfw_handle, glfw.KeyF3) == glfw.Press)
+    {
+        draw_pipeline.* = .SelectionDisplay;
+    }
+}
+
 pub fn main() !void
 {   
     var dba: std.heap.DebugAllocator(.{}) = .{};
@@ -325,46 +432,8 @@ pub fn main() !void
     try init_vk_context();
     defer deinit_vk_context();
 
-    swapchain = try .init(&window, &vk_context, &vk_allocator, vk_command_pool, 1);
-    defer swapchain.deinit(true);
-
-    const info_depth_buffer: vk.ImageCreateInfo = .{
-        .image_type = .@"2d",
-        .extent = undefined,
-        .mip_levels = 1,
-        .array_layers = 1,
-        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
-        .tiling = .optimal,
-        .initial_layout = .undefined,
-        .usage = .{ .depth_stencil_attachment_bit = true },
-        .sharing_mode = .exclusive,
-        .samples = .{ .@"1_bit" = true }
-    };
-
-    const info_depth_image_view: vk.ImageViewCreateInfo = .{
-        .image = undefined,
-        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
-        .components = .{
-            .r = .identity,
-            .g = .identity,
-            .b = .identity,
-            .a = .identity
-        },
-        .subresource_range = .{
-            .aspect_mask = .{ .depth_bit = true },
-            .base_array_layer = 0,
-            .base_mip_level = 0,
-            .layer_count = 1,
-            .level_count = 1
-        },
-        .view_type = .@"2d"
-    };
-
-    try swapchain.add_resource(.{
-        .info_image = info_depth_buffer,
-        .info_image_view = info_depth_image_view,
-        .image_usage = .DepthAttachment
-    });
+    try init_swapchain();
+    defer deinit_swapchain();
 
     try init_render_passes();
     defer deinit_render_passes();
@@ -402,7 +471,7 @@ pub fn main() !void
         }
     };
 
-    Chunk.init_context(pipeline_vertex_inputs.get(.DebugGeometry));
+    Chunk.init_context(pipeline_vertex_inputs.get(.DebugGeometry), pipeline_vertex_inputs.get(.SelectionDisplay));
     var chunk: Chunk = try .init(&allocator, &vk_allocator, .init(.{0, 0, 1}), 0);
 
     chunk.generate();
@@ -441,24 +510,7 @@ pub fn main() !void
             }
         }
 
-        if(window.get_mouse_button(glfw.MouseButton1) == glfw.Press)
-        {
-            glfw.setInputMode(window.glfw_handle, glfw.Cursor, glfw.CursorDisabled);
-        }
-
-        if(glfw.getKey(window.glfw_handle, glfw.KeyEscape) == glfw.Press)
-        {
-            glfw.setInputMode(window.glfw_handle, glfw.Cursor, glfw.CursorNormal);
-        }
-
-        if(glfw.getKey(window.glfw_handle, glfw.KeyF1) == glfw.Press)
-        {
-            draw_pipeline = .Main;
-        }
-        else if(glfw.getKey(window.glfw_handle, glfw.KeyF2) == glfw.Press)
-        {
-            draw_pipeline = .DebugGeometry;
-        }
+        update_main_input(&draw_pipeline);
 
         for(0..ticks) |_|
         {
@@ -473,7 +525,13 @@ pub fn main() !void
         const descriptor_set: PipelineDescriptorSets = switch(draw_pipeline)
         {
             .DebugGeometry => .DebugGeometryModelView,
-            .Main => .ModelView
+            .Main, .SelectionDisplay => .ModelView
+        };
+
+        const chunk_mesh_mode: Chunk.MeshMode = switch(draw_pipeline)
+        {
+            .DebugGeometry, .Main => .Main,
+            .SelectionDisplay => .Selection
         };
 
         try command_buffer.reset();
@@ -482,7 +540,7 @@ pub fn main() !void
         command_buffer.cmd_set_viewport_scissor_full(swapchain.extent);
         command_buffer.cmd_bind_pipeline(pipelines.getPtr(draw_pipeline));
         command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(draw_pipeline), &pipeline_descriptor_sets.getPtr(descriptor_set).sets[swapchain.current_image_index]);
-        chunk.draw(command_buffer);
+        chunk.draw(chunk_mesh_mode, command_buffer);
         command_buffer.cmd_end_render_pass();
         try command_buffer.end_recording();
 
