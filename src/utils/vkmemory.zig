@@ -164,6 +164,7 @@ pub const VulkanAllocatorUsage = enum
     UniformBuffer,
     Texture,
     Subtexture,
+    GenericAttachment,
     DepthAttachment
 };
 
@@ -221,7 +222,7 @@ pub fn get_allocator_usage_memory_properties(allocator_usage: VulkanAllocatorUsa
             .host_visible_bit = true,
             .host_coherent_bit = true
         },
-        .Texture, .Subtexture, .DepthAttachment => .{
+        .Texture, .Subtexture, .GenericAttachment, .DepthAttachment => .{
             .device_local_bit = true
         }
     };
