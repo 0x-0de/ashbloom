@@ -446,15 +446,40 @@ fn update_shader_uniforms() !void
 
 const Chunk = @import("world/chunk.zig").Chunk;
 
+var input_mode: u8 = 0;
+
 fn update_main_input(draw_pipeline: *Pipelines) void
 {
-    if(window.get_mouse_button(glfw.MouseButton1) == glfw.Press)
+    if(input_mode != 0)
     {
-        glfw.setInputMode(window.glfw_handle, glfw.Cursor, glfw.CursorDisabled);
+        if(glfw.getKey(window.glfw_handle, glfw.KeyLeftAlt) == glfw.Press)
+        {
+            input_mode = 2;
+        }
+        else if(glfw.getKey(window.glfw_handle, glfw.KeyLeftAlt) == glfw.Release)
+        {
+            input_mode = 1;
+        }
+    }
+    
+    if(window.get_mouse_button(glfw.MouseButton1) == glfw.Press and input_mode != 2)
+    {
+        input_mode = 1;
     }
     if(glfw.getKey(window.glfw_handle, glfw.KeyEscape) == glfw.Press)
     {
-        glfw.setInputMode(window.glfw_handle, glfw.Cursor, glfw.CursorNormal);
+        input_mode = 0;
+    }
+
+    switch(input_mode)
+    {
+        0, 2 => {
+            glfw.setInputMode(window.glfw_handle, glfw.Cursor, glfw.CursorNormal);
+        },
+        1 => {
+            glfw.setInputMode(window.glfw_handle, glfw.Cursor, glfw.CursorDisabled);
+        },
+        else => {}
     }
 
     if(glfw.getKey(window.glfw_handle, glfw.KeyF1) == glfw.Press)
@@ -732,7 +757,7 @@ pub fn main() !void
             camera.tick(window);
         }
 
-        camera.update_input(window, 0.002);
+        camera.update_input(window, 0.002, input_mode);
 
         try update_shader_uniforms();
         const command_buffer = try swapchain.get_next_command_buffer();
@@ -749,59 +774,92 @@ pub fn main() !void
             .SelectionDisplay, .Selection => .Selection
         };
 
-        _ = try vk_context.device.waitForFences(&.{selection_fence}, .true, std.math.maxInt(u64));
-        _ = try vk_context.device.resetFences(&.{selection_fence});
+        var cursor_fx: f64 = undefined;
+        var cursor_fy: f64 = undefined;
 
-        if(!first_frame)
+        window.get_cursor_pos(&cursor_fx, &cursor_fy);
+
+        var cursor_x: i32 = @intFromFloat(cursor_fx);
+        var cursor_y: i32 = @intFromFloat(cursor_fy);
+
+        cursor_y *= -1;
+        cursor_y += @intCast(swapchain.extent.height);
+
+        if(input_mode == 1)
         {
-            try ash.vk_memory.copy_image_to_buffer(&vk_context, selection_buffer_image.image, selection_data.buffer, .{ .x = @intCast(swapchain.extent.width / 2), .y = @intCast(swapchain.extent.height / 2), .z = 0 },
-                .{ .width = 1, .height = 1, .depth = 1 }, vk_command_pool, vk_queues.get(.Graphics));
-
-            const selection_data_slc = try vk_allocator.pull_buffer_data(u32, selection_data);
-            defer allocator.free(selection_data_slc);
-
-            if(selection_data_slc[3] == 1)
-            {
-                var x = (selection_data_slc[0] >> 16) & 63;
-                var y = (selection_data_slc[0] >> 8) & 63;
-                var z = selection_data_slc[0] & 63;
-
-                const fac = selection_data_slc[0] >> 24;
-
-                if(window.get_mouse_button(glfw.MouseButton1) == glfw.Press)
-                {
-                    switch(fac)
-                    {
-                        1 => { x -= 1; },
-                        3 => { y -= 1; },
-                        5 => { z -= 1; },
-                        else => {}
-                    }
-
-                    chunk.set(x, y, z, 0);
-                    try chunk.build(true);
-                }
-
-                ash.print_stdout("({d}, {d}, {d}, {d})\n", .{x, y, z, fac}) catch unreachable;
-            }
+            cursor_x = @intCast(swapchain.extent.width / 2);
+            cursor_y = @intCast(swapchain.extent.height / 2);
         }
 
-        try selection_command_buffer.reset();
-        try selection_command_buffer.begin_recording();
-        selection_command_buffer.cmd_begin_render_pass(render_passes.getPtr(.Selection), selection_framebuffer, swapchain.extent, &.{cv_selection_color, cv_depth});
-        selection_command_buffer.cmd_set_viewport_scissor_full(swapchain.extent);
-        selection_command_buffer.cmd_bind_pipeline(pipelines.getPtr(.Selection));
-        selection_command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(.Selection), &pipeline_descriptor_sets.getPtr(.ModelView).sets[swapchain.current_image_index]);
-        chunk.draw(.Selection, &selection_command_buffer);
-        selection_command_buffer.cmd_end_render_pass();
-        try selection_command_buffer.end_recording();
+        if(cursor_x >= 0 and cursor_y >= 0 and cursor_x < swapchain.extent.width and cursor_y < swapchain.extent.height)
+        {
+            _ = try vk_context.device.waitForFences(&.{selection_fence}, .true, std.math.maxInt(u64));
+            _ = try vk_context.device.resetFences(&.{selection_fence});
 
-        const info_selection_cmd_submit: vk.SubmitInfo = .{
-            .command_buffer_count = 1,
-            .p_command_buffers = @ptrCast(&selection_command_buffer.handle)
-        };
+            if(!first_frame)
+            {
+                try ash.vk_memory.copy_image_to_buffer(&vk_context, selection_buffer_image.image, selection_data.buffer, .{ .x = cursor_x, .y = cursor_y, .z = 0 },
+                    .{ .width = 1, .height = 1, .depth = 1 }, vk_command_pool, vk_queues.get(.Graphics));
 
-        try vk_context.device.queueSubmit(vk_queues.get(.Graphics), &.{info_selection_cmd_submit}, selection_fence);
+                const selection_data_slc = try vk_allocator.pull_buffer_data(u32, selection_data);
+                defer allocator.free(selection_data_slc);
+
+                if(selection_data_slc[3] == 1)
+                {
+                    var x = (selection_data_slc[0] >> 16) & 63;
+                    var y = (selection_data_slc[0] >> 8) & 63;
+                    var z = selection_data_slc[0] & 63;
+
+                    const fac = selection_data_slc[0] >> 24;
+
+                    if(window.get_mouse_button(glfw.MouseButton1) == glfw.Press)
+                    {
+                        switch(fac)
+                        {
+                            1 => { x -= 1; },
+                            3 => { y -= 1; },
+                            5 => { z -= 1; },
+                            else => {}
+                        }
+
+                        chunk.set(x, y, z, 0);
+                        try chunk.build(true);
+                    }
+
+                    if(window.get_mouse_button(glfw.MouseButton2) == glfw.Press)
+                    {
+                        switch(fac)
+                        {
+                            0 => { x -= 1; },
+                            2 => { y -= 1; },
+                            4 => { z -= 1; },
+                            else => {}
+                        }
+
+                        chunk.set(x, y, z, 1);
+                        try chunk.build(true);
+                    }
+                }
+            }
+
+            try selection_command_buffer.reset();
+            try selection_command_buffer.begin_recording();
+            selection_command_buffer.cmd_begin_render_pass(render_passes.getPtr(.Selection), selection_framebuffer, swapchain.extent, &.{cv_selection_color, cv_depth});
+            selection_command_buffer.cmd_set_viewport_full(swapchain.extent);
+            selection_command_buffer.cmd_set_scissor(.{ .offset = .{ .x = cursor_x, .y = cursor_y }, .extent = .{ .width = 1, .height = 1 } });
+            selection_command_buffer.cmd_bind_pipeline(pipelines.getPtr(.Selection));
+            selection_command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(.Selection), &pipeline_descriptor_sets.getPtr(.ModelView).sets[swapchain.current_image_index]);
+            chunk.draw(.Selection, &selection_command_buffer);
+            selection_command_buffer.cmd_end_render_pass();
+            try selection_command_buffer.end_recording();
+
+            const info_selection_cmd_submit: vk.SubmitInfo = .{
+                .command_buffer_count = 1,
+                .p_command_buffers = @ptrCast(&selection_command_buffer.handle)
+            };
+
+            try vk_context.device.queueSubmit(vk_queues.get(.Graphics), &.{info_selection_cmd_submit}, selection_fence);
+        }
 
         try command_buffer.reset();
         try command_buffer.begin_recording();

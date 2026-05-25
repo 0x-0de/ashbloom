@@ -160,28 +160,19 @@ pub const Mesh = struct
     /// Allocates a buffer using the Vulkan allocator, stages the vertex data into it, and, if `clear` is true, deallocates the memory held by `self.data`.
     pub fn build(self: *Mesh, clear: bool) !void
     {
-        ash.print_stdout("1\n", .{}) catch unreachable;
         if(self.buffer != null)
         {
             try self.vk_allocator.free_buffer(self.buffer.?);
         }
 
-        ash.print_stdout("2\n", .{}) catch unreachable;
         self.num_vertices = @truncate(self.vertex_data.items.len / self.vertex_size);
-
         self.buffer = try self.vk_allocator.alloc_buffer(u8, self.vertex_data.items, .exclusive, .VertexBuffer);
 
-        ash.print_stdout("3\n", .{}) catch unreachable;
         if(clear)
         {
-            ash.print_stdout("3a\n", .{}) catch unreachable;
             self.vertex_data.clearAndFree(self.allocator.*);
-
-            ash.print_stdout("3b\n", .{}) catch unreachable;
             self.vertices.clearAndFree(self.allocator.*);
         }
-
-        ash.print_stdout("Done.\n", .{}) catch unreachable;
     }
 
     /// Uses the `command_buffer` to draw the Mesh.

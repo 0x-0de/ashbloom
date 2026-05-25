@@ -183,11 +183,7 @@ pub const Chunk = struct
 
     fn build_mesh(self: *Chunk, fill_borders: bool, mesh: *ash.Mesh, mode: MeshMode) !void
     {
-        ash.print_stdout("Buliding chunk...\n", .{}) catch unreachable;
-
-        for(0..CHUNK_SIZE.data[0]) |i|
-        {
-            ash.print_stdout("\r{d}/{d}", .{i, CHUNK_SIZE.data[0] - 1}) catch unreachable;
+        for(0..CHUNK_SIZE.data[0]) |i| {
         for(0..CHUNK_SIZE.data[1]) |j| {
         for(0..CHUNK_SIZE.data[2]) |k|
         {
@@ -226,7 +222,6 @@ pub const Chunk = struct
                 }
             }
         }}}
-        ash.print_stdout("\nDone.\n", .{}) catch unreachable;
     }
 
     pub fn build(self: *Chunk, fill_borders: bool) !void

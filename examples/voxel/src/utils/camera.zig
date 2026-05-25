@@ -69,7 +69,7 @@ pub const Camera = struct
         }
     }
 
-    pub fn update_input(self: *Camera, window: ash.ABWindow, mouse_sensitivity: f64) void
+    pub fn update_input(self: *Camera, window: ash.ABWindow, mouse_sensitivity: f64, input_mode: u8) void
     {
         var cursor_x: f64 = undefined;
         var cursor_y: f64 = undefined;
@@ -79,8 +79,11 @@ pub const Camera = struct
         const delta_x = (cursor_x - self.prev_cursor_x) * mouse_sensitivity;
         const delta_y = (cursor_y - self.prev_cursor_y) * mouse_sensitivity;
 
-        self.cur_cursor_x -= delta_x;
-        self.cur_cursor_y += delta_y;
+        if(input_mode == 1)
+        {
+            self.cur_cursor_x -= delta_x;
+            self.cur_cursor_y += delta_y;
+        }
 
         const limit = std.math.pi / 2.0 - 0.001;
 
