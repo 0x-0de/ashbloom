@@ -77,11 +77,6 @@ fn deinit_vk_context() void
     vk_context.deinit();
 }
 
-const RenderPasses = enum(u8)
-{
-    DebugGeometry
-};
-
 var swapchain: ash.Swapchain = undefined;
 
 fn init_swapchain() !void
@@ -132,13 +127,17 @@ fn deinit_swapchain() void
     swapchain.deinit(true);
 }
 
+const RenderPasses = enum(u8)
+{
+    DebugGeometry,
+    Selection
+};
+
 var render_passes: std.EnumArray(RenderPasses, ash.RenderPass) = .initUndefined();
 
 fn init_render_passes() !void
 {
-    const p_debug_geometry = render_passes.getPtr(.DebugGeometry);
-
-    p_debug_geometry.* = try .init(&vk_context);
+    const depth_format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context);
 
     const sp_color_depth: ash.RenderPass.Subpass = .{
         .color_attachment_index = 0,
@@ -156,7 +155,25 @@ fn init_render_passes() !void
         }
     };
 
-    const depth_format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context);
+    const sp_color_depth_selection: ash.RenderPass.Subpass = .{
+        .color_attachment_index = 0,
+        .depth_stencil_attachment_index = 1,
+        .color_attachment_layout = .color_attachment_optimal,
+        .depth_stencil_attachment_layout = .depth_stencil_attachment_optimal,
+        .subpass_bind_point = .graphics,
+        .subpass_dependency = .{
+            .src_subpass = vk.SUBPASS_EXTERNAL,
+            .dst_subpass = undefined,
+            .src_access_mask = .{ .depth_stencil_attachment_write_bit = true },
+            .dst_access_mask = .{ .color_attachment_write_bit = true, .depth_stencil_attachment_write_bit = true },
+            .src_stage_mask = .{ .color_attachment_output_bit = true, .late_fragment_tests_bit = true },
+            .dst_stage_mask = .{ .color_attachment_output_bit = true, .early_fragment_tests_bit = true }
+        }
+    };
+
+    const p_debug_geometry = render_passes.getPtr(.DebugGeometry);
+
+    p_debug_geometry.* = try .init(&vk_context);
 
     // Color attachment.
     try p_debug_geometry.add_attachment_description_no_stencil_multisample(swapchain.format.format, .clear, .store, .undefined, .present_src_khr);
@@ -165,11 +182,22 @@ fn init_render_passes() !void
 
     try p_debug_geometry.add_subpass(sp_color_depth);
     try p_debug_geometry.build();
+
+    const p_selection = render_passes.getPtr(.Selection);
+
+    p_selection.* = try .init(&vk_context);
+
+    try p_selection.add_attachment_description_no_stencil_multisample(.r32g32b32a32_sfloat, .clear, .store, .undefined, .transfer_src_optimal);
+    try p_selection.add_attachment_description_no_stencil_multisample(depth_format, .clear, .dont_care, .undefined, .depth_stencil_attachment_optimal);
+
+    try p_selection.add_subpass(sp_color_depth_selection);
+    try p_selection.build();
 }
 
 fn deinit_render_passes() void
 {
     render_passes.getPtr(.DebugGeometry).deinit();
+    render_passes.getPtr(.Selection).deinit();
 }
 
 const PipelineDescriptorSets = enum(u8)
@@ -345,7 +373,7 @@ fn init_graphics_pipelines() !void
 
     p_selection.info_depth_stencil_testing = ash.pipeline.pipeline_depth_stencil_state_default();
 
-    try p_selection.build(render_passes.getPtr(.DebugGeometry));
+    try p_selection.build(render_passes.getPtr(.Selection));
 }
 
 fn deinit_graphics_pipelines() void
@@ -523,6 +551,62 @@ pub fn main() !void
     var selection_buffer_image_view = try vk_context.device.createImageView(&selection_buffer_view_create_info, null);
     defer vk_context.device.destroyImageView(selection_buffer_image_view, null);
 
+    var info_depth_buffer: vk.ImageCreateInfo = .{
+        .image_type = .@"2d",
+        .extent = .{
+            .width = swapchain.extent.width,
+            .height = swapchain.extent.height,
+            .depth = 1
+        },
+        .mip_levels = 1,
+        .array_layers = 1,
+        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
+        .tiling = .optimal,
+        .initial_layout = .undefined,
+        .usage = .{ .depth_stencil_attachment_bit = true },
+        .sharing_mode = .exclusive,
+        .samples = .{ .@"1_bit" = true }
+    };
+
+    var selection_buffer_depth_image = try vk_allocator.alloc_image_empty(info_depth_buffer, .DepthAttachment);
+    defer vk_allocator.free_image(selection_buffer_depth_image) catch unreachable;
+
+    var info_depth_image_view: vk.ImageViewCreateInfo = .{
+        .image = selection_buffer_depth_image.image,
+        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
+        .components = .{
+            .r = .identity,
+            .g = .identity,
+            .b = .identity,
+            .a = .identity
+        },
+        .subresource_range = .{
+            .aspect_mask = .{ .depth_bit = true },
+            .base_array_layer = 0,
+            .base_mip_level = 0,
+            .layer_count = 1,
+            .level_count = 1
+        },
+        .view_type = .@"2d"
+    };
+
+    var selection_buffer_depth_view = try vk_context.device.createImageView(&info_depth_image_view, null);
+    defer vk_context.device.destroyImageView(selection_buffer_depth_view, null);
+
+    var selection_buffer_attachments: []const vk.ImageView = &.{selection_buffer_image_view, selection_buffer_depth_view};
+
+    var selection_framebuffer_info: vk.FramebufferCreateInfo = .{
+        .render_pass = render_passes.get(.Selection).render_pass,
+        .attachment_count = 2,
+        .p_attachments = @ptrCast(selection_buffer_attachments),
+        .width = swapchain.extent.width,
+        .height = swapchain.extent.height,
+        .layers = 1
+    };
+
+    var selection_framebuffer = try vk_context.device.createFramebuffer(&selection_framebuffer_info, null);
+    defer vk_context.device.destroyFramebuffer(selection_framebuffer, null);
+
     camera = .init();
     camera.pos = .init(.{0, 0, -3});
 
@@ -536,6 +620,12 @@ pub fn main() !void
     const cv_color: vk.ClearValue = .{
         .color = .{
             .float_32 = .{0, 0, 0, 1}
+        }
+    };
+
+    const cv_selection_color: vk.ClearValue = .{
+        .color = .{
+            .float_32 = .{0, 0, 0, 0}
         }
     };
 
@@ -553,6 +643,17 @@ pub fn main() !void
     try chunk.build(true);
 
     var draw_pipeline: Pipelines = .Main;
+
+    var selection_command_buffer: ash.CommandBuffer = try .init(&vk_context, vk_command_pool);
+
+    const selection_fence_info: vk.FenceCreateInfo = .{
+        .flags = .{
+            .signaled_bit = true
+        }
+    };
+
+    const selection_fence = try vk_context.device.createFence(&selection_fence_info, null);
+    defer vk_context.device.destroyFence(selection_fence, null);
 
     while(!window.should_close())
     {
@@ -579,6 +680,11 @@ pub fn main() !void
                 swapchain.deinit_framebuffers(framebuffers);
                 framebuffers.deinit(allocator);
 
+                vk_context.device.destroyFramebuffer(selection_framebuffer, null);
+
+                vk_context.device.destroyImageView(selection_buffer_depth_view, null);
+                vk_allocator.free_image(selection_buffer_depth_image) catch unreachable;
+
                 vk_context.device.destroyImageView(selection_buffer_image_view, null);
                 vk_allocator.free_image(selection_buffer_image) catch unreachable;
 
@@ -592,10 +698,25 @@ pub fn main() !void
                     .depth = 1
                 };
 
+                info_depth_buffer.extent = selection_buffer_create_info.extent;
+
                 selection_buffer_image = try vk_allocator.alloc_image_empty(selection_buffer_create_info, .GenericAttachment);
                 selection_buffer_view_create_info.image = selection_buffer_image.image;
 
                 selection_buffer_image_view = try vk_context.device.createImageView(&selection_buffer_view_create_info, null);
+
+                selection_buffer_depth_image = try vk_allocator.alloc_image_empty(info_depth_buffer, .DepthAttachment);
+                info_depth_image_view.image = selection_buffer_depth_image.image;
+
+                selection_buffer_depth_view = try vk_context.device.createImageView(&info_depth_image_view, null);
+
+                selection_buffer_attachments = &.{selection_buffer_image_view, selection_buffer_depth_view};
+                selection_framebuffer_info.p_attachments = @ptrCast(selection_buffer_attachments);
+
+                selection_framebuffer_info.width = swapchain.extent.width;
+                selection_framebuffer_info.height = swapchain.extent.height;
+
+                selection_framebuffer = try vk_context.device.createFramebuffer(&selection_framebuffer_info, null);
             }
         }
 
@@ -622,6 +743,26 @@ pub fn main() !void
             .DebugGeometry, .Main => .Main,
             .SelectionDisplay, .Selection => .Selection
         };
+
+        _ = try vk_context.device.waitForFences(&.{selection_fence}, .true, std.math.maxInt(u64));
+        _ = try vk_context.device.resetFences(&.{selection_fence});
+
+        try selection_command_buffer.reset();
+        try selection_command_buffer.begin_recording();
+        selection_command_buffer.cmd_begin_render_pass(render_passes.getPtr(.Selection), selection_framebuffer, swapchain.extent, &.{cv_selection_color, cv_depth});
+        selection_command_buffer.cmd_set_viewport_scissor_full(swapchain.extent);
+        selection_command_buffer.cmd_bind_pipeline(pipelines.getPtr(.Selection));
+        selection_command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(.Selection), &pipeline_descriptor_sets.getPtr(.ModelView).sets[swapchain.current_image_index]);
+        chunk.draw(.Selection, &selection_command_buffer);
+        selection_command_buffer.cmd_end_render_pass();
+        try selection_command_buffer.end_recording();
+
+        const info_selection_cmd_submit: vk.SubmitInfo = .{
+            .command_buffer_count = 1,
+            .p_command_buffers = @ptrCast(&selection_command_buffer.handle)
+        };
+
+        try vk_context.device.queueSubmit(vk_queues.get(.Graphics), &.{info_selection_cmd_submit}, selection_fence);
 
         try command_buffer.reset();
         try command_buffer.begin_recording();
