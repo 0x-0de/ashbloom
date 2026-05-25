@@ -762,11 +762,25 @@ pub fn main() !void
 
             if(selection_data_slc[3] == 1)
             {
-                const x = (selection_data_slc[0] >> 16) & 63;
-                const y = (selection_data_slc[0] >> 8) & 63;
-                const z = selection_data_slc[0] & 63;
+                var x = (selection_data_slc[0] >> 16) & 63;
+                var y = (selection_data_slc[0] >> 8) & 63;
+                var z = selection_data_slc[0] & 63;
 
                 const fac = selection_data_slc[0] >> 24;
+
+                if(window.get_mouse_button(glfw.MouseButton1) == glfw.Press)
+                {
+                    switch(fac)
+                    {
+                        1 => { x -= 1; },
+                        3 => { y -= 1; },
+                        5 => { z -= 1; },
+                        else => {}
+                    }
+
+                    chunk.set(x, y, z, 0);
+                    try chunk.build(true);
+                }
 
                 ash.print_stdout("({d}, {d}, {d}, {d})\n", .{x, y, z, fac}) catch unreachable;
             }

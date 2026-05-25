@@ -13,49 +13,22 @@ pub const VertexError = error
 /// Utility struct for storing vertex data.
 pub const Vertex = struct
 {
-    /// Number of attributes for this vertex.
-    num_attributes: u8,
-    /// Total size of the vertex (in bytes).
-    vertex_size: u16,
-    /// Size of each attribute (in bytes).
-    attribute_sizes: []u8,
-    /// Vertex data.
-    data: []u8,
+    /// Pointer to the mesh which this vertex is a part of.
+    mesh: *Mesh,
+    /// Location of vertex memory in the mesh.
+    memory_offset: [*]u8,
 
     /// Current lid (**do not set this**).
     lid: u16,
     /// Current attribute offset (**do not set this**).
     attribute_offset: u8,
 
-    /// Deinitializes the Vertex object.
-    pub fn deinit(self: *Vertex, allocator: *const std.mem.Allocator) void
-    {
-        allocator.free(self.data);
-        allocator.free(self.attribute_sizes);
-    }
-
     /// Initializes the Vertex object, populates this structure with the information provided in `layout`.
-    pub fn init(allocator: *const std.mem.Allocator, layout: ash.PipelineVertexInput) !Vertex
+    pub fn init(mesh: *Mesh, memory_offset: [*]u8) !Vertex
     {
-        const num_att = layout.attribute_descriptions.items.len;
-        std.debug.assert(num_att < 256);
-
-        var vertex_size: usize = 0;
-        var att_sizes = try allocator.alloc(u8, num_att);
-
-        for(layout.attribute_descriptions.items, 0..) |att, i|
-        {
-            const format_size = try ash.vk_utils.get_vulkan_format_size(att.format);
-            std.debug.assert(format_size < std.math.maxInt(u8) + 1);
-            att_sizes[i] = @truncate(format_size);
-            vertex_size += att_sizes[i];
-        }
-
         return .{
-            .num_attributes = @truncate(num_att),
-            .vertex_size = @truncate(vertex_size),
-            .attribute_sizes = att_sizes,
-            .data = try allocator.alloc(u8, vertex_size),
+            .mesh = mesh,
+            .memory_offset = memory_offset,
             .lid = 0,
             .attribute_offset = 0
         };
@@ -64,16 +37,17 @@ pub const Vertex = struct
     /// Populates the next attribute of the vertex.
     pub fn add_attrib(self: *Vertex, value: anytype) VertexError!void
     {
-        if(self.attribute_offset == self.num_attributes) return VertexError.BufferOverflow;
+        const num_attributes = self.mesh.attribute_sizes.len;
+        if(self.attribute_offset == num_attributes) return VertexError.BufferOverflow;
 
         const bytes = std.mem.asBytes(&value);
-        if(bytes.len != self.attribute_sizes[self.attribute_offset]) return VertexError.IncompatibleAttribute;
-        if(self.lid + bytes.len > self.data.len) return VertexError.BufferOverflow;
+        if(bytes.len != self.mesh.attribute_sizes[self.attribute_offset]) return VertexError.IncompatibleAttribute;
+        if(self.lid + bytes.len > self.mesh.vertex_size) return VertexError.BufferOverflow;
 
         for(0..bytes.len) |i|
         {
             const offset = self.lid + i;
-            self.data[offset] = bytes[i];
+            self.memory_offset[offset] = bytes[i];
         }
 
         self.attribute_offset += 1;
@@ -91,13 +65,17 @@ pub const Mesh = struct
 
     /// Layout of each vertex in the mesh.
     layout: ash.PipelineVertexInput,
+    /// Size of each attribute (in bytes).
+    attribute_sizes: []u8,
     /// Size of each vertex.
     vertex_size: u16,
     /// Total number of vertices in the built mesh.
     num_vertices: u32,
 
-    /// List of all vertex data **to be allocated** to GPU memory when this mesh is built.
+    /// List of all vertices currently allocated to this mesh.
     vertices: std.ArrayList(Vertex),
+    /// List of all vertex data **to be allocated** to GPU memory when this mesh is built.
+    vertex_data: std.ArrayList(u8),
     /// Vulkan buffer (allocated upon calling `self.build(...)`).
     buffer: ?ash.VulkanAllocator.VulkanBufferAllocation,
 
@@ -109,12 +87,10 @@ pub const Mesh = struct
             try self.vk_allocator.free_buffer(self.buffer.?);
         }
 
-        for(self.vertices.items) |*v|
-        {
-            v.deinit(self.allocator);
-        }
-
         self.vertices.deinit(self.allocator.*);
+        self.vertex_data.deinit(self.allocator.*);
+
+        self.allocator.free(self.attribute_sizes);
     }
 
     /// Initializes the Mesh object. Uses a PipelineVertexInput to determine the sizes, formats, and total number of vertex attributes this mesh will use.
@@ -128,15 +104,18 @@ pub const Mesh = struct
             .allocator = allocator,
             .vk_allocator = vk_allocator,
             .layout = layout,
+            .attribute_sizes = try allocator.alloc(u8, layout.attribute_descriptions.items.len),
             .vertex_size = 0,
             .num_vertices = 0,
             .vertices = undefined,
+            .vertex_data = try .initCapacity(allocator.*, 0),
             .buffer = null
         };
 
-        for(layout.attribute_descriptions.items) |att|
+        for(layout.attribute_descriptions.items, 0..) |att, i|
         {
             const format_size = try ash.vk_utils.get_vulkan_format_size(att.format);
+            mesh.attribute_sizes[i] = @truncate(format_size);
             mesh.vertex_size += @truncate(format_size);
         }
 
@@ -149,16 +128,18 @@ pub const Mesh = struct
     pub fn add_vertex(self: *Mesh) !*Vertex
     {
         const vertex = try self.vertices.addOne(self.allocator.*);
-        vertex.* = try .init(self.allocator, self.layout);
+        const data = try self.vertex_data.addManyAsSlice(self.allocator.*, self.vertex_size);
+        vertex.* = try .init(self, data.ptr);
         return vertex;
     }
 
     pub fn add_vertices(self: *Mesh, n: usize) ![]Vertex
     {
         const vertices = try self.vertices.addManyAsSlice(self.allocator.*, n);
+        const data = try self.vertex_data.addManyAsSlice(self.allocator.*, self.vertex_size * n);
         for(0..n) |i|
         {
-            vertices[i] = try .init(self.allocator, self.layout);
+            vertices[i] = try .init(self, data.ptr + i * self.vertex_size);
         }
         return vertices;
     }
@@ -179,40 +160,49 @@ pub const Mesh = struct
     /// Allocates a buffer using the Vulkan allocator, stages the vertex data into it, and, if `clear` is true, deallocates the memory held by `self.data`.
     pub fn build(self: *Mesh, clear: bool) !void
     {
+        ash.print_stdout("1\n", .{}) catch unreachable;
         if(self.buffer != null)
         {
             try self.vk_allocator.free_buffer(self.buffer.?);
         }
 
-        self.num_vertices = @truncate(self.vertices.items.len);
-        const vertex_data = try self.allocator.alloc(u8, self.vertex_size * self.num_vertices);
-        defer self.allocator.free(vertex_data);
+        ash.print_stdout("2\n", .{}) catch unreachable;
+        self.num_vertices = @truncate(self.vertex_data.items.len / self.vertex_size);
 
-        for(0..self.num_vertices) |i|
-        {
-            for(0..self.vertices.items[i].data.len) |j|
-            {
-                vertex_data[i * self.vertex_size + j] = self.vertices.items[i].data[j];
-            }
-        }
+        self.buffer = try self.vk_allocator.alloc_buffer(u8, self.vertex_data.items, .exclusive, .VertexBuffer);
 
-        self.buffer = try self.vk_allocator.alloc_buffer(u8, vertex_data, .exclusive, .VertexBuffer);
-
+        ash.print_stdout("3\n", .{}) catch unreachable;
         if(clear)
         {
-            for(self.vertices.items) |*v|
-            {
-                v.deinit(self.allocator);
-            }
+            ash.print_stdout("3a\n", .{}) catch unreachable;
+            self.vertex_data.clearAndFree(self.allocator.*);
 
-            self.vertices.clearRetainingCapacity();
+            ash.print_stdout("3b\n", .{}) catch unreachable;
+            self.vertices.clearAndFree(self.allocator.*);
         }
+
+        ash.print_stdout("Done.\n", .{}) catch unreachable;
     }
 
     /// Uses the `command_buffer` to draw the Mesh.
     pub fn draw(self: *Mesh, command_buffer: *ash.CommandBuffer) void
     {
         command_buffer.cmd_draw(self.num_vertices, 1);
+    }
+
+    /// After finishing and finalizing a set of vertices for the mesh, it's recommended to call this function to "release" the memory associated with those vertices
+    /// and minimize unnessecary allocations. All of the vertices are fully cleared out when the mesh is built. Checks for incomplete vertices.
+    pub fn finalize_vertices(self: *Mesh) VertexError!void
+    {
+        for(self.vertices.items) |v|
+        {
+            if(v.lid < self.vertex_size)
+            {
+                return VertexError.IncompleteVertex;
+            }
+        }
+
+        self.vertices.clearRetainingCapacity();
     }
 };
 

@@ -32,6 +32,8 @@ fn add_left_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) 
         try verts[4].add_attrib(@as(u32, 0));
         try verts[5].add_attrib(@as(u32, 0));
     }
+
+    try mesh.finalize_vertices();
 }
 
 fn add_right_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
@@ -54,6 +56,8 @@ fn add_right_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode)
         try verts[4].add_attrib(@as(u32, 1));
         try verts[5].add_attrib(@as(u32, 1));
     }
+    
+    try mesh.finalize_vertices();
 }
 
 fn add_bottom_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
@@ -76,6 +80,8 @@ fn add_bottom_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode
         try verts[4].add_attrib(@as(u32, 2));
         try verts[5].add_attrib(@as(u32, 2));
     }
+    
+    try mesh.finalize_vertices();
 }
 
 fn add_top_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
@@ -98,6 +104,8 @@ fn add_top_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !
         try verts[4].add_attrib(@as(u32, 3));
         try verts[5].add_attrib(@as(u32, 3));
     }
+    
+    try mesh.finalize_vertices();
 }
 
 fn add_front_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
@@ -120,6 +128,8 @@ fn add_front_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode)
         try verts[4].add_attrib(@as(u32, 4));
         try verts[5].add_attrib(@as(u32, 4));
     }
+    
+    try mesh.finalize_vertices();
 }
 
 fn add_back_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
@@ -142,6 +152,8 @@ fn add_back_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) 
         try verts[4].add_attrib(@as(u32, 5));
         try verts[5].add_attrib(@as(u32, 5));
     }
+    
+    try mesh.finalize_vertices();
 }
 
 pub const Chunk = struct
@@ -171,10 +183,15 @@ pub const Chunk = struct
 
     fn build_mesh(self: *Chunk, fill_borders: bool, mesh: *ash.Mesh, mode: MeshMode) !void
     {
-        for(0..CHUNK_SIZE.data[0]) |i| {
+        ash.print_stdout("Buliding chunk...\n", .{}) catch unreachable;
+
+        for(0..CHUNK_SIZE.data[0]) |i|
+        {
+            ash.print_stdout("\r{d}/{d}", .{i, CHUNK_SIZE.data[0] - 1}) catch unreachable;
         for(0..CHUNK_SIZE.data[1]) |j| {
         for(0..CHUNK_SIZE.data[2]) |k|
         {
+
             const fi = @as(f32, @floatFromInt(i));
             const fj = @as(f32, @floatFromInt(j));
             const fk = @as(f32, @floatFromInt(k));
@@ -209,6 +226,7 @@ pub const Chunk = struct
                 }
             }
         }}}
+        ash.print_stdout("\nDone.\n", .{}) catch unreachable;
     }
 
     pub fn build(self: *Chunk, fill_borders: bool) !void
@@ -319,5 +337,11 @@ pub const Chunk = struct
                 }
             }
         }}
+    }
+
+    /// Set a voxel to a value, and then build the mesh if `rebuild` is true.
+    pub fn set(self: *Chunk, x: u32, y: u32, z: u32, value: u32) void
+    {
+        self.voxels[x][y][z] = value;
     }
 };
