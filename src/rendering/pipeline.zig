@@ -1,6 +1,8 @@
 const std = @import("std");
 const print = std.debug.print;
 
+const ash = @import("../root.zig");
+
 const vk = @import("vulkan");
 const glfw = @import("glfw");
 

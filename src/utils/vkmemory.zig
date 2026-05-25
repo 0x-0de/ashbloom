@@ -74,6 +74,7 @@ pub fn map_data_to_memory(comptime T: type, context: *vk_context.VkContext, memo
     context.device.unmapMemory(memory);
 }
 
+
 /// Perform a copy operation to copy data from one buffer to another, with offset values (often used for copying CPU-visible data to GPU-only buffers).
 /// Command pool and queue must both support transfer operations. NOTE: All Vulkan queues and command buffers that support graphics operations implicitly
 /// support transfer operations as well.
@@ -157,6 +158,33 @@ transfer_queue: vk.Queue) !void
     try commands.end_and_submit_single_time_command_buffer(context, command_pool, command_buffer, transfer_queue);
 }
 
+/// Perform a copy operation to copy data from an image to a buffer. Command pool and queue must both support transfer operations. NOTE: All Vulkan queues
+/// and command buffers that support graphics operations implicitly support transfer operations as well.
+pub fn copy_image_to_buffer(context: *vk_context.VkContext, src_image: vk.Image, dst_buffer: vk.Buffer, image_offset: vk.Offset3D, image_extent: vk.Extent3D, command_pool: vk.CommandPool,
+transfer_queue: vk.Queue) !void
+{
+    const command_buffer = try commands.begin_single_time_command_buffer(context, command_pool);
+
+    const info_image_buffer_copy: vk.BufferImageCopy = .{
+        .buffer_offset = 0,
+        .buffer_row_length = 0,
+        .buffer_image_height = 0,
+        .image_subresource = .{
+            .aspect_mask = .{
+                .color_bit = true
+            },
+            .mip_level = 0,
+            .base_array_layer = 0,
+            .layer_count = 1
+        },
+        .image_offset = image_offset,
+        .image_extent = image_extent
+    };
+
+    context.device.cmdCopyImageToBuffer(command_buffer, src_image, .transfer_src_optimal, dst_buffer, &.{ info_image_buffer_copy });
+    try commands.end_and_submit_single_time_command_buffer(context, command_pool, command_buffer, transfer_queue);
+}
+
 pub const VulkanAllocatorUsage = enum
 {
     VertexBuffer,
@@ -165,7 +193,8 @@ pub const VulkanAllocatorUsage = enum
     Texture,
     Subtexture,
     GenericAttachment,
-    DepthAttachment
+    DepthAttachment,
+    CPUTransferDst,
 };
 
 pub const VulkanAllocatorError = error
@@ -187,6 +216,9 @@ pub fn get_allocator_buffer_usage_flags(allocator_usage: VulkanAllocatorUsage) V
         },
         .UniformBuffer => .{
             .uniform_buffer_bit = true
+        },
+        .CPUTransferDst => .{
+            .transfer_dst_bit = true
         },
         else => VulkanAllocatorError.InvalidAllocatorUsage
     };
@@ -218,7 +250,7 @@ pub fn get_allocator_usage_memory_properties(allocator_usage: VulkanAllocatorUsa
         .VertexBuffer, .IndexBuffer => .{
             .device_local_bit = true,
         },
-        .UniformBuffer => .{
+        .UniformBuffer, .CPUTransferDst => .{
             .host_visible_bit = true,
             .host_coherent_bit = true
         },
@@ -812,6 +844,22 @@ pub const VulkanAllocator = struct
         self.staging_command_pool.*, self.staging_queue.*, 0, offset * @sizeOf(T));
     }
 
+    /// Takes a CPU-visible and coherent buffer and copies the data to a slice of a given type T.
+    pub fn pull_buffer_data(self: *VulkanAllocator, comptime T: type, buffer: VulkanAllocator.VulkanBufferAllocation) ![]T
+    {
+        const page = self.memory_pages.items[buffer.page];
+
+        const data_size = buffer.size / @sizeOf(T);
+        const data = try self.context.allocator.alloc(T, data_size);
+
+        const map: *anyopaque = (try self.context.device.mapMemory(page.memory, buffer.offset, buffer.size, .{})).?;
+        const map_data: []u8 = @as([*]u8, @ptrCast(map))[0..buffer.size];
+            @memcpy(@as([*]u8, @ptrCast(data)), map_data);
+        self.context.device.unmapMemory(page.memory);
+
+        return data;
+    }
+    
     /// Prints out all available space in the allocator.
     pub fn debug_print_free_space(self: VulkanAllocator) void
     {

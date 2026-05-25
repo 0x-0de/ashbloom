@@ -187,7 +187,7 @@ fn init_render_passes() !void
 
     p_selection.* = try .init(&vk_context);
 
-    try p_selection.add_attachment_description_no_stencil_multisample(.r32g32b32a32_sfloat, .clear, .store, .undefined, .transfer_src_optimal);
+    try p_selection.add_attachment_description_no_stencil_multisample(.r32g32b32a32_uint, .clear, .store, .undefined, .transfer_src_optimal);
     try p_selection.add_attachment_description_no_stencil_multisample(depth_format, .clear, .dont_care, .undefined, .depth_stencil_attachment_optimal);
 
     try p_selection.add_subpass(sp_color_depth_selection);
@@ -511,7 +511,7 @@ pub fn main() !void
 
     var selection_buffer_create_info: vk.ImageCreateInfo = .{
         .image_type = .@"2d",
-        .format = .r32g32b32a32_sfloat,
+        .format = .r32g32b32a32_uint,
         .extent = .{
             .width = swapchain.extent.width,
             .height = swapchain.extent.height,
@@ -655,6 +655,11 @@ pub fn main() !void
     const selection_fence = try vk_context.device.createFence(&selection_fence_info, null);
     defer vk_context.device.destroyFence(selection_fence, null);
 
+    const selection_data = try vk_allocator.alloc_buffer_empty(4 * @sizeOf(f32), .exclusive, .CPUTransferDst);
+    defer vk_allocator.free_buffer(selection_data) catch unreachable;
+
+    var first_frame = true;
+
     while(!window.should_close())
     {
         glfw.pollEvents();
@@ -747,6 +752,26 @@ pub fn main() !void
         _ = try vk_context.device.waitForFences(&.{selection_fence}, .true, std.math.maxInt(u64));
         _ = try vk_context.device.resetFences(&.{selection_fence});
 
+        if(!first_frame)
+        {
+            try ash.vk_memory.copy_image_to_buffer(&vk_context, selection_buffer_image.image, selection_data.buffer, .{ .x = @intCast(swapchain.extent.width / 2), .y = @intCast(swapchain.extent.height / 2), .z = 0 },
+                .{ .width = 1, .height = 1, .depth = 1 }, vk_command_pool, vk_queues.get(.Graphics));
+
+            const selection_data_slc = try vk_allocator.pull_buffer_data(u32, selection_data);
+            defer allocator.free(selection_data_slc);
+
+            if(selection_data_slc[3] == 1)
+            {
+                const x = (selection_data_slc[0] >> 16) & 63;
+                const y = (selection_data_slc[0] >> 8) & 63;
+                const z = selection_data_slc[0] & 63;
+
+                const fac = selection_data_slc[0] >> 24;
+
+                ash.print_stdout("({d}, {d}, {d}, {d})\n", .{x, y, z, fac}) catch unreachable;
+            }
+        }
+
         try selection_command_buffer.reset();
         try selection_command_buffer.begin_recording();
         selection_command_buffer.cmd_begin_render_pass(render_passes.getPtr(.Selection), selection_framebuffer, swapchain.extent, &.{cv_selection_color, cv_depth});
@@ -779,6 +804,7 @@ pub fn main() !void
         try swapchain.present(vk_queues.get(.Presentation));
 
         frames += 1;
+        first_frame = false;
     }
 
     try vk_context.device.deviceWaitIdle();
