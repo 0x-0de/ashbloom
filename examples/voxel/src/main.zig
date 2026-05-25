@@ -234,6 +234,7 @@ fn init_graphics_pipeline_vertex_inputs() !void
     pvi_main.* = try .init(&allocator);
 
     try pvi_main.add_attribute(0, 0, .r32g32b32_sfloat, 0);
+    try pvi_main.add_attribute(0, 1, .r32_uint, 3 * @sizeOf(f32));
     try pvi_main.build(0, .vertex);
 
     // Selection display.
@@ -661,7 +662,7 @@ pub fn main() !void
         }
     };
 
-    Chunk.init_context(pipeline_vertex_inputs.get(.DebugGeometry), pipeline_vertex_inputs.get(.SelectionDisplay));
+    Chunk.init_context(pipeline_vertex_inputs.get(.Main), pipeline_vertex_inputs.get(.SelectionDisplay));
     var chunk: Chunk = try .init(&allocator, &vk_allocator, .init(.{0, 0, 1}), 0);
 
     chunk.generate();

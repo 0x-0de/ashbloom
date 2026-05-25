@@ -1,6 +1,7 @@
 #version 450
 
 layout(location = 0) in vec3 f_pos;
+layout(location = 1) flat in uint f_fac;
 
 layout(location = 0) out vec4 color;
 
@@ -64,18 +65,46 @@ vec3 random_color(int seed, int x, int y, int z)
 	return vec3(float (ri) / 255, float (gi) / 255, float (bi) / 255);
 }
 
+const vec3 sun_dir = normalize(vec3(1, 3, 2));
+
 void main()
 {
 	vec3 step_pos = f_pos * pixel_res;
+
+	vec3 normal;
+
+	switch(f_fac)
+	{
+		case 0:
+			normal = vec3(-1, 0, 0);
+			break;
+		case 1:
+			normal = vec3(1, 0, 0);
+			break;
+		case 2:
+			normal = vec3(0, -1, 0);
+			break;
+		case 3:
+			normal = vec3(0, 1, 0);
+			break;
+		case 4:
+			normal = vec3(0, 0, -1);
+			break;
+		case 5:
+			normal = vec3(0, 0, 1);
+			break;
+	}
+
+	float light_dot = (dot(normal, sun_dir) + 1) / 2;
 
 	int sr = int (floor(step_pos.x - epsilon));
 	int sg = int (floor(step_pos.y - epsilon));
 	int sb = int (floor(step_pos.z - epsilon));
 
-	vec3 base = vec3(0.15, 0.75, 0.1);
+	vec3 base = vec3(0.15, 0.7, 0) * light_dot + vec3(0.05, 0.05, 0.1);
 	vec3 rand = random_color(909, sr, sg, sb);
 
-	vec3 weighted_rand = vec3(rand.x * 0.1, rand.y * 0.2, rand.z * 0.1);
+	vec3 weighted_rand = vec3(rand.x * 0.1, rand.y * 0.35, rand.z * 0.2) * max(light_dot, 0.1);
 
 	vec3 col = base + weighted_rand;
 

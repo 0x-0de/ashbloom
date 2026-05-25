@@ -14,6 +14,7 @@ var chunk_pl_selection: ?ash.PipelineVertexInput = null;
 
 fn add_left_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
+    _ = mode;
     var verts = try mesh.add_vertices(6);
 
     try verts[0].add_attrib(@as([3]f32, .{x, y, z}));
@@ -23,21 +24,19 @@ fn add_left_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) 
     try verts[4].add_attrib(@as([3]f32, .{x, y + 1, z + 1}));
     try verts[5].add_attrib(@as([3]f32, .{x, y, z + 1}));
 
-    if(mode == .Selection)
-    {
-        try verts[0].add_attrib(@as(u32, 0));
-        try verts[1].add_attrib(@as(u32, 0));
-        try verts[2].add_attrib(@as(u32, 0));
-        try verts[3].add_attrib(@as(u32, 0));
-        try verts[4].add_attrib(@as(u32, 0));
-        try verts[5].add_attrib(@as(u32, 0));
-    }
+    try verts[0].add_attrib(@as(u32, 0));
+    try verts[1].add_attrib(@as(u32, 0));
+    try verts[2].add_attrib(@as(u32, 0));
+    try verts[3].add_attrib(@as(u32, 0));
+    try verts[4].add_attrib(@as(u32, 0));
+    try verts[5].add_attrib(@as(u32, 0));
 
     try mesh.finalize_vertices();
 }
 
 fn add_right_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
+    _ = mode;
     var verts = try mesh.add_vertices(6);
 
     try verts[0].add_attrib(@as([3]f32, .{x + 1, y, z}));
@@ -47,21 +46,19 @@ fn add_right_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode)
     try verts[4].add_attrib(@as([3]f32, .{x + 1, y, z + 1}));
     try verts[5].add_attrib(@as([3]f32, .{x + 1, y + 1, z + 1}));
 
-    if(mode == .Selection)
-    {
-        try verts[0].add_attrib(@as(u32, 1));
-        try verts[1].add_attrib(@as(u32, 1));
-        try verts[2].add_attrib(@as(u32, 1));
-        try verts[3].add_attrib(@as(u32, 1));
-        try verts[4].add_attrib(@as(u32, 1));
-        try verts[5].add_attrib(@as(u32, 1));
-    }
+    try verts[0].add_attrib(@as(u32, 1));
+    try verts[1].add_attrib(@as(u32, 1));
+    try verts[2].add_attrib(@as(u32, 1));
+    try verts[3].add_attrib(@as(u32, 1));
+    try verts[4].add_attrib(@as(u32, 1));
+    try verts[5].add_attrib(@as(u32, 1));
     
     try mesh.finalize_vertices();
 }
 
 fn add_bottom_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
+    _ = mode;
     var verts = try mesh.add_vertices(6);
 
     try verts[0].add_attrib(@as([3]f32, .{x, y, z}));
@@ -71,21 +68,19 @@ fn add_bottom_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode
     try verts[4].add_attrib(@as([3]f32, .{x, y, z + 1}));
     try verts[5].add_attrib(@as([3]f32, .{x + 1, y, z + 1}));
 
-    if(mode == .Selection)
-    {
-        try verts[0].add_attrib(@as(u32, 2));
-        try verts[1].add_attrib(@as(u32, 2));
-        try verts[2].add_attrib(@as(u32, 2));
-        try verts[3].add_attrib(@as(u32, 2));
-        try verts[4].add_attrib(@as(u32, 2));
-        try verts[5].add_attrib(@as(u32, 2));
-    }
+    try verts[0].add_attrib(@as(u32, 2));
+    try verts[1].add_attrib(@as(u32, 2));
+    try verts[2].add_attrib(@as(u32, 2));
+    try verts[3].add_attrib(@as(u32, 2));
+    try verts[4].add_attrib(@as(u32, 2));
+    try verts[5].add_attrib(@as(u32, 2));
     
     try mesh.finalize_vertices();
 }
 
 fn add_top_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
+    _ = mode;
     var verts = try mesh.add_vertices(6);
 
     try verts[0].add_attrib(@as([3]f32, .{x, y + 1, z}));
@@ -95,21 +90,19 @@ fn add_top_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !
     try verts[4].add_attrib(@as([3]f32, .{x + 1, y + 1, z + 1}));
     try verts[5].add_attrib(@as([3]f32, .{x, y + 1, z + 1}));
 
-    if(mode == .Selection)
-    {
-        try verts[0].add_attrib(@as(u32, 3));
-        try verts[1].add_attrib(@as(u32, 3));
-        try verts[2].add_attrib(@as(u32, 3));
-        try verts[3].add_attrib(@as(u32, 3));
-        try verts[4].add_attrib(@as(u32, 3));
-        try verts[5].add_attrib(@as(u32, 3));
-    }
+    try verts[0].add_attrib(@as(u32, 3));
+    try verts[1].add_attrib(@as(u32, 3));
+    try verts[2].add_attrib(@as(u32, 3));
+    try verts[3].add_attrib(@as(u32, 3));
+    try verts[4].add_attrib(@as(u32, 3));
+    try verts[5].add_attrib(@as(u32, 3));
     
     try mesh.finalize_vertices();
 }
 
 fn add_front_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
+    _ = mode;
     var verts = try mesh.add_vertices(6);
     
     try verts[0].add_attrib(@as([3]f32, .{x, y, z}));
@@ -119,21 +112,19 @@ fn add_front_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode)
     try verts[4].add_attrib(@as([3]f32, .{x + 1, y + 1, z}));
     try verts[5].add_attrib(@as([3]f32, .{x, y + 1, z}));
 
-    if(mode == .Selection)
-    {
-        try verts[0].add_attrib(@as(u32, 4));
-        try verts[1].add_attrib(@as(u32, 4));
-        try verts[2].add_attrib(@as(u32, 4));
-        try verts[3].add_attrib(@as(u32, 4));
-        try verts[4].add_attrib(@as(u32, 4));
-        try verts[5].add_attrib(@as(u32, 4));
-    }
+    try verts[0].add_attrib(@as(u32, 4));
+    try verts[1].add_attrib(@as(u32, 4));
+    try verts[2].add_attrib(@as(u32, 4));
+    try verts[3].add_attrib(@as(u32, 4));
+    try verts[4].add_attrib(@as(u32, 4));
+    try verts[5].add_attrib(@as(u32, 4));
     
     try mesh.finalize_vertices();
 }
 
 fn add_back_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
+    _ = mode;
     var verts = try mesh.add_vertices(6);
 
     try verts[0].add_attrib(@as([3]f32, .{x, y, z + 1}));
@@ -143,15 +134,12 @@ fn add_back_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) 
     try verts[4].add_attrib(@as([3]f32, .{x, y + 1, z + 1}));
     try verts[5].add_attrib(@as([3]f32, .{x + 1, y + 1, z + 1}));
 
-    if(mode == .Selection)
-    {
-        try verts[0].add_attrib(@as(u32, 5));
-        try verts[1].add_attrib(@as(u32, 5));
-        try verts[2].add_attrib(@as(u32, 5));
-        try verts[3].add_attrib(@as(u32, 5));
-        try verts[4].add_attrib(@as(u32, 5));
-        try verts[5].add_attrib(@as(u32, 5));
-    }
+    try verts[0].add_attrib(@as(u32, 5));
+    try verts[1].add_attrib(@as(u32, 5));
+    try verts[2].add_attrib(@as(u32, 5));
+    try verts[3].add_attrib(@as(u32, 5));
+    try verts[4].add_attrib(@as(u32, 5));
+    try verts[5].add_attrib(@as(u32, 5));
     
     try mesh.finalize_vertices();
 }
