@@ -748,6 +748,8 @@ pub fn main() !void
                 selection_framebuffer_info.height = swapchain.extent.height;
 
                 selection_framebuffer = try vk_context.device.createFramebuffer(&selection_framebuffer_info, null);
+
+                first_frame = true;
             }
         }
 
@@ -860,6 +862,8 @@ pub fn main() !void
             };
 
             try vk_context.device.queueSubmit(vk_queues.get(.Graphics), &.{info_selection_cmd_submit}, selection_fence);
+
+            first_frame = false;
         }
 
         try command_buffer.reset();
@@ -877,7 +881,6 @@ pub fn main() !void
         try swapchain.present(vk_queues.get(.Presentation));
 
         frames += 1;
-        first_frame = false;
     }
 
     try vk_context.device.deviceWaitIdle();
