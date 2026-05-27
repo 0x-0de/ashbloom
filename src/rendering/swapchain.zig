@@ -9,18 +9,8 @@ const CommandBuffer = @import("commands.zig").CommandBuffer;
 
 const Window = @import("window.zig").Window;
 
+const att = @import("attachment.zig");
 const vk_memory = @import("../utils/vkmemory.zig");
-
-pub const SwapchainResource = struct
-{
-    info_image: vk.ImageCreateInfo,
-    info_image_view: vk.ImageViewCreateInfo,
-
-    image_usage: vk_memory.VulkanAllocatorUsage,
-
-    image: vk_memory.VulkanAllocator.VulkanImageAllocation = undefined,
-    image_view: vk.ImageView = undefined
-};
 
 /// Describes a VkSwapchainKHR object, or Vulkan swap chain. A swap chain is a 'chain', list, or queue, of images that Vulkan can render to.
 /// The reason we want multiple images rather than just a single image is to prevent screen tearing, which is caused by rendering to and displaying
@@ -70,8 +60,8 @@ pub const Swapchain = struct
     /// List of command buffers to use for rendering each render stage to each image. Do not access this field directly, instead use get_current_command_buffer.
     command_buffers: []std.ArrayList(CommandBuffer) = undefined,
 
-    /// List of resources that the swapchain keeps track of. Includes things like depth buffers. Add with `add_resource`.
-    resources: std.ArrayList(SwapchainResource) = undefined,
+    /// List of attachments that the swapchain keeps track of. Includes things like depth buffers. Add with `add_resource`.
+    attachments: std.ArrayList(att.Attachment) = undefined,
 
     pub const AcquireImageResult = enum
     {
@@ -323,12 +313,12 @@ pub const Swapchain = struct
         return if(swapchain_expired) AcquireImageResult.NewSwapchain else AcquireImageResult.NoIssue;
     }
 
-    /// Add a resource to the swapchain. Resources are seperate images that are included with the swapchain, but aren't any of the swapchain images directly.
+    /// Add a resource to the swapchain. attachments are seperate images that are included with the swapchain, but aren't any of the swapchain images directly.
     /// Examples include a depth buffer, or some kind of G-buffer.
-    pub fn add_resource(self: *Swapchain, resource: SwapchainResource) !void
+    pub fn add_attachment(self: *Swapchain, attachment: att.Attachment) !void
     {
-        try self.resources.append(self.context.allocator.*, resource);
-        var sr = &self.resources.items[self.resources.items.len - 1];
+        try self.attachments.append(self.context.allocator.*, attachment);
+        var sr = &self.attachments.items[self.attachments.items.len - 1];
 
         sr.info_image.extent = .{
             .width = self.extent.width,
@@ -338,22 +328,22 @@ pub const Swapchain = struct
 
         sr.image = try self.vk_allocator.alloc_image_empty(sr.info_image, sr.image_usage);
 
-        sr.info_image_view.image = sr.image.image;
+        sr.info_image_view.image = sr.image.?.image;
         sr.image_view = try self.context.device.createImageView(&sr.info_image_view, null);
     }
 
-    /// Clears all swapchain resources. Used when the swapchain needs to be refreshed, or during swapchain deinitialization.
-    pub fn clear_resources(self: *Swapchain) void
+    /// Clears all swapchain attachments. Used when the swapchain needs to be refreshed, or during swapchain deinitialization.
+    pub fn clear_attachments(self: *Swapchain) void
     {
-        for(self.resources.items) |*sr|
+        for(self.attachments.items) |*sr|
         {
-            self.context.device.destroyImageView(sr.image_view, null);
-            self.vk_allocator.free_image(sr.image) catch unreachable;
+            self.context.device.destroyImageView(sr.image_view.?, null);
+            self.vk_allocator.free_image(sr.image.?) catch unreachable;
         }
     }
 
     /// Creates framebuffers using the swap chain's images (or image views) and associates them with a render pass.
-    /// Includes swapchain resources as additional attachments to the framebuffer.
+    /// Includes swapchain attachments as additional attachments to the framebuffer.
     pub fn create_framebuffers(self: *Swapchain, render_pass: *rp.RenderPass) !std.ArrayList(vk.Framebuffer)
     {
         // A framebuffer attaches an ImageView to a render pass.
@@ -370,13 +360,13 @@ pub const Swapchain = struct
 
         for(0..num_images) |i|
         {
-            var attachments = try self.context.allocator.alloc(vk.ImageView, self.resources.items.len + 1);
+            var attachments = try self.context.allocator.alloc(vk.ImageView, self.attachments.items.len + 1);
             defer self.context.allocator.free(attachments);
 
             attachments[0] = self.image_views.items[i];
             for(1..attachments.len) |j|
             {
-                attachments[j] = self.resources.items[j - 1].image_view;
+                attachments[j] = self.attachments.items[j - 1].image_view.?;
             }
 
             // As you can see, creating them is rather straightforward.
@@ -395,8 +385,8 @@ pub const Swapchain = struct
         return framebuffers;
     }
 
-    /// Deinitializes the swap chain. Set `include_resources` to true if this is the final call to deinit, and not just part of a swapchain refresh operation.
-    pub fn deinit(self: *Swapchain, include_resources: bool) void
+    /// Deinitializes the swap chain. Set `include_attachments` to true if this is the final call to deinit, and not just part of a swapchain refresh operation.
+    pub fn deinit(self: *Swapchain, include_attachments: bool) void
     {
         for(self.image_views.items, 0..) |_, i|
         {
@@ -420,10 +410,10 @@ pub const Swapchain = struct
         self.context.allocator.free(self.fences_command_buffers_finished);
         self.context.allocator.free(self.command_buffers);
      
-        if(include_resources)
+        if(include_attachments)
         {
-            self.clear_resources();
-            self.resources.deinit(self.context.allocator.*);
+            self.clear_attachments();
+            self.attachments.deinit(self.context.allocator.*);
         }
 
         self.image_views.deinit(self.context.allocator.*);
@@ -466,7 +456,7 @@ pub const Swapchain = struct
 
         try sc.create_swapchain();
 
-        sc.resources = try .initCapacity(context.allocator.*, 0);
+        sc.attachments = try .initCapacity(context.allocator.*, 0);
 
         return sc;
     }
@@ -497,12 +487,12 @@ pub const Swapchain = struct
         self.current_render_stage = 0;
     }
 
-    /// Refreshes all resources (recreates them with up-to-date extents). Must be called whenever the swapchain needs to be refreshed.
-    pub fn refresh_resources(self: *Swapchain) !void
+    /// Refreshes all attachments (recreates them with up-to-date extents). Must be called whenever the swapchain needs to be refreshed.
+    pub fn refresh_attachments(self: *Swapchain) !void
     {
-        self.clear_resources();
+        self.clear_attachments();
 
-        for(self.resources.items) |*sr|
+        for(self.attachments.items) |*sr|
         {
             sr.info_image.extent = .{
                 .width = self.extent.width,
@@ -512,7 +502,7 @@ pub const Swapchain = struct
 
             sr.image = try self.vk_allocator.alloc_image_empty(sr.info_image, sr.image_usage);
 
-            sr.info_image_view.image = sr.image.image;
+            sr.info_image_view.image = sr.image.?.image;
             sr.image_view = try self.context.device.createImageView(&sr.info_image_view, null);
         }
     }

@@ -115,7 +115,7 @@ fn init_swapchain() !void
         .view_type = .@"2d"
     };
 
-    try swapchain.add_resource(.{
+    try swapchain.add_attachment(.{
         .info_image = info_depth_buffer,
         .info_image_view = info_depth_image_view,
         .image_usage = .DepthAttachment
@@ -125,6 +125,108 @@ fn init_swapchain() !void
 fn deinit_swapchain() void
 {
     swapchain.deinit(true);
+}
+
+const Attachments = enum(u8)
+{
+    SelectionBuffer
+};
+
+var attachments: std.EnumArray(Attachments, ash.AttachmentBundle) = .initUndefined();
+
+fn init_attachments() !void
+{
+    const att_selection_buffer = attachments.getPtr(.SelectionBuffer);
+    att_selection_buffer.* = try .init(&allocator, &vk_context, &vk_allocator);
+
+    const selection_buffer_create_info: vk.ImageCreateInfo = .{
+        .image_type = .@"2d",
+        .format = .r32g32b32a32_uint,
+        .extent = undefined,
+        .mip_levels = 1,
+        .array_layers = 1,
+        .tiling = .optimal,
+        .usage = .{ .transfer_src_bit = true, .color_attachment_bit = true },
+        .sharing_mode = .exclusive,
+        .samples = .{ .@"1_bit" = true },
+        .initial_layout = .undefined
+    };
+
+    const selection_buffer_view_create_info: vk.ImageViewCreateInfo = .{
+        .image = undefined,
+        .view_type = .@"2d",
+        .format = selection_buffer_create_info.format,
+        .components = .{
+            .r = .identity,
+            .g = .identity,
+            .b = .identity,
+            .a = .identity
+        },
+        .subresource_range = .{
+            .aspect_mask = .{ .color_bit = true },
+            .base_array_layer = 0,
+            .base_mip_level = 0,
+            .layer_count = 1,
+            .level_count = 1
+        }
+    };
+
+    try att_selection_buffer.add_attachment(.{
+        .info_image = selection_buffer_create_info,
+        .info_image_view = selection_buffer_view_create_info,
+        .image_usage = .GenericAttachment
+    });
+
+    const info_depth_buffer: vk.ImageCreateInfo = .{
+        .image_type = .@"2d",
+        .extent = undefined,
+        .mip_levels = 1,
+        .array_layers = 1,
+        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
+        .tiling = .optimal,
+        .initial_layout = .undefined,
+        .usage = .{ .depth_stencil_attachment_bit = true },
+        .sharing_mode = .exclusive,
+        .samples = .{ .@"1_bit" = true }
+    };
+
+    const info_depth_image_view: vk.ImageViewCreateInfo = .{
+        .image = undefined,
+        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
+        .components = .{
+            .r = .identity,
+            .g = .identity,
+            .b = .identity,
+            .a = .identity
+        },
+        .subresource_range = .{
+            .aspect_mask = .{ .depth_bit = true },
+            .base_array_layer = 0,
+            .base_mip_level = 0,
+            .layer_count = 1,
+            .level_count = 1
+        },
+        .view_type = .@"2d"
+    };
+
+    try att_selection_buffer.add_attachment(.{
+        .info_image = info_depth_buffer,
+        .info_image_view = info_depth_image_view,
+        .image_usage = .DepthAttachment
+    });
+
+    try att_selection_buffer.build(.{
+        .width = swapchain.extent.width,
+        .height = swapchain.extent.height,
+        .depth = 1
+    });
+}
+
+fn deinit_attachments() void
+{
+    const att_selection_buffer = attachments.getPtr(.SelectionBuffer);
+
+    att_selection_buffer.deinit();
 }
 
 const RenderPasses = enum(u8)
@@ -522,6 +624,9 @@ pub fn main() !void
     try init_swapchain();
     defer deinit_swapchain();
 
+    try init_attachments();
+    defer deinit_attachments();
+
     try init_render_passes();
     defer deinit_render_passes();
 
@@ -535,91 +640,8 @@ pub fn main() !void
         framebuffers.deinit(allocator);
     }
 
-    var selection_buffer_create_info: vk.ImageCreateInfo = .{
-        .image_type = .@"2d",
-        .format = .r32g32b32a32_uint,
-        .extent = .{
-            .width = swapchain.extent.width,
-            .height = swapchain.extent.height,
-            .depth = 1
-        },
-        .mip_levels = 1,
-        .array_layers = 1,
-        .tiling = .optimal,
-        .usage = .{ .transfer_src_bit = true, .color_attachment_bit = true },
-        .sharing_mode = .exclusive,
-        .samples = .{ .@"1_bit" = true },
-        .initial_layout = .undefined
-    };
-
-    var selection_buffer_image = try vk_allocator.alloc_image_empty(selection_buffer_create_info, .GenericAttachment);
-    defer vk_allocator.free_image(selection_buffer_image) catch unreachable;
-
-    var selection_buffer_view_create_info: vk.ImageViewCreateInfo = .{
-        .image = selection_buffer_image.image,
-        .view_type = .@"2d",
-        .format = selection_buffer_create_info.format,
-        .components = .{
-            .r = .identity,
-            .g = .identity,
-            .b = .identity,
-            .a = .identity
-        },
-        .subresource_range = .{
-            .aspect_mask = .{ .color_bit = true },
-            .base_array_layer = 0,
-            .base_mip_level = 0,
-            .layer_count = 1,
-            .level_count = 1
-        }
-    };
-
-    var selection_buffer_image_view = try vk_context.device.createImageView(&selection_buffer_view_create_info, null);
-    defer vk_context.device.destroyImageView(selection_buffer_image_view, null);
-
-    var info_depth_buffer: vk.ImageCreateInfo = .{
-        .image_type = .@"2d",
-        .extent = .{
-            .width = swapchain.extent.width,
-            .height = swapchain.extent.height,
-            .depth = 1
-        },
-        .mip_levels = 1,
-        .array_layers = 1,
-        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
-        .tiling = .optimal,
-        .initial_layout = .undefined,
-        .usage = .{ .depth_stencil_attachment_bit = true },
-        .sharing_mode = .exclusive,
-        .samples = .{ .@"1_bit" = true }
-    };
-
-    var selection_buffer_depth_image = try vk_allocator.alloc_image_empty(info_depth_buffer, .DepthAttachment);
-    defer vk_allocator.free_image(selection_buffer_depth_image) catch unreachable;
-
-    var info_depth_image_view: vk.ImageViewCreateInfo = .{
-        .image = selection_buffer_depth_image.image,
-        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
-        .components = .{
-            .r = .identity,
-            .g = .identity,
-            .b = .identity,
-            .a = .identity
-        },
-        .subresource_range = .{
-            .aspect_mask = .{ .depth_bit = true },
-            .base_array_layer = 0,
-            .base_mip_level = 0,
-            .layer_count = 1,
-            .level_count = 1
-        },
-        .view_type = .@"2d"
-    };
-
-    var selection_buffer_depth_view = try vk_context.device.createImageView(&info_depth_image_view, null);
-    defer vk_context.device.destroyImageView(selection_buffer_depth_view, null);
-
-    var selection_buffer_attachments: []const vk.ImageView = &.{selection_buffer_image_view, selection_buffer_depth_view};
+    const selection_buffer = attachments.getPtr(.SelectionBuffer);
+    var selection_buffer_attachments: []const vk.ImageView = &.{selection_buffer.attachments.items[0].image_view.?, selection_buffer.attachments.items[1].image_view.?};
 
     var selection_framebuffer_info: vk.FramebufferCreateInfo = .{
         .render_pass = render_passes.get(.Selection).render_pass,
@@ -713,35 +735,17 @@ pub fn main() !void
 
                 vk_context.device.destroyFramebuffer(selection_framebuffer, null);
 
-                vk_context.device.destroyImageView(selection_buffer_depth_view, null);
-                vk_allocator.free_image(selection_buffer_depth_image) catch unreachable;
-
-                vk_context.device.destroyImageView(selection_buffer_image_view, null);
-                vk_allocator.free_image(selection_buffer_image) catch unreachable;
-
-                try swapchain.refresh_resources();
+                try swapchain.refresh_attachments();
 
                 framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry));
 
-                selection_buffer_create_info.extent = .{
+                try selection_buffer.build(.{
                     .width = swapchain.extent.width,
                     .height = swapchain.extent.height,
                     .depth = 1
-                };
+                });
 
-                info_depth_buffer.extent = selection_buffer_create_info.extent;
-
-                selection_buffer_image = try vk_allocator.alloc_image_empty(selection_buffer_create_info, .GenericAttachment);
-                selection_buffer_view_create_info.image = selection_buffer_image.image;
-
-                selection_buffer_image_view = try vk_context.device.createImageView(&selection_buffer_view_create_info, null);
-
-                selection_buffer_depth_image = try vk_allocator.alloc_image_empty(info_depth_buffer, .DepthAttachment);
-                info_depth_image_view.image = selection_buffer_depth_image.image;
-
-                selection_buffer_depth_view = try vk_context.device.createImageView(&info_depth_image_view, null);
-
-                selection_buffer_attachments = &.{selection_buffer_image_view, selection_buffer_depth_view};
+                selection_buffer_attachments = &.{selection_buffer.attachments.items[0].image_view.?, selection_buffer.attachments.items[1].image_view.?};
                 selection_framebuffer_info.p_attachments = @ptrCast(selection_buffer_attachments);
 
                 selection_framebuffer_info.width = swapchain.extent.width;
@@ -801,7 +805,7 @@ pub fn main() !void
 
             if(!first_frame)
             {
-                try ash.vk_memory.copy_image_to_buffer(&vk_context, selection_buffer_image.image, selection_data.buffer, .{ .x = cursor_x, .y = cursor_y, .z = 0 },
+                try ash.vk_memory.copy_image_to_buffer(&vk_context, selection_buffer.attachments.items[0].image.?.image, selection_data.buffer, .{ .x = cursor_x, .y = cursor_y, .z = 0 },
                     .{ .width = 1, .height = 1, .depth = 1 }, vk_command_pool, vk_queues.get(.Graphics));
 
                 const selection_data_slc = try vk_allocator.pull_buffer_data(u32, selection_data);

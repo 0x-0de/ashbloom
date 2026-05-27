@@ -12,6 +12,7 @@ pub const UNICODE = false;
 pub const vk = @import("vulkan");
 pub const glfw = @import("glfw");
 
+pub const attachment = @import("rendering/attachment.zig");
 pub const commands = @import("rendering/commands.zig");
 pub const pipeline = @import("rendering/pipeline.zig");
 pub const vk_context = @import("rendering/vkcontext.zig");
@@ -32,6 +33,9 @@ pub const vk_utils = @import("utils/vkutils.zig");
 pub const ui_theme_basic = @import("utils/ui_themes/basic.zig");
 
 // Types.
+
+pub const Attachment = attachment.Attachment;
+pub const AttachmentBundle = attachment.AttachmentBundle;
 
 pub const CommandBuffer = commands.CommandBuffer;
 
