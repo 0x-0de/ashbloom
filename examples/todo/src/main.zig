@@ -457,9 +457,6 @@ fn init_ui_main_elements() !void
 
 pub fn main() !void
 {
-    const exe_path = ash.misc.get_exe_path();
-    std.debug.print("{s}\n", .{exe_path});
-
     var dba: std.heap.DebugAllocator(.{}) = .{};
     defer {
         const dba_result = dba.deinit();
@@ -489,8 +486,8 @@ pub fn main() !void
     try init_vk_context();
     defer deinit_vk_context();
 
-    var swapchain = try Swapchain.init(&window, &vk_context, vk_command_pool, 1);
-    defer swapchain.deinit();
+    var swapchain = try Swapchain.init(&window, &vk_context, &vk_allocator, vk_command_pool, 1);
+    defer swapchain.deinit(true);
 
     try vkui.init();
     defer vkui.deinit();
@@ -532,7 +529,7 @@ pub fn main() !void
     {
         if(glfw.getTime() - timer > 1.0)
         {
-            print("FPS: {d}\n", .{frames});
+            ash.print_stdout("FPS: {d}\n", .{frames}) catch unreachable;
             frames = 0;
             timer = glfw.getTime();
         }

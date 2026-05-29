@@ -2280,8 +2280,8 @@ pub fn get_textfield_text(e: *Element) []u32
 fn init_basic_render_pass(context: *VkContext, swapchain: Swapchain) !*RenderPass
 {
     const color_subpass: RenderPass.Subpass = .{
-        .attachment_index = 0,
-        .attachment_layout = .color_attachment_optimal,
+        .color_attachment_index = 0,
+        .color_attachment_layout = .color_attachment_optimal,
         .subpass_bind_point = .graphics,
         .subpass_dependency = .{
             .src_subpass = vk.SUBPASS_EXTERNAL,

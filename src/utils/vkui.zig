@@ -859,8 +859,12 @@ pub const Container = struct
 
         try command_buffer.reset();
 
+        const clear_value = vk.ClearValue {
+            .color = .{ .float_32 = .{0, 0, 0, 0} }
+        };
+
         try command_buffer.begin_recording();
-        command_buffer.cmd_begin_render_pass(self.ui_rendering.render_pass, framebuffer, swapchain.extent, .{0, 0, 0, 1});
+        command_buffer.cmd_begin_render_pass(self.ui_rendering.render_pass, framebuffer, swapchain.extent, &.{clear_value});
         if(self.instance_buffer != null)
         {
             command_buffer.cmd_bind_pipeline(self.ui_rendering.pipeline);
