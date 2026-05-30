@@ -465,8 +465,12 @@ pub const VkContext = struct
 
         // Should prefer discrete GPUs to integrated ones.
 
-        if(device_properties.device_type == .integrated_gpu) score = 1;
-        if(device_properties.device_type == .discrete_gpu) score = 10;
+        switch(device_properties.device_type)
+        {
+            .integrated_gpu, .virtual_gpu, .other, .cpu => { score = 1; },
+            .discrete_gpu => { score = 10; },
+            else => {}
+        }
 
         const queue_families = try self.get_physical_device_queue_families(physical_device);
 
@@ -478,6 +482,24 @@ pub const VkContext = struct
         if(!(try self.check_device_swapchain_support(physical_device))) score = -1;
 
         return score;
+    }
+
+    fn print_physical_device_properties(properties: vk.PhysicalDeviceProperties) void
+    {
+        print("{s}\n", .{properties.device_name}) catch unreachable;
+        const type_str = switch(properties.device_type)
+        {
+            .other => "other",
+            .integrated_gpu => "integrated",
+            .discrete_gpu => "discrete",
+            .virtual_gpu => "virtual",
+            .cpu => "cpu",
+            else => "unknown"
+        };
+
+        print("Type: {s}\n", .{type_str}) catch unreachable;
+        print("API version: {d}\n", .{properties.api_version}) catch unreachable;
+        print("Driver version: {d}\n", .{properties.driver_version}) catch unreachable;
     }
 
     /// Selects a physical device for Vulkan to send commands to.
@@ -512,7 +534,20 @@ pub const VkContext = struct
             }
         }
 
-        if(current_highest_score == -1) return VulkanContextInitError.NoSuitableGPUs;
+        if(current_highest_score == -1)
+        {
+            err_print("Couldn't find any suitable GPUs to use.\nThere are {d} available ones.\nConsider reducing the number of required features for this application.\n",
+                .{available_physical_devices.items.len});
+            
+            for(available_physical_devices.items, 0..) |pd, i|
+            {
+                err_print("Device {d}: ", .{i + 1});
+                const properties = self.instance.getPhysicalDeviceProperties(pd);
+                print_physical_device_properties(properties);
+            }
+
+            return VulkanContextInitError.NoSuitableGPUs;
+        }
 
         const selected_device = available_physical_devices.items[current_selected_index];
         return selected_device;
@@ -526,12 +561,13 @@ pub const VkContext = struct
         const queue_families = self.physical_device_queue_families;
         const queue_priority: f32 = 1.0;
 
-        var unique_families = try std.ArrayList(usize).initCapacity(self.allocator.*, 1);
+        var unique_families = try std.ArrayList(usize).initCapacity(self.allocator.*, 2);
         try unique_families.append(self.allocator.*, queue_families.graphics_family_index.?);
         try unique_families.append(self.allocator.*, queue_families.present_family_index.?);
 
         for(unique_families.items, 0..) |_, i|
         {
+            if(i >= unique_families.items.len) break;
             const cur = unique_families.items[i];
             for(unique_families.items, (i+1)..) |_, j|
             {
