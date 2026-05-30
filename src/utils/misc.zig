@@ -50,7 +50,7 @@ pub fn get_exe_path() []u8
         var buffer: [4096]u8 = undefined;
         const len = unistd.readlink("/proc/self/exe", @as([*:0]u8, @ptrCast(&buffer)), 4096 - 1);
 
-        return buffer[0..len];
+        return buffer[0..@intCast(len)];
     }
     else
     {
@@ -89,6 +89,53 @@ pub const FontFamily = struct
     }
 };
 
+fn walk_font_directory(allocator: *const std.mem.Allocator, io: *std.Io.Threaded, dir: *std.Io.Dir, font_list: *std.ArrayList(FontEntry), prefix_str: []const u8) !void
+{
+    var walker = try dir.walk(allocator.*);
+    defer walker.deinit();
+
+    while(try walker.next(io.io())) |entry|
+    {
+        const is_font = std.mem.endsWith(u8, entry.path, ".ttf") or std.mem.endsWith(u8, entry.path, ".otf");
+        if(entry.kind == .file and is_font)
+        {
+            var name_offset: usize = 0;
+            for(0..entry.path.len) |i|
+            {
+                if(entry.path[i] == '/' or entry.path[i] == '\\')
+                {
+                    name_offset = i + 1;
+                }
+            }
+
+            const name = try allocator.alloc(u8, entry.path.len - name_offset - 4);
+            for(0..name.len) |i|
+            {
+                name[i] = entry.path[i + name_offset];
+            }
+
+            const path = try allocator.alloc(u8, entry.path.len + prefix_str.len);
+            
+            for(0..prefix_str.len) |i|
+            {
+                path[i] = prefix_str[i];
+            }
+
+            for(0..entry.path.len) |i|
+            {
+                path[i + prefix_str.len] = entry.path[i];
+            }
+
+            const font_entry: FontEntry = .{
+                .name = name,
+                .path = path
+            };
+
+            try font_list.append(allocator.*, font_entry);
+        }
+    }
+}
+
 /// Enumarates the available system fonts. Returns a dynamically-allocated array that must be freed if no errors are thrown.
 pub fn enumerate_system_fonts(allocator: *const std.mem.Allocator) ![]FontEntry
 {
@@ -97,6 +144,9 @@ pub fn enumerate_system_fonts(allocator: *const std.mem.Allocator) ![]FontEntry
         var io: std.Io.Threaded = .init(allocator.*, .{});
         defer io.deinit();
 
+        var font_list = try std.ArrayList(FontEntry).initCapacity(allocator.*, 0);
+        defer font_list.deinit(allocator.*);
+        
         const prefix_str: *const [17:0]u8 = "C:\\Windows\\Fonts\\";
         var dir = try std.Io.Dir.openDirAbsolute(io.io(), prefix_str, .{
             .iterate = true
@@ -104,43 +154,42 @@ pub fn enumerate_system_fonts(allocator: *const std.mem.Allocator) ![]FontEntry
 
         defer dir.close(io.io());
 
-        var walker = try dir.walk(allocator.*);
-        defer walker.deinit();
+        try walk_font_directory(allocator, &io, &dir, &font_list, prefix_str);
+
+        const data = try allocator.alloc(FontEntry, font_list.items.len);
+
+        for(font_list.items, 0..) |item, i|
+        {
+            data[i] = item;
+        }
+
+        return data;
+    }
+    else if(comptime builtin.os.tag == .linux)
+    {
+        var io: std.Io.Threaded = .init(allocator.*, .{});
+        defer io.deinit();
 
         var font_list = try std.ArrayList(FontEntry).initCapacity(allocator.*, 0);
         defer font_list.deinit(allocator.*);
+        
+        const prefix_str_otf: *const [26:0]u8 = "/usr/share/fonts/opentype/";
+        var dir_otf = try std.Io.Dir.openDirAbsolute(io.io(), prefix_str_otf, .{
+            .iterate = true
+        });
 
-        while(try walker.next(io.io())) |entry|
-        {
-            const is_font = std.mem.endsWith(u8, entry.path, ".ttf") or std.mem.endsWith(u8, entry.path, ".otf");
-            if(entry.kind == .file and is_font)
-            {
-                const name = try allocator.alloc(u8, entry.path.len - 4);
-                for(0..name.len) |i|
-                {
-                    name[i] = entry.path[i];
-                }
+        defer dir_otf.close(io.io());
 
-                const path = try allocator.alloc(u8, entry.path.len + prefix_str.len);
-                
-                for(0..prefix_str.len) |i|
-                {
-                    path[i] = prefix_str[i];
-                }
+        try walk_font_directory(allocator, &io, &dir_otf, &font_list, prefix_str_otf);
 
-                for(0..entry.path.len) |i|
-                {
-                    path[i + prefix_str.len] = entry.path[i];
-                }
+        const prefix_str_ttf: *const [26:0]u8 = "/usr/share/fonts/truetype/";
+        var dir_ttf = try std.Io.Dir.openDirAbsolute(io.io(), prefix_str_ttf, .{
+            .iterate = true
+        });
 
-                const font_entry: FontEntry = .{
-                    .name = name,
-                    .path = path
-                };
+        defer dir_ttf.close(io.io());
 
-                try font_list.append(allocator.*, font_entry);
-            }
-        }
+        try walk_font_directory(allocator, &io, &dir_ttf, &font_list, prefix_str_ttf);
 
         const data = try allocator.alloc(FontEntry, font_list.items.len);
 
@@ -177,4 +226,3 @@ pub fn search_font_entries(available_fonts: []FontEntry, names: []const []const 
 
     return FontSearchError.MissingFont;
 }
-

@@ -278,8 +278,8 @@ pub const Swapchain = struct
         try self.context.device.resetFences(&.{ self.fence_image_acquired });
         var result = try self.context.device.acquireNextImageKHR(self.handle, std.math.maxInt(u64), .null_handle, self.fence_image_acquired);
 
-        var window_width: c_long = undefined;
-        var window_height: c_long = undefined;
+        var window_width: c_int = undefined;
+        var window_height: c_int = undefined;
 
         glfw.getFramebufferSize(self.window, &window_width, &window_height);
 

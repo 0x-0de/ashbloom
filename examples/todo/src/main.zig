@@ -478,7 +478,7 @@ pub fn main() !void
 
     const system_fonts = try ash.misc.enumerate_system_fonts(&allocator);
 
-    const names = [_][]const u8{"bahnschrift", "arial"};
+    const names = [_][]const u8{"bahnschrift", "arial", "LiberationSans-Regular"};
     const names_slc: []const []const u8 = &names;
 
     const font_entry = try ash.misc.search_font_entries(system_fonts, names_slc);
