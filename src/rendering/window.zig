@@ -61,18 +61,24 @@ fn window_key_callback(win: *c_long, key: c_int, scancode: c_int, action: c_int,
     }
 }
 
+/// Contains information about a window. Currently, ashbloom primarily only supports 1 window, so certain input features will not work across multiple windows.
 pub const Window = struct
 {
+    /// Width of the window.
     width: u32,
+    /// Height of the window.
     height: u32,
 
+    /// GLFW handle, used for calling GLFW functions like setInputMode.
     glfw_handle: *c_long,
 
+    /// Destroys the window. Used in place of deinit-ing.
     pub fn destroy(self: Window) void
     {
         glfw.destroyWindow(self.glfw_handle);
     }
 
+    /// Returns an 8-bitset with each bit corresponding to each mouse button. GLFW supports up to 8 mouse button inputs.
     pub fn get_all_mouse_buttons(self: Window) u8
     {
         var mouse_buttons: u8 = 0;
@@ -86,6 +92,7 @@ pub const Window = struct
         return mouse_buttons;
     }
 
+    /// Sets `x` and `y` to the cursor position relative to the window.
     pub fn get_cursor_pos(self: Window, x: *f64, y: *f64) void
     {
         var w: u32 = undefined;
@@ -105,6 +112,7 @@ pub const Window = struct
         y.* = cursor_y;
     }
 
+    /// Sets `width` and `height` to the framebuffer size.
     pub fn get_framebuffer_size(self: Window, width: *u32, height: *u32) void
     {
         var w: c_int = undefined;
@@ -116,11 +124,19 @@ pub const Window = struct
         height.* = @intCast(h);
     }
 
+    /// Returns the GLFW KeyState of the `key`.
+    pub fn get_key(self: Window, key: glfw.Key) glfw.KeyState
+    {
+        return glfw.getKey(self.glfw_handle, key);
+    }
+
+    /// Returns the GLFW KeyState of the `button`.
     pub fn get_mouse_button(self: Window, button: glfw.Mouse) glfw.KeyState
     {
         return glfw.getMouseButton(self.glfw_handle, button);
     }
 
+    /// Returns a ContainerInputData structure, used by a UI Container object to detect UI input events.
     pub fn get_ui_container_input(self: Window) ContainerInputData
     {
         var cursor_x: f64 = undefined;
@@ -145,6 +161,7 @@ pub const Window = struct
         };
     }
 
+    /// Initializes the window.
     pub fn init(width: u32, height: u32, title: [*:0]const u8) !Window
     {
         window_text_buffer_cap = 0;
@@ -175,6 +192,7 @@ pub const Window = struct
         };
     }
 
+    /// Resets all input values. Must be called at least once before or after a UI update events call in a draw loop.
     pub fn reset_input_values() void
     {
         scroll_x = 0;
@@ -184,6 +202,7 @@ pub const Window = struct
         window_key_buffer_cap = 0;
     }
 
+    /// Returns true if the window should close. Usually used as the condition for a game, application, or draw loop.
     pub fn should_close(self: Window) bool
     {
         return glfw.windowShouldClose(self.glfw_handle);
