@@ -547,7 +547,8 @@ fn update_shader_uniforms() !void
     allocator.free(view_data);
 }
 
-const Chunk = @import("world/chunk.zig").Chunk;
+const imp_chunk = @import("world/chunk.zig");
+const Chunk = imp_chunk.Chunk;
 
 var input_mode: u8 = 0;
 
@@ -814,11 +815,13 @@ pub fn main() !void
 
                 if(selection_data_slc[3] == 1)
                 {
-                    var x = (selection_data_slc[0] >> 16) & 63;
-                    var y = (selection_data_slc[0] >> 8) & 63;
-                    var z = selection_data_slc[0] & 63;
+                    var x = (selection_data_slc[0] >> 16) & 255;
+                    var y = (selection_data_slc[0] >> 8) & 255;
+                    var z = selection_data_slc[0] & 255;
 
                     const fac = selection_data_slc[0] >> 24;
+
+                    ash.print_stdout("({d}, {d}, {d})\n", .{x, y, z});
 
                     if(window.get_mouse_button(glfw.MouseButton1) == glfw.Press)
                     {
@@ -836,16 +839,66 @@ pub fn main() !void
 
                     if(window.get_mouse_button(glfw.MouseButton2) == glfw.Press)
                     {
+                        var can_place: bool = true;
+
                         switch(fac)
                         {
-                            0 => { x -= 1; },
-                            2 => { y -= 1; },
-                            4 => { z -= 1; },
+                            0 => {
+                                if(x == 0)
+                                {
+                                    can_place = false;
+                                }
+                                else
+                                {
+                                    x -= 1;
+                                }
+                            },
+                            1 => {
+                                if(x == imp_chunk.CHUNK_SIZE.data[0])
+                                {
+                                    can_place = false;
+                                }
+                            },
+                            2 => {
+                                if(y == 0)
+                                {
+                                    can_place = false;
+                                }
+                                else
+                                {
+                                    y -= 1;
+                                }
+                            },
+                            3 => {
+                                if(y == imp_chunk.CHUNK_SIZE.data[1])
+                                {
+                                    can_place = false;
+                                }
+                            },
+                            4 => {
+                                if(z == 0)
+                                {
+                                    can_place = false;
+                                }
+                                else
+                                {
+                                    z -= 1;
+                                }
+                            },
+                            5 => {
+                                if(z == imp_chunk.CHUNK_SIZE.data[2])
+                                {
+                                    can_place = false;
+                                }
+                            },
                             else => {}
                         }
 
-                        chunk.set(x, y, z, 1);
-                        try chunk.build(true);
+                        if(can_place)
+                        {
+                            chunk.set(x, y, z, 1);
+                            try chunk.build(true);
+                        }
                     }
                 }
             }
