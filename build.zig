@@ -36,15 +36,17 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
         });
 
         cmp.root_module.addImport("win32", win32);
+
+        cmp.root_module.linkSystemLibrary("glfw", .{});
+        cmp.root_module.linkSystemLibrary("vulkan-1", .{});
     }
     else if(builtin.target.os.tag == .linux)
     {
-        // TODO.
+        cmp.root_module.linkSystemLibrary("glfw3", .{});
+        cmp.root_module.linkSystemLibrary("vulkan", .{});
     }
 
-    cmp.root_module.linkSystemLibrary("glfw", .{});
     cmp.root_module.linkSystemLibrary("libfreetype", .{});
-    cmp.root_module.linkSystemLibrary("vulkan-1", .{});
 }
 
 pub fn build(b: *std.Build) void
