@@ -1,5 +1,4 @@
 # Ashbloom
-
 **Ashbloom** is my own Zig game and application development framework, which aims to provide some bootstrapping functionality for Vulkan rendering, tying together zig-vulkan, zGLFW, and freetype. Eventually, this framework should include audio interfacing functionality as well. Intends to support Windows and Linux devices.
 
 This library is currently in an unstable (pre-release) state and may not fully support Linux devices yet. Any existing feature in the `main` branch which breaks on Linux devices should be considered a breaking bug. Updates to this library that aren't marked as a major release could still introduce breaking changes.
