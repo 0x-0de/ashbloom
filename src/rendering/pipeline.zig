@@ -212,6 +212,7 @@ pub const PipelineDescriptorSet = struct
         self.pool = try self.context.device.createDescriptorPool(&info_pool, null);
     }
 
+    /// Adds a descriptor binding to the container.
     pub fn add_binding(self: *PipelineDescriptorSet, binding: DescriptorBinding) !void
     {
         const index = self.bindings.items.len;
@@ -221,6 +222,7 @@ pub const PipelineDescriptorSet = struct
             create_pipeline_descriptor_set_layout_binding(binding.binding_index, binding.type, binding.shader_stage);
     }
 
+    /// Creates the descriptor set resources in Vulkan.
     pub fn build(self: *PipelineDescriptorSet) !void
     {
         const descriptor_set_bindings = try self.context.allocator.alloc(vk.DescriptorSetLayoutBinding, self.bindings.items.len);
@@ -352,6 +354,7 @@ pub const PipelineDescriptorSet = struct
         }
     }
 
+    /// Deinits the descriptor sets.
     pub fn deinit(self: *PipelineDescriptorSet) void
     {
         for(0..self.bindings.items.len) |i|
@@ -372,6 +375,7 @@ pub const PipelineDescriptorSet = struct
         self.bindings.deinit(self.context.allocator.*);
     }
 
+    /// Initializes an empty descriptor set container.
     pub fn init(context: *vkcontext.VkContext, vk_allocator: *VulkanAllocator, set_count: u16) !PipelineDescriptorSet
     {
         return .{
@@ -382,6 +386,7 @@ pub const PipelineDescriptorSet = struct
         };
     }
 
+    /// Places data into a descriptor set (index determined by `set_index`, and binding determined by the `binding_index`), at offset `offset`.
     pub fn place_data(self: *PipelineDescriptorSet, set_index: u16, binding_index: u16, comptime T: type, data: []T, offset: vk.DeviceSize) !void
     {
         if(binding_index >= self.bindings.items.len or self.bindings.items[binding_index].type != .uniform_buffer)
