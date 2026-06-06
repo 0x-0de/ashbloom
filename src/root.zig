@@ -101,11 +101,11 @@ pub fn init_graphics(allocator: *const std.mem.Allocator) !void
 }
 
 /// Prints to the standard output. Useful since Zig's `std.debug.print` prints to stderr. Ashbloom inits its own instance of stdout().writer so this is just a shortcut.
-/// Max buffer size is 2048 characters, exceeding this value will likely return errors.
-pub fn print_stdout(comptime fmt: []const u8, args: anytype) !void
+/// Max buffer size is 2048 characters, exceeding this value will likely cause a panic.
+pub fn print_stdout(comptime fmt: []const u8, args: anytype) void
 {
-    try stdout.print(fmt, args);
-    try stdout.flush();
+    stdout.print(fmt, args) catch unreachable;
+    stdout.flush() catch unreachable;
 }
 
 comptime

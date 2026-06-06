@@ -20,10 +20,11 @@ This library is currently in an unstable (pre-release) state and may not fully s
 
 ## Upcoming:
 
-- Support for dynamic rendering (no more render passes!)
+- Support for dynamic rendering (no more render passes!).
+- UI-mode rendering (as opposed to rumtime rendering).
 - .jpeg and .png image decoder (will probably rely on third-party libraries for this).
 - Multi-platform audio library (similar to Crest but for Linux too, at least).
-- More example programs.
+- More example programs, and other minor features.
 
 ## Example demos:
 

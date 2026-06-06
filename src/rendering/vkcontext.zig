@@ -36,7 +36,7 @@ fn vk_debug_validation_layer_message_callback(message_severity: vk.DebugUtilsMes
     }
     else
     {
-        print("[VK|VAL] {s}\n", .{p_callback_data.?.p_message.?}) catch unreachable;
+        print("[VK|VAL] {s}\n", .{p_callback_data.?.p_message.?});
     }
 
     return vk.Bool32.false;
@@ -74,36 +74,36 @@ fn c_strequal(a: [*:0]const u8, b: [*:0]const u8) bool
 }
 
 /// Print out all items in a generic name list.
-fn debug_print_name_list(names: std.ArrayList([*:0]const u8), label: []const u8) !void
+fn debug_print_name_list(names: std.ArrayList([*:0]const u8), label: []const u8) void
 {
-    try print("[{s}], count {d}:\n", .{label, names.items.len});
+    print("[{s}], count {d}:\n", .{label, names.items.len});
     for(0..names.items.len) |i|
     {
-        try print("\t{s}\n", .{names.items[i]});
+        print("\t{s}\n", .{names.items[i]});
     }
-    try print("\t[End of list.]\n", .{});
+    print("\t[End of list.]\n", .{});
 }
 
 /// Print out the names of all Vulkan extensions in a provided vk.ExtensionProperties list.
 fn debug_print_extension_list(extensions: std.ArrayList(vk.ExtensionProperties), label: []const u8) !void
 {
-    try print("[{s}] extensions, count {d}:\n", .{label, extensions.items.len});
+    print("[{s}] extensions, count {d}:\n", .{label, extensions.items.len});
     for(0..extensions.items.len) |i|
     {
-        try print("\t{s}\n", .{extensions.items[i].extension_name});
+        print("\t{s}\n", .{extensions.items[i].extension_name});
     }
-    try print("\t[End of list.]\n", .{});
+    print("\t[End of list.]\n", .{});
 }
 
 /// Print out the names of all Vulkan layers in a provided vk.LayerProperties list.
 fn debug_print_layer_list(layers: std.ArrayList(vk.LayerProperties), label: []const u8) !void
 {
-    try print("[{s}] layers, count {d}:\n", .{label, layers.items.len});
+    print("[{s}] layers, count {d}:\n", .{label, layers.items.len});
     for(0..layers.items.len) |i|
     {
-        try print("\t{s}\n", .{layers.items[i].layer_name});
+        print("\t{s}\n", .{layers.items[i].layer_name});
     }
-    try print("\t[End of list.]\n", .{});
+    print("\t[End of list.]\n", .{});
 }
 
 /// Helper struct containing the swapchain formats, capabilities (such as max image width/height), and presentation modes.
@@ -335,7 +335,7 @@ pub const VkContext = struct
             return VulkanContextInitError.ExtensionNotSupported;
         }
 
-        debug_print_name_list(required_extensions, @ptrCast("Required extensions")) catch unreachable;
+        debug_print_name_list(required_extensions, @ptrCast("Required extensions"));
 
         // We do the same for the layers.
 
@@ -378,7 +378,7 @@ pub const VkContext = struct
     fn debug_print_physical_device_name(self: VkContext, physical_device: vk.PhysicalDevice) !void
     {
         const device_properties = self.instance.getPhysicalDeviceProperties(physical_device);
-        try print("{s}\n", .{device_properties.device_name});
+        print("{s}\n", .{device_properties.device_name});
     }
 
     /// Gets a PhysicalDeviceQueueFamilies struct containing the indices of all queue families housed with the physical_device.
@@ -486,7 +486,7 @@ pub const VkContext = struct
 
     fn print_physical_device_properties(properties: vk.PhysicalDeviceProperties) void
     {
-        print("{s}\n", .{properties.device_name}) catch unreachable;
+        print("{s}\n", .{properties.device_name});
         const type_str = switch(properties.device_type)
         {
             .other => "other",
@@ -497,9 +497,9 @@ pub const VkContext = struct
             else => "unknown"
         };
 
-        print("Type: {s}\n", .{type_str}) catch unreachable;
-        print("API version: {d}\n", .{properties.api_version}) catch unreachable;
-        print("Driver version: {d}\n", .{properties.driver_version}) catch unreachable;
+        print("Type: {s}\n", .{type_str});
+        print("API version: {d}\n", .{properties.api_version});
+        print("Driver version: {d}\n", .{properties.driver_version});
     }
 
     /// Selects a physical device for Vulkan to send commands to.
@@ -636,7 +636,6 @@ pub const VkContext = struct
     /// Creates a new Vulkan context.
     pub fn init(allocator: *const std.mem.Allocator, window: *Window, options: InitOptions) !VkContext
     {
-        print("{s}\n", .{"Loading Zig Vulkan wrappers and creating instance..."}) catch unreachable;
         var vk_context: VkContext = .{
             .allocator = allocator
         };

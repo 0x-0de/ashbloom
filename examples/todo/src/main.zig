@@ -529,7 +529,7 @@ pub fn main() !void
     {
         if(glfw.getTime() - timer > 1.0)
         {
-            ash.print_stdout("FPS: {d}\n", .{frames}) catch unreachable;
+            ash.print_stdout("FPS: {d}\n", .{frames});
             frames = 0;
             timer = glfw.getTime();
         }
