@@ -33,7 +33,7 @@ pub const AttachmentBundle = struct
         {
             if(att.image != null)
             {
-                self.vk_allocator.free_image(att.image.?) catch unreachable;
+                self.vk_allocator.free_image(att.image.?);
                 self.vk_context.device.destroyImageView(att.image_view.?, null);
             }
         }
@@ -62,7 +62,7 @@ pub const AttachmentBundle = struct
         {
             if(att.image != null)
             {
-                self.vk_allocator.free_image(att.image.?) catch unreachable;
+                self.vk_allocator.free_image(att.image.?);
                 self.vk_context.device.destroyImageView(att.image_view.?, null);
             }
             

@@ -399,7 +399,7 @@ pub const VulkanAllocator = struct
     }
 
     /// Updates a page's freelist after a deallocation (free).
-    fn page_freelist_clear(self: *VulkanAllocator, page_index: usize, offset: vk.DeviceSize, size: vk.DeviceSize) !void
+    fn page_freelist_clear(self: *VulkanAllocator, page_index: usize, offset: vk.DeviceSize, size: vk.DeviceSize) void
     {
         const page: *VulkanMemoryPage = &self.memory_pages.items[page_index];
 
@@ -476,7 +476,7 @@ pub const VulkanAllocator = struct
                     else
                     {
                         // New space.
-                        try page.freelist.insert(self.cpu_allocator.*, insert_location, new_space);
+                        page.freelist.insert(self.cpu_allocator.*, insert_location, new_space) catch unreachable;
                     }
                 }
             }
@@ -499,13 +499,13 @@ pub const VulkanAllocator = struct
             else
             {
                 // New space.
-                try page.freelist.insert(self.cpu_allocator.*, insert_location, new_space);
+                page.freelist.insert(self.cpu_allocator.*, insert_location, new_space) catch unreachable;
             }
         }
         else
         {
             // New space.
-            try page.freelist.insert(self.cpu_allocator.*, insert_location, new_space);
+            page.freelist.insert(self.cpu_allocator.*, insert_location, new_space) catch unreachable;
         }
     }
 
@@ -788,16 +788,16 @@ pub const VulkanAllocator = struct
     }
 
     /// Frees a VulkanBufferAllocation from memory.
-    pub fn free_buffer(self: *VulkanAllocator, allocation: VulkanBufferAllocation) !void
+    pub fn free_buffer(self: *VulkanAllocator, allocation: VulkanBufferAllocation) void
     {
-        try self.page_freelist_clear(allocation.page, allocation.offset, allocation.size);
+        self.page_freelist_clear(allocation.page, allocation.offset, allocation.size);
         self.context.device.destroyBuffer(allocation.buffer, null);
     }
 
     /// Frees a VulkanImageAllocation from memory.
-    pub fn free_image(self: *VulkanAllocator, allocation: VulkanImageAllocation) !void
+    pub fn free_image(self: *VulkanAllocator, allocation: VulkanImageAllocation) void
     {
-        try self.page_freelist_clear(allocation.page, allocation.offset, allocation.size);
+        self.page_freelist_clear(allocation.page, allocation.offset, allocation.size);
         self.context.device.destroyImage(allocation.image, null);
     }
 

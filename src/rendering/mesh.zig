@@ -80,11 +80,11 @@ pub const Mesh = struct
     buffer: ?ash.VulkanAllocator.VulkanBufferAllocation,
 
     /// Deinitializes the Mesh object.
-    pub fn deinit(self: *Mesh) !void
+    pub fn deinit(self: *Mesh) void
     {
         if(self.buffer != null)
         {
-            try self.vk_allocator.free_buffer(self.buffer.?);
+            self.vk_allocator.free_buffer(self.buffer.?);
         }
 
         self.vertices.deinit(self.allocator.*);
@@ -162,7 +162,7 @@ pub const Mesh = struct
     {
         if(self.buffer != null)
         {
-            try self.vk_allocator.free_buffer(self.buffer.?);
+            self.vk_allocator.free_buffer(self.buffer.?);
         }
 
         self.num_vertices = @truncate(self.vertex_data.items.len / self.vertex_size);

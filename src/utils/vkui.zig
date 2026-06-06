@@ -684,12 +684,12 @@ pub const ContainerRendering = struct
     render_queue: vk.Queue,
     uniform_callback: *const fn(Container, u16) anyerror!void,
 
-    pub fn deinit(self: *ContainerRendering, vk_context: VkContext) !void
+    pub fn deinit(self: *ContainerRendering, vk_context: VkContext) void
     {
         self.pipeline.deinit();
         vk_context.allocator.destroy(self.pipeline);
 
-        try self.descriptor_set.deinit();
+        self.descriptor_set.deinit();
         vk_context.allocator.destroy(self.descriptor_set);
 
         self.render_pass.deinit();
@@ -831,7 +831,7 @@ pub const Container = struct
             try self.context.device.queueWaitIdle(self.ui_rendering.render_queue);
 
             try self.perform_rebuild_callbacks(&self.origin);
-            try self.vk_allocator.free_buffer(self.instance_buffer.?);
+            self.vk_allocator.free_buffer(self.instance_buffer.?);
         }
 
         var lineage_list: std.ArrayList(usize) = try .initCapacity(self.context.allocator.*, 0);
@@ -848,8 +848,8 @@ pub const Container = struct
     pub fn deinit(self: *Container) !void
     {
         try self.origin.deinit();
-        try self.texture_atlas.deinit();
-        if(self.instance_buffer != null) try self.vk_allocator.free_buffer(self.instance_buffer.?);
+        self.texture_atlas.deinit();
+        if(self.instance_buffer != null) self.vk_allocator.free_buffer(self.instance_buffer.?);
     }
 
     /// Draws the instance arrays using the command buffer onto the framebuffer.

@@ -103,7 +103,7 @@ pub const Font = struct
         suballocation.scl_y -= 1.0 / @as(f32, @floatFromInt(self.atlas.?.height));
 
         self.context.allocator.free(buffer);
-        try texture.deinit();
+        texture.deinit();
 
         const character: FontCharacter = .{
             .unicode = unicode,
@@ -118,7 +118,7 @@ pub const Font = struct
     }
 
     /// Deinitializes the font class and releases all resources.
-    pub fn deinit(self: *Font) !void
+    pub fn deinit(self: *Font) void
     {
         self.characters.deinit(self.context.allocator.*);
         _ = freetype.FT_Done_Face(self.typeface);

@@ -238,11 +238,11 @@ pub const Texture2D = struct
     width: u32,
     height: u32,
 
-    pub fn deinit(self: *Texture2D) !void
+    pub fn deinit(self: *Texture2D) void
     {
         if(self.sampler != null) self.context.device.destroySampler(self.sampler.?, null);
         if(self.image_view != null) self.context.device.destroyImageView(self.image_view.?, null);
-        try self.vk_allocator.free_image(self.image);
+        self.vk_allocator.free_image(self.image);
     }
 
     pub fn init_buffer(context: *VkContext, vk_allocator: *VulkanAllocator, comptime T: type, buffer: []T, width: u32, height: u32, format: vk.Format,
@@ -416,11 +416,11 @@ pub const TextureAtlas2D = struct
         };
     }
     
-    pub fn deinit(self: *TextureAtlas2D) !void
+    pub fn deinit(self: *TextureAtlas2D) void
     {
         self.context.device.destroySampler(self.sampler, null);
         self.context.device.destroyImageView(self.image_view, null);
-        try self.vk_allocator.free_image(self.image);
+        self.vk_allocator.free_image(self.image);
 
         for(0..self.map_texels_used.len) |i|
         {

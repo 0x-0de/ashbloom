@@ -338,7 +338,7 @@ pub const Swapchain = struct
         for(self.attachments.items) |*sr|
         {
             self.context.device.destroyImageView(sr.image_view.?, null);
-            self.vk_allocator.free_image(sr.image.?) catch unreachable;
+            self.vk_allocator.free_image(sr.image.?);
         }
     }
 

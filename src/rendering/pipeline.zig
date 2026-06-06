@@ -352,7 +352,7 @@ pub const PipelineDescriptorSet = struct
         }
     }
 
-    pub fn deinit(self: *PipelineDescriptorSet) !void
+    pub fn deinit(self: *PipelineDescriptorSet) void
     {
         for(0..self.bindings.items.len) |i|
         {
@@ -360,7 +360,7 @@ pub const PipelineDescriptorSet = struct
             {
                 for(0..self.set_count) |j|
                 {
-                    try self.vk_allocator.free_buffer(self.bindings.items[i].buffers.?[j]);
+                    self.vk_allocator.free_buffer(self.bindings.items[i].buffers.?[j]);
                 }
                 self.context.allocator.free(self.bindings.items[i].buffers.?);
             }

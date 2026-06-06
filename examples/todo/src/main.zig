@@ -493,11 +493,13 @@ pub fn main() !void
     defer vkui.deinit();
 
     app_ui_container = try vkui.Container.init(&vk_context, &vk_allocator);
+    
     app_font = try Font.init(&vk_context, &vk_allocator, font_entry.path, 36, &app_ui_container.texture_atlas);
+    defer app_font.deinit();
 
     var trash_texture: Texture2D = try .init(&vk_context, &vk_allocator, "../res/trash.bmp", .Subtexture);
     icon_trash = try app_ui_container.texture_atlas.add_texture(&trash_texture);
-    try trash_texture.deinit();
+    trash_texture.deinit();
 
     for(system_fonts, 0..) |_, i|
     {
@@ -506,6 +508,7 @@ pub fn main() !void
     allocator.free(system_fonts);
 
     var container_resources = try ui_basic.init_render_instance(&vk_context, &vk_allocator, swapchain, app_ui_container, vk_queues.get(.Graphics));
+    defer container_resources.deinit(vk_context);
     app_ui_container.set_render_instance(container_resources);
 
     var framebuffers_ui = try swapchain.create_framebuffers(container_resources.render_pass);
@@ -577,8 +580,5 @@ pub fn main() !void
 
     try vk_context.device.deviceWaitIdle();
 
-    try app_font.deinit();
     try app_ui_container.deinit();
-
-    try container_resources.deinit(vk_context);
 }

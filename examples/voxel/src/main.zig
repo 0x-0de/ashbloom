@@ -491,8 +491,8 @@ fn deinit_graphics_pipelines() void
     pipeline_vertex_inputs.getPtr(.SelectionDisplay).deinit();
     pipeline_vertex_inputs.getPtr(.Selection).deinit();
 
-    pipeline_descriptor_sets.getPtr(.DebugGeometryModelView).deinit() catch unreachable;
-    pipeline_descriptor_sets.getPtr(.ModelView).deinit() catch unreachable;
+    pipeline_descriptor_sets.getPtr(.DebugGeometryModelView).deinit();
+    pipeline_descriptor_sets.getPtr(.ModelView).deinit();
 }
 
 fn get_tick_count(time_start_frame: *f64, tick_timer: *f64) usize
@@ -686,6 +686,7 @@ pub fn main() !void
 
     Chunk.init_context(pipeline_vertex_inputs.get(.Main), pipeline_vertex_inputs.get(.SelectionDisplay));
     var chunk: Chunk = try .init(&allocator, &vk_allocator, .init(.{0, 0, 1}), 0);
+    defer chunk.deinit();
 
     chunk.generate();
     try chunk.build(true);
@@ -704,7 +705,7 @@ pub fn main() !void
     defer vk_context.device.destroyFence(selection_fence, null);
 
     const selection_data = try vk_allocator.alloc_buffer_empty(4 * @sizeOf(f32), .exclusive, .CPUTransferDst);
-    defer vk_allocator.free_buffer(selection_data) catch unreachable;
+    defer vk_allocator.free_buffer(selection_data);
 
     var first_frame = true;
 
@@ -716,7 +717,7 @@ pub fn main() !void
 
         if(ash.glfw.getTime() - fps_timer > 1)
         {
-            ash.print_stdout("FPS: {d}\n", .{frames}) catch unreachable;
+            ash.print_stdout("FPS: {d}\n", .{frames});
             frames = 0;
             fps_timer += 1;
         }
@@ -888,6 +889,4 @@ pub fn main() !void
     }
 
     try vk_context.device.deviceWaitIdle();
-
-    try chunk.deinit();
 }

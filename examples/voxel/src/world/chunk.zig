@@ -175,7 +175,6 @@ pub const Chunk = struct
         for(0..CHUNK_SIZE.data[1]) |j| {
         for(0..CHUNK_SIZE.data[2]) |k|
         {
-
             const fi = @as(f32, @floatFromInt(i));
             const fj = @as(f32, @floatFromInt(j));
             const fk = @as(f32, @floatFromInt(k));
@@ -221,10 +220,10 @@ pub const Chunk = struct
         try self.mesh_selection.build(true);
     }
 
-    pub fn deinit(self: *Chunk) !void
+    pub fn deinit(self: *Chunk) void
     {
-        try self.mesh.deinit();
-        try self.mesh_selection.deinit();
+        self.mesh.deinit();
+        self.mesh_selection.deinit();
 
         self.allocator.destroy(self.mesh);
         self.allocator.destroy(self.mesh_selection);
