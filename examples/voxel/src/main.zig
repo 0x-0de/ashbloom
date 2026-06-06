@@ -63,7 +63,9 @@ fn init_vk_context() !void
 
     vk_command_pool = try ash.commands.create_command_pool(&vk_context, @truncate(queue_families.graphics_family_index.?));
 
-    vk_allocator = try .init(&vk_context, &allocator, &vk_command_pool, vk_queues.getPtr(.Graphics), .{
+    vk_allocator = try .init(&vk_context, &allocator, .{
+        .transfer_command_pool = &vk_command_pool,
+        .transfer_queue = vk_queues.getPtr(.Graphics),
         .page_size = 128 << 20, // 128 MB.
         .staging_size = 32 << 20 // 32 MB.
     });
@@ -820,8 +822,6 @@ pub fn main() !void
                     var z = selection_data_slc[0] & 255;
 
                     const fac = selection_data_slc[0] >> 24;
-
-                    ash.print_stdout("({d}, {d}, {d})\n", .{x, y, z});
 
                     if(window.get_mouse_button(glfw.MouseButton1) == glfw.Press)
                     {

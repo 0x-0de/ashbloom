@@ -73,7 +73,9 @@ fn init_vk_context() !void
 
     vk_command_pool = try ash.commands.create_command_pool(&vk_context, @truncate(queue_families.graphics_family_index.?));
 
-    vk_allocator = try VulkanAllocator.init(&vk_context, &allocator, &vk_command_pool, vk_queues.getPtr(.Graphics), .{
+    vk_allocator = try VulkanAllocator.init(&vk_context, &allocator, .{
+        .transfer_command_pool = &vk_command_pool,
+        .transfer_queue = vk_queues.getPtr(.Graphics),
         .page_size = 128 << 20, // 128 MB.
         .staging_size =  32 << 20 // 32 MB.
     });

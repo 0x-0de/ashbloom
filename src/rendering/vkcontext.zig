@@ -335,7 +335,7 @@ pub const VkContext = struct
             return VulkanContextInitError.ExtensionNotSupported;
         }
 
-        debug_print_name_list(required_extensions, @ptrCast("Required extensions"));
+        // debug_print_name_list(required_extensions, @ptrCast("Required extensions"));
 
         // We do the same for the layers.
 

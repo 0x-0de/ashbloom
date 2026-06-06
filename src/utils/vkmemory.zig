@@ -289,6 +289,10 @@ pub const VulkanAllocator = struct
     /// Structure containing options used when intializing the VulkanAllocator.
     pub const VulkanAllocatorOptions = struct
     {
+        /// Command pool used to allocate buffers for memory transfer commands.
+        transfer_command_pool: *const vk.CommandPool,
+        /// Queue that memory transfer commands will be placed into.
+        transfer_queue: *const vk.Queue,
         /// Size of each allocated memory page.
         page_size: vk.DeviceSize,
         /// Size of the staging buffer.
@@ -876,15 +880,14 @@ pub const VulkanAllocator = struct
     }
 
     /// Create an instance of VulkanAllocator.
-    pub fn init(context: *vk_context.VkContext, allocator: *const std.mem.Allocator, command_pool: *const vk.CommandPool, transfer_queue: *const vk.Queue,
-    options: VulkanAllocatorOptions) !VulkanAllocator
+    pub fn init(context: *vk_context.VkContext, allocator: *const std.mem.Allocator, options: VulkanAllocatorOptions) !VulkanAllocator
     {
         var alloc: VulkanAllocator = .{
             .context = context,
             .cpu_allocator = allocator,
             .memory_pages = try std.ArrayList(VulkanMemoryPage).initCapacity(allocator.*, 0),
-            .staging_command_pool = command_pool,
-            .staging_queue = transfer_queue,
+            .staging_command_pool = options.transfer_command_pool,
+            .staging_queue = options.transfer_queue,
             .options = options
         };
 
