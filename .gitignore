@@ -1,0 +1,11 @@
+.zig-cache
+bin/test.exe
+bin/test.pdb
+bin/ashbloom.exe
+bin/ashbloom.dll
+bin/ashbloom.pdb
+bin/ashbloom-test.exe
+bin/ashbloom-test.pdb
+clear-zig-cache.bat
+examples/*/bin
+docs

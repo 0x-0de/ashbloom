@@ -1,0 +1,20 @@
+.{
+    .name = .ashbloom_example_todo,
+    .version = "0.3.0",
+    .fingerprint = 0x11fceb53ec04c94a,
+    .minimum_zig_version = "0.15.2",
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+        "res",
+    },
+
+    .dependencies = .{
+        .ashbloom = .{
+            .path = "..\\.."
+        }
+    }
+}
