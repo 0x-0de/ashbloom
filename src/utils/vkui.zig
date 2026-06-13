@@ -130,7 +130,9 @@ pub const ElementCallbackType = enum
     Scroll,
     Deinit,
     Rebuild,
-    Copy
+    Copy,
+    AddChild,
+    RemoveChild
 };
 
 /// Element callback. When the callback is called is determined by the callback type.
@@ -340,6 +342,14 @@ pub const Element = struct
             }
         }
 
+        for(self.callbacks.items) |cb|
+        {
+            if(cb.type == .AddChild)
+            {
+                try cb.callback(self, undefined);
+            }
+        }
+
         for(element.children.items) |child|
         {
             try e.add(child);
@@ -538,6 +548,14 @@ pub const Element = struct
         const e = self.children.orderedRemove(index);
         try e.deinit();
         self.allocator.destroy(e);
+
+        for(self.callbacks.items) |cb|
+        {
+            if(cb.type == .RemoveChild)
+            {
+                try cb.callback(self, undefined);
+            }
+        }
     }
 
     /// Updates this element's callbacks, as well as the callbacks for all of its children.
@@ -643,7 +661,7 @@ pub const Element = struct
                             try callback.callback(self, input_data);
                         }
                     },
-                    .Deinit, .Rebuild, .Copy => {},
+                    .Deinit, .Rebuild, .Copy, .AddChild, .RemoveChild => {},
                 }
             }
         }
