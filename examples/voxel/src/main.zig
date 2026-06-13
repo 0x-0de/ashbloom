@@ -785,31 +785,25 @@ pub fn main() !void
             .SelectionDisplay, .Selection => .Selection
         };
 
-        var cursor_fx: f64 = undefined;
-        var cursor_fy: f64 = undefined;
+        var cursor_pos = window.get_cursor_pos();
 
-        window.get_cursor_pos(&cursor_fx, &cursor_fy);
-
-        var cursor_x: i32 = @intFromFloat(cursor_fx);
-        var cursor_y: i32 = @intFromFloat(cursor_fy);
-
-        cursor_y *= -1;
-        cursor_y += @intCast(swapchain.extent.height);
+        cursor_pos.y *= -1;
+        cursor_pos.y += @intCast(swapchain.extent.height);
 
         if(input_mode == 1)
         {
-            cursor_x = @intCast(swapchain.extent.width / 2);
-            cursor_y = @intCast(swapchain.extent.height / 2);
+            cursor_pos.x = @intCast(swapchain.extent.width / 2);
+            cursor_pos.y = @intCast(swapchain.extent.height / 2);
         }
 
-        if(cursor_x >= 0 and cursor_y >= 0 and cursor_x < swapchain.extent.width and cursor_y < swapchain.extent.height)
+        if(cursor_pos.x >= 0 and cursor_pos.y >= 0 and cursor_pos.x < swapchain.extent.width and cursor_pos.y < swapchain.extent.height)
         {
             _ = try vk_context.device.waitForFences(&.{selection_fence}, .true, std.math.maxInt(u64));
             _ = try vk_context.device.resetFences(&.{selection_fence});
 
             if(!first_frame)
             {
-                try ash.vk_memory.copy_image_to_buffer(&vk_context, selection_buffer.attachments.items[0].image.?.image, selection_data.buffer, .{ .x = cursor_x, .y = cursor_y, .z = 0 },
+                try ash.vk_memory.copy_image_to_buffer(&vk_context, selection_buffer.attachments.items[0].image.?.image, selection_data.buffer, .{ .x = cursor_pos.x, .y = cursor_pos.y, .z = 0 },
                     .{ .width = 1, .height = 1, .depth = 1 }, vk_command_pool, vk_queues.get(.Graphics));
 
                 const selection_data_slc = try vk_allocator.pull_buffer_data(u32, selection_data);
@@ -907,7 +901,7 @@ pub fn main() !void
             try selection_command_buffer.begin_recording();
             selection_command_buffer.cmd_begin_render_pass(render_passes.getPtr(.Selection), selection_framebuffer, swapchain.extent, &.{cv_selection_color, cv_depth});
             selection_command_buffer.cmd_set_viewport_full(swapchain.extent);
-            selection_command_buffer.cmd_set_scissor(.{ .offset = .{ .x = cursor_x, .y = cursor_y }, .extent = .{ .width = 1, .height = 1 } });
+            selection_command_buffer.cmd_set_scissor(.{ .offset = .{ .x = cursor_pos.x, .y = cursor_pos.y }, .extent = .{ .width = 1, .height = 1 } });
             selection_command_buffer.cmd_bind_pipeline(pipelines.getPtr(.Selection));
             selection_command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(.Selection), &pipeline_descriptor_sets.getPtr(.ModelView).sets[swapchain.current_image_index]);
             chunk.draw(.Selection, &selection_command_buffer);

@@ -612,12 +612,9 @@ pub fn main() !void
     try init_ui_main_elements();
 
     // One last bit of configuration required is to set the width and height of the container, which in most cases should be the size of the window.
-    var window_width: u32 = undefined;
-    var window_height: u32 = undefined;
+    var fb_size = window.get_framebuffer_size();
 
-    window.get_framebuffer_size(&window_width, &window_height);
-
-    try app_ui_container.set_bounds(0, 0, @floatFromInt(window_width), @floatFromInt(window_height));
+    try app_ui_container.set_bounds(0, 0, @floatFromInt(fb_size.width), @floatFromInt(fb_size.height));
     try app_ui_container.build();
 
     var timer: f64 = glfw.getTime();
@@ -634,8 +631,8 @@ pub fn main() !void
         }
 
         const prev_window_size: vk.Extent2D = .{
-            .width = @intCast(window_width),
-            .height = @intCast(window_height)
+            .width = fb_size.width,
+            .height = fb_size.height
         };
 
         glfw.pollEvents();
@@ -649,12 +646,12 @@ pub fn main() !void
             framebuffers_ui = try swapchain.create_framebuffers(container_resources.render_pass);
         }
 
-        window.get_framebuffer_size(&window_width, &window_height);
+        fb_size = window.get_framebuffer_size();
 
         // If the window size has been changed, update the boundaries of the UI container.
-        if(window_width != prev_window_size.width or window_height != prev_window_size.height)
+        if(fb_size.width != prev_window_size.width or fb_size.height != prev_window_size.height)
         {
-            try app_ui_container.set_bounds(0, 0, @floatFromInt(window_width), @floatFromInt(window_height));
+            try app_ui_container.set_bounds(0, 0, @floatFromInt(fb_size.width), @floatFromInt(fb_size.height));
         }
 
         // Gets all user input information (mouse buttons/scrolling, key inputs, text) and puts it into a single structure.

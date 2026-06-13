@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const glfw = @import("glfw");
+const vk = @import("vulkan");
 
 var scroll_x: f64 = 0;
 var scroll_y: f64 = 0;
@@ -92,13 +93,10 @@ pub const Window = struct
         return mouse_buttons;
     }
 
-    /// Sets `x` and `y` to the cursor position relative to the window.
-    pub fn get_cursor_pos(self: Window, x: *f64, y: *f64) void
+    /// Returns the cursor position relative to the window.
+    pub fn get_cursor_pos(self: Window) vk.Offset2D
     {
-        var w: u32 = undefined;
-        var h: u32 = undefined;
-
-        self.get_framebuffer_size(&w, &h);
+        const window_size = self.get_framebuffer_size();
 
         var cursor_x: f64 = undefined;
         var cursor_y: f64 = undefined;
@@ -106,22 +104,26 @@ pub const Window = struct
         glfw.getCursorPos(self.glfw_handle, &cursor_x, &cursor_y);
 
         cursor_y *= -1;
-        cursor_y += @as(f64, @floatFromInt(h));
+        cursor_y += @as(f64, @floatFromInt(window_size.height));
 
-        x.* = cursor_x;
-        y.* = cursor_y;
+        return .{
+            .x = @intFromFloat(cursor_x),
+            .y = @intFromFloat(cursor_y)
+        };
     }
 
-    /// Sets `width` and `height` to the framebuffer size.
-    pub fn get_framebuffer_size(self: Window, width: *u32, height: *u32) void
+    /// Returns the framebuffer size as a vk.Extent2D.
+    pub fn get_framebuffer_size(self: Window) vk.Extent2D
     {
         var w: c_int = undefined;
         var h: c_int = undefined;
 
         glfw.getFramebufferSize(self.glfw_handle, &w, &h);
 
-        width.* = @intCast(w);
-        height.* = @intCast(h);
+        return .{
+            .width = @intCast(w),
+            .height = @intCast(h)
+        };
     }
 
     /// Returns the GLFW KeyState of the `key`.
@@ -139,18 +141,11 @@ pub const Window = struct
     /// Returns a ContainerInputData structure, used by a UI Container object to detect UI input events.
     pub fn get_ui_container_input(self: Window) ContainerInputData
     {
-        var cursor_x: f64 = undefined;
-        var cursor_y: f64 = undefined;
-
-        self.get_cursor_pos(&cursor_x, &cursor_y);
-
+        const cursor_pos = self.get_cursor_pos();
         const mouse_buttons = self.get_all_mouse_buttons();
 
         return .{
-            .cursor_pos = .{
-                .x = @intFromFloat(cursor_x),
-                .y = @intFromFloat(cursor_y)
-            },
+            .cursor_pos = cursor_pos,
             .scroll = .{
                 .x = @intFromFloat(scroll_x),
                 .y = @intFromFloat(scroll_y)

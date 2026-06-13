@@ -2,31 +2,39 @@ const std = @import("std");
 const ash = @import("ashbloom");
 
 const glfw = ash.glfw;
+const vk = ash.vk;
 
 const Vec = ash.linalg.Vec;
 
 const CAMERA_SPEED = 0.05;
+
+const Offset2Df64 = struct
+{
+    x: f64,
+    y: f64
+};
 
 pub const Camera = struct
 {
     pos: Vec(f32, 3),
     rot: Vec(f32, 3),
 
-    prev_cursor_x: f64,
-    prev_cursor_y: f64,
-
-    cur_cursor_x: f64,
-    cur_cursor_y: f64,
+    prev_cursor_pos: Offset2Df64,
+    cur_cursor_pos: Offset2Df64,
 
     pub fn init() Camera
     {
         return .{
             .pos = .init(.{0, 0, 0}),
             .rot = .init(.{0, 0, 1}),
-            .prev_cursor_x = 0,
-            .prev_cursor_y = 0,
-            .cur_cursor_x = 0,
-            .cur_cursor_y = 0
+            .prev_cursor_pos = .{
+                .x = 0,
+                .y = 0
+            },
+            .cur_cursor_pos = .{
+                .x = 0,
+                .y = 0
+            }
         };
     }
 
@@ -71,30 +79,27 @@ pub const Camera = struct
 
     pub fn update_input(self: *Camera, window: ash.ABWindow, mouse_sensitivity: f64, input_mode: u8) void
     {
-        var cursor_x: f64 = undefined;
-        var cursor_y: f64 = undefined;
+        const cursor_pos = window.get_cursor_pos();
 
-        window.get_cursor_pos(&cursor_x, &cursor_y);
-
-        const delta_x = (cursor_x - self.prev_cursor_x) * mouse_sensitivity;
-        const delta_y = (cursor_y - self.prev_cursor_y) * mouse_sensitivity;
+        const delta_x = (cursor_pos.x - self.prev_cursor_pos.x) * mouse_sensitivity;
+        const delta_y = (cursor_pos.y - self.prev_cursor_pos.y) * mouse_sensitivity;
 
         if(input_mode == 1)
         {
-            self.cur_cursor_x -= delta_x;
-            self.cur_cursor_y += delta_y;
+            self.cur_cursor_pos.x -= delta_x;
+            self.cur_cursor_pos.y += delta_y;
         }
 
         const limit = std.math.pi / 2.0 - 0.001;
 
-        if(self.cur_cursor_y > limit) self.cur_cursor_y = limit;
-        if(self.cur_cursor_y < -limit) self.cur_cursor_y = -limit;
+        if(self.cur_cursor_pos.y > limit) self.cur_cursor_pos.y = limit;
+        if(self.cur_cursor_pos.y < -limit) self.cur_cursor_pos.y = -limit;
 
-        self.rot.data[0] = @floatCast(std.math.cos(self.cur_cursor_x) * std.math.cos(self.cur_cursor_y));
-        self.rot.data[1] = @floatCast(std.math.sin(self.cur_cursor_y));
-        self.rot.data[2] = @floatCast(std.math.sin(self.cur_cursor_x) * std.math.cos(self.cur_cursor_y));
+        self.rot.data[0] = @floatCast(std.math.cos(self.cur_cursor_pos.x) * std.math.cos(self.cur_cursor_pos.y));
+        self.rot.data[1] = @floatCast(std.math.sin(self.cur_cursor_pos.y));
+        self.rot.data[2] = @floatCast(std.math.sin(self.cur_cursor_pos.x) * std.math.cos(self.cur_cursor_pos.y));
 
-        self.prev_cursor_x = cursor_x;
-        self.prev_cursor_y = cursor_y;
+        self.prev_cursor_pos.x = cursor_pos.x;
+        self.prev_cursor_pos.y = cursor_pos.y;
     }
 };
