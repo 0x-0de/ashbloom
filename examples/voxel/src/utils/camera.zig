@@ -36,7 +36,7 @@ pub const Camera = struct
         
         var forward_compressed = forward;
         forward_compressed.data[1] = 0;
-        forward_compressed = ash.linalg.normalize(3, f32, forward_compressed);
+        forward_compressed = ash.linalg.normalize(f32, 3, forward_compressed);
 
         var side = ash.linalg.cross(f32, Vec(f32, 3).init(.{0, 1, 0}), forward_compressed);
 

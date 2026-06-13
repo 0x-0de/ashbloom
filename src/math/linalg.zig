@@ -143,7 +143,7 @@ pub fn Vec(comptime T: type, comptime len: u32) type
 }
 
 /// Calculate the dot product of two vectors.
-pub fn dot(comptime vec_size: u32, comptime vec_type: type, a: Vec(vec_type, vec_size), b: Vec(vec_type, vec_size)) vec_type
+pub fn dot(comptime vec_type: type, comptime vec_size: u32, a: Vec(vec_type, vec_size), b: Vec(vec_type, vec_size)) vec_type
 {
     var dot_product: vec_type = 0;
     for(0..vec_size) |i|
@@ -166,7 +166,7 @@ pub fn cross(comptime vec_type: type, a: Vec(vec_type, 3), b: Vec(vec_type, 3)) 
 }
 
 /// Returns a normalized version of the vector "vec".
-pub fn normalize(comptime vec_size: u32, comptime vec_type: type, vec: Vec(vec_type, vec_size)) Vec(vec_type, vec_size)
+pub fn normalize(comptime vec_type: type, comptime vec_size: u32, vec: Vec(vec_type, vec_size)) Vec(vec_type, vec_size)
 {
     const length = vec.length();
     var v = vec;
@@ -512,9 +512,9 @@ pub fn mat_look_at(allocator: *const std.mem.Allocator, pos: Vec(f32, 3), rot: V
     var forward = rot;
     forward.negate();
     var side = cross(f32, Vec(f32, 3).init(.{0, -1, 0}), forward);
-    side = normalize(3, f32, side);
+    side = normalize(f32, 3, side);
     var above = cross(f32, side, forward);
-    above = normalize(3, f32, above);
+    above = normalize(f32, 3, above);
 
     for(0..3) |i|
     {
@@ -523,9 +523,9 @@ pub fn mat_look_at(allocator: *const std.mem.Allocator, pos: Vec(f32, 3), rot: V
         matrix.set(@truncate(i), 2, forward.data[i]);
     }
 
-    matrix.set(3, 0, -dot(3, f32, pos, side));
-    matrix.set(3, 1, -dot(3, f32, pos, above));
-    matrix.set(3, 2, -dot(3, f32, pos, forward));
+    matrix.set(3, 0, -dot(f32, 3, pos, side));
+    matrix.set(3, 1, -dot(f32, 3, pos, above));
+    matrix.set(3, 2, -dot(f32, 3, pos, forward));
 
     return matrix;
 }
