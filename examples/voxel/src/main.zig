@@ -785,10 +785,7 @@ pub fn main() !void
             .SelectionDisplay, .Selection => .Selection
         };
 
-        var cursor_pos = window.get_cursor_pos();
-
-        cursor_pos.y *= -1;
-        cursor_pos.y += @intCast(swapchain.extent.height);
+        var cursor_pos = window.get_cursor_pos(false);
 
         if(input_mode == 1)
         {

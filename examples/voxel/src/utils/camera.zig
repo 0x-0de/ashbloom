@@ -79,7 +79,7 @@ pub const Camera = struct
 
     pub fn update_input(self: *Camera, window: ash.ABWindow, mouse_sensitivity: f64, input_mode: u8) void
     {
-        const cursor_pos = window.get_cursor_pos();
+        const cursor_pos = window.get_cursor_pos(true);
 
         const delta_x = (cursor_pos.x - self.prev_cursor_pos.x) * mouse_sensitivity;
         const delta_y = (cursor_pos.y - self.prev_cursor_pos.y) * mouse_sensitivity;

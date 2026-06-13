@@ -93,8 +93,8 @@ pub const Window = struct
         return mouse_buttons;
     }
 
-    /// Returns the cursor position relative to the window.
-    pub fn get_cursor_pos(self: Window) vk.Offset2D
+    /// Returns the cursor position relative to the window. If "left_handed" is true, the bottom of the window is 0, otherwise it's the top.
+    pub fn get_cursor_pos(self: Window, left_handed: bool) vk.Offset2D
     {
         const window_size = self.get_framebuffer_size();
 
@@ -103,8 +103,11 @@ pub const Window = struct
 
         glfw.getCursorPos(self.glfw_handle, &cursor_x, &cursor_y);
 
-        cursor_y *= -1;
-        cursor_y += @as(f64, @floatFromInt(window_size.height));
+        if(left_handed)
+        {
+            cursor_y *= -1;
+            cursor_y += @as(f64, @floatFromInt(window_size.height));
+        }
 
         return .{
             .x = @intFromFloat(cursor_x),
