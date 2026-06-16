@@ -44,8 +44,9 @@ pub const PipelineVertexInput = struct
     attribute_descriptions: std.ArrayList(vk.VertexInputAttributeDescription),
     
     /// The binding description structure is the top-most structure used to describe a vertex input binding.
-    /// A pipeline's vertex input is made up of multiple vertex input bindings, though in most cases you'll likely only need one.
-    binding_description: vk.VertexInputBindingDescription = undefined,
+    /// A pipeline's vertex input is made up of multiple vertex input bindings, though in many cases you'll likely only need one.
+    /// One binding description could be used to specify vertices, while another could be used to specify instances, for example.
+    binding_descriptions: std.ArrayList(vk.VertexInputBindingDescription),
 
     /// Adds an attribute to the pipeline vertex input. An attribute is a scalar or vector value given to each vertex or instance drawn.
     /// On a per-vertex basis, an attribute could represent a vertex's position, color, texture coordinate, etc.
@@ -62,19 +63,24 @@ pub const PipelineVertexInput = struct
         try self.attribute_descriptions.append(self.allocator.*, attribute);
     }
 
-    /// Compiles the binding_description. Should be called after adding all attributes to the structure.
-    pub fn build(self: *PipelineVertexInput, binding: u32, input_rate: vk.VertexInputRate) !void
+    /// Compiles a binding description. Should be called after adding all attributes to the structure.
+    pub fn build(self: *PipelineVertexInput, binding_description_index: u32, input_rate: vk.VertexInputRate) !void
     {
         var stride: u32 = 0;
 
         for(self.attribute_descriptions.items) |desc|
         {
-            const format_size = try vk_utils.get_vulkan_format_size(desc.format);
-            stride += format_size;
+            if(desc.binding == binding_description_index)
+            {
+                const format_size = try vk_utils.get_vulkan_format_size(desc.format);
+                stride += format_size;
+            }
         }
 
-        self.binding_description = .{
-            .binding = binding,
+        const binding_description = try self.binding_descriptions.addOne(self.allocator.*);
+
+        binding_description.* = .{
+            .binding = binding_description_index,
             .stride = stride,
             .input_rate = input_rate
         };
@@ -84,6 +90,7 @@ pub const PipelineVertexInput = struct
     pub fn deinit(self: *PipelineVertexInput) void
     {
         self.attribute_descriptions.deinit(self.allocator.*);
+        self.binding_descriptions.deinit(self.allocator.*);
     }
 
     /// Initializes and returns a PipelineVertexInput.
@@ -91,7 +98,8 @@ pub const PipelineVertexInput = struct
     {
         return .{
             .allocator = allocator,
-            .attribute_descriptions = try std.ArrayList(vk.VertexInputAttributeDescription).initCapacity(allocator.*, 0),
+            .attribute_descriptions = try std.ArrayList(vk.VertexInputAttributeDescription).initCapacity(allocator.*, 1),
+            .binding_descriptions = try std.ArrayList(vk.VertexInputBindingDescription).initCapacity(allocator.*, 1)
         };
     }
 };
@@ -727,8 +735,8 @@ pub const Pipeline = struct
         self.info_vertex_input = .{
             .vertex_attribute_description_count = @truncate(vertex_input.attribute_descriptions.items.len),
             .p_vertex_attribute_descriptions = @ptrCast(vertex_input.attribute_descriptions.items),
-            .vertex_binding_description_count = 1,
-            .p_vertex_binding_descriptions = @ptrCast(&vertex_input.binding_description)
+            .vertex_binding_description_count = @truncate(vertex_input.binding_descriptions.items.len),
+            .p_vertex_binding_descriptions = @ptrCast(vertex_input.binding_descriptions.items)
         };
     }
 };

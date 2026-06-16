@@ -121,13 +121,17 @@ pub const Mesh = struct
             .buffer = null
         };
 
-        for(layout.attribute_descriptions.items, 0..) |att, i|
+        var cur_att: usize = 0;
+
+        for(layout.attribute_descriptions.items) |att|
         {
             if(att.binding == vertex_binding)
             {
                 const format_size = try ash.vk_utils.get_vulkan_format_size(att.format);
-                mesh.attribute_sizes[i] = @truncate(format_size);
+                mesh.attribute_sizes[cur_att] = @truncate(format_size);
                 mesh.vertex_size += @truncate(format_size);
+
+                cur_att += 1;
             }
         }
 
