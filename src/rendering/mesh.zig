@@ -63,8 +63,8 @@ pub const Mesh = struct
     /// Vulkan allocator.
     vk_allocator: *ash.VulkanAllocator,
 
-    /// Layout of each vertex in the mesh.
-    layout: ash.PipelineVertexInput,
+    /// Vertex binding this mesh belongs to.
+    vertex_binding: u32,
     /// Size of each attribute (in bytes).
     attribute_sizes: []u8,
     /// Size of each vertex.
@@ -94,17 +94,26 @@ pub const Mesh = struct
     }
 
     /// Initializes the Mesh object. Uses a PipelineVertexInput to determine the sizes, formats, and total number of vertex attributes this mesh will use.
+    /// The `input_binding` parameter specifies what binding in the PipelineVertexInput this mesh should use.
     /// The `verts_reserve` variable determines how many vertices should be pre-allocated in the `data` list.
-    pub fn init(allocator: *const std.mem.Allocator, vk_allocator: *ash.VulkanAllocator, layout: ash.PipelineVertexInput, verts_reserve: usize) !Mesh
+    pub fn init(allocator: *const std.mem.Allocator, vk_allocator: *ash.VulkanAllocator, layout: ash.PipelineVertexInput, vertex_binding: u32, verts_reserve: usize) !Mesh
     {
-        const num_att = layout.attribute_descriptions.items.len;
+        var num_att: usize = 0;
+        for(layout.attribute_descriptions.items) |att|
+        {
+            if(att.binding == vertex_binding)
+            {
+                num_att += 1;
+            }
+        }
+
         std.debug.assert(num_att > 0 and num_att < 256);
         
         var mesh: Mesh = .{
             .allocator = allocator,
             .vk_allocator = vk_allocator,
-            .layout = layout,
-            .attribute_sizes = try allocator.alloc(u8, layout.attribute_descriptions.items.len),
+            .vertex_binding = vertex_binding,
+            .attribute_sizes = try allocator.alloc(u8, num_att),
             .vertex_size = 0,
             .num_vertices = 0,
             .vertices = undefined,
@@ -114,9 +123,12 @@ pub const Mesh = struct
 
         for(layout.attribute_descriptions.items, 0..) |att, i|
         {
-            const format_size = try ash.vk_utils.get_vulkan_format_size(att.format);
-            mesh.attribute_sizes[i] = @truncate(format_size);
-            mesh.vertex_size += @truncate(format_size);
+            if(att.binding == vertex_binding)
+            {
+                const format_size = try ash.vk_utils.get_vulkan_format_size(att.format);
+                mesh.attribute_sizes[i] = @truncate(format_size);
+                mesh.vertex_size += @truncate(format_size);
+            }
         }
 
         mesh.vertices = try .initCapacity(allocator.*, verts_reserve);
@@ -147,14 +159,14 @@ pub const Mesh = struct
     /// Use the `command_buffer` to bind the Mesh's vertex buffer.
     pub fn bind(self: *Mesh, command_buffer: *ash.CommandBuffer) void
     {
-        command_buffer.cmd_bind_vertex_buffer(self.buffer.?.buffer, 0);
+        command_buffer.cmd_bind_vertex_buffer(self.vertex_binding, self.buffer.?.buffer, 0);
     }
 
-    /// Binds, then draws, the Mesh (records those commands onto the `command_buffer`).
-    pub fn bind_and_draw(self: *Mesh, command_buffer: *ash.CommandBuffer) void
+    /// Binds, then draws, the Mesh as vertices (records those commands onto the `command_buffer`).
+    pub fn bind_and_draw_vertices(self: *Mesh, command_buffer: *ash.CommandBuffer) void
     {
         self.bind(command_buffer);
-        self.draw(command_buffer);
+        self.draw_vertices(command_buffer);
     }
 
     /// Allocates a buffer using the Vulkan allocator, stages the vertex data into it, and, if `clear` is true, deallocates the memory held by `self.data`.
@@ -175,8 +187,8 @@ pub const Mesh = struct
         }
     }
 
-    /// Uses the `command_buffer` to draw the Mesh.
-    pub fn draw(self: *Mesh, command_buffer: *ash.CommandBuffer) void
+    /// Uses the `command_buffer` to draw the Mesh as vertices.
+    pub fn draw_vertices(self: *Mesh, command_buffer: *ash.CommandBuffer) void
     {
         command_buffer.cmd_draw(self.num_vertices, 1);
     }

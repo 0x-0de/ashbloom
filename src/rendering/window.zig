@@ -144,7 +144,7 @@ pub const Window = struct
     /// Returns a ContainerInputData structure, used by a UI Container object to detect UI input events.
     pub fn get_ui_container_input(self: Window) ContainerInputData
     {
-        const cursor_pos = self.get_cursor_pos();
+        const cursor_pos = self.get_cursor_pos(true);
         const mouse_buttons = self.get_all_mouse_buttons();
 
         return .{

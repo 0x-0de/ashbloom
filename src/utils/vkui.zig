@@ -899,7 +899,7 @@ pub const Container = struct
                     .height = @intFromFloat(self.bounds.scl_y)
                 }
             });
-            command_buffer.cmd_bind_vertex_buffer(self.instance_buffer.?.buffer, @as(vk.DeviceSize, 0));
+            command_buffer.cmd_bind_vertex_buffer(0, self.instance_buffer.?.buffer, @as(vk.DeviceSize, 0));
             command_buffer.cmd_draw(6, @truncate(self.element_draw_count));
         }
         command_buffer.cmd_end_render_pass();

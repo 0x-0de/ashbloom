@@ -244,10 +244,10 @@ pub const Chunk = struct
         switch(mode)
         {
             .Main => {
-                self.mesh.bind_and_draw(command_buffer);
+                self.mesh.bind_and_draw_vertices(command_buffer);
             },
             .Selection => {
-                self.mesh_selection.bind_and_draw(command_buffer);
+                self.mesh_selection.bind_and_draw_vertices(command_buffer);
             }
         }
     }
@@ -267,8 +267,8 @@ pub const Chunk = struct
             .voxels = undefined,
         };
 
-        chunk.mesh.* = try .init(allocator, vk_allocator, chunk_pl.?, 0);
-        chunk.mesh_selection.* = try .init(allocator, vk_allocator, chunk_pl_selection.?, 0);
+        chunk.mesh.* = try .init(allocator, vk_allocator, chunk_pl.?, 0, 0);
+        chunk.mesh_selection.* = try .init(allocator, vk_allocator, chunk_pl_selection.?, 0, 0);
 
         chunk.voxels = try allocator.alloc([][]u32, CHUNK_SIZE.data[0]);
         for(chunk.voxels) |*v|

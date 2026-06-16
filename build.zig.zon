@@ -1,6 +1,6 @@
 .{
     .name = .ashbloom, 
-    .version = "0.1.0",
+    .version = "0.1.1",
     .fingerprint = 0x40abb2cb32622512,
     .minimum_zig_version = "0.16.0",
     .paths = .{

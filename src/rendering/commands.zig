@@ -120,10 +120,10 @@ pub const CommandBuffer = struct
         self.vkc.device.cmdBindIndexBuffer(self.handle, buffer, offset, .uint16);
     }
 
-    /// Binds a vertex buffer. This will be the target of the next draw command.
-    pub fn cmd_bind_vertex_buffer(self: *CommandBuffer, buffer: vk.Buffer, offset: vk.DeviceSize) void
+    /// Binds a vertex buffer to a specific binding defined by the graphics pipeline and its PipelineVertexInput. This will be the target of the next draw command.
+    pub fn cmd_bind_vertex_buffer(self: *CommandBuffer, binding: u32, buffer: vk.Buffer, offset: vk.DeviceSize) void
     {
-        self.vkc.device.cmdBindVertexBuffers(self.handle, 0, &.{ buffer }, &.{ offset });
+        self.vkc.device.cmdBindVertexBuffers(self.handle, binding, &.{ buffer }, &.{ offset });
     }
 
     /// Sets the scissor of the current draw operation. Used for graphics pipelines with dynamic viewports and scissors.
