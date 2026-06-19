@@ -2277,7 +2277,7 @@ pub fn get_textfield_text(e: *Element) []u32
     return textfield_data.text;
 }
 
-fn init_basic_render_pass(context: *VkContext, swapchain: Swapchain) !*RenderPass
+pub fn init_basic_render_pass(context: *VkContext, swapchain: Swapchain) !*RenderPass
 {
     const color_subpass: RenderPass.Subpass = .{
         .color_attachment_index = 0,
@@ -2388,15 +2388,16 @@ fn update_ui_basic_uniforms(container: Container, set_index: u16) !void
     container.context.allocator.free(projection_data);
 }
 
-pub fn init_render_instance(context: *VkContext, vulkan_allocator: *VulkanAllocator, swapchain: Swapchain, container: Container, render_queue: vk.Queue) !vkui.ContainerRendering
+/// Creates a ContainerRendering struct compatible with the basic UI element factories provided in this module.
+pub fn init_render_instance(context: *VkContext, vulkan_allocator: *VulkanAllocator, swapchain: Swapchain, container: Container, render_pass: ?*RenderPass, render_queue: vk.Queue) !vkui.ContainerRendering
 {
-    const render_pass = try init_basic_render_pass(context, swapchain);
+    const rp = render_pass orelse try init_basic_render_pass(context, swapchain);
 
     const ui_descriptor_set = try init_basic_pipeline_descriptor_set(context, vulkan_allocator, swapchain, container);
-    const ui_pipeline = try init_basic_pipeline(context, ui_descriptor_set.*, render_pass);
+    const ui_pipeline = try init_basic_pipeline(context, ui_descriptor_set.*, rp);
 
     return .{
-        .render_pass = render_pass,
+        .render_pass = rp,
         .descriptor_set = ui_descriptor_set,
         .pipeline = ui_pipeline,
         .render_queue = render_queue,

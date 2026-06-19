@@ -599,7 +599,7 @@ pub fn main() !void
     //
     // Every UI theme initializes a "render instance," which is a collection of Vulkan rendering resources required to draw the UI instance tree,
     // including a graphics pipeline which itself includes a set of pre-compiled shaders and descriptors, alongside a render pass.
-    var container_resources = try ui_basic.init_render_instance(&vk_context, &vk_allocator, swapchain, app_ui_container, vk_queues.get(.Graphics));
+    var container_resources = try ui_basic.init_render_instance(&vk_context, &vk_allocator, swapchain, app_ui_container, null, vk_queues.get(.Graphics));
     defer container_resources.deinit(vk_context);
     app_ui_container.set_render_instance(container_resources);
 
