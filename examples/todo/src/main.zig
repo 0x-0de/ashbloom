@@ -6,7 +6,7 @@ const ash = @import("ashbloom");
 const vk = ash.vk;
 const glfw = ash.glfw;
 
-const vkui = ash.ui;
+const ui = ash.ui;
 const ui_basic = ash.ui_theme_basic;
 
 const misc = ash.misc;
@@ -92,7 +92,7 @@ fn deinit_vk_context() void
 }
 
 /// The application's main and only UI container.
-var app_ui_container: vkui.Container = undefined;
+var app_ui_container: ui.Container = undefined;
 /// The application's chosen text font.
 var app_font: Font = undefined;
 
@@ -159,7 +159,7 @@ fn set_todo_list_scroll(adding: bool) !void
 }
 
 /// Callback for pressing any todo item delete button.
-fn callback_delete_todo_item(e: *vkui.Element) !void
+fn callback_delete_todo_item(e: *ui.Element) !void
 {
     // The todo item that ought to be deleted is the parent of the delete button that was pressed.
     const item = e.parent.?;
@@ -174,13 +174,13 @@ fn callback_delete_todo_item(e: *vkui.Element) !void
 }
 
 /// Creates a todo item element.
-fn create_todo_item(item: TodoItem) !*vkui.Element
+fn create_todo_item(item: TodoItem) !*ui.Element
 {
     // Similarly to the provided factory functions in ui_basic, I allocate a new Element struct.
-    const e = try allocator.create(vkui.Element);
+    const e = try allocator.create(ui.Element);
 
     // Initializing this element as a regular colored quad.
-    e.* = try vkui.Element.init(&allocator, .Color, .{
+    e.* = try ui.Element.init(&allocator, .Color, .{
         .relative_pos = .{
             .pos_x = 0,
             .pos_y = 1,
@@ -316,7 +316,7 @@ fn create_todo_item(item: TodoItem) !*vkui.Element
 
 /// Callback function for when the todo list panel gets rebuilt.
 /// Handles positioning and possible deletion all of the list items in the panel.
-fn todo_list_rebuild_callback(e: *vkui.Element, data: vkui.ContainerInputData) !void
+fn todo_list_rebuild_callback(e: *ui.Element, data: ui.ContainerInputData) !void
 {
     _ = data;
 
@@ -355,7 +355,7 @@ fn todo_list_rebuild_callback(e: *vkui.Element, data: vkui.ContainerInputData) !
 }
 
 /// Creates a new todo element and adds it to the list panel.
-fn new_todo(e: *vkui.Element) !void
+fn new_todo(e: *ui.Element) !void
 {
     _ = e;
 
@@ -510,7 +510,7 @@ fn init_ui_main_elements() !void
     // When the list panel needs to be rebuilt, todo_list_rebuild_callback is called.
     try list_panel.add_callback(.Rebuild, todo_list_rebuild_callback);
     // When the list panel is scrolled, Ashbloom UI has a "default callback" which updates the positions of the child elements.
-    try list_panel.add_callback(.Scroll, vkui.default_scroll_callback);
+    try list_panel.add_callback(.Scroll, ui.default_scroll_callback);
 
     // Adding the scrollbar to the list panel.
     try list_panel.add_and_dispose(scrollbar);
@@ -569,11 +569,11 @@ pub fn main() !void
     defer swapchain.deinit(true);
 
     // Initialize Ashbloom's Vulkan UI system.
-    try vkui.init();
-    defer vkui.deinit();
+    try ui.init();
+    defer ui.deinit();
 
     // Create a UI container object. This object is the top-most container for a UI system.
-    app_ui_container = try vkui.Container.init(&vk_context, &vk_allocator);
+    app_ui_container = try ui.Container.init(&vk_context, &vk_allocator);
     
     // Create a font object, using the font path I queried above, with a pixel size of 36. I attach the font to the UI container's existing texture atlas,
     // so any character glyph textures that get loaded are sent to the UI container's texture atlas.
