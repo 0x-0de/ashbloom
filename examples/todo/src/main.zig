@@ -6,7 +6,7 @@ const ash = @import("ashbloom");
 const vk = ash.vk;
 const glfw = ash.glfw;
 
-const vkui = ash.vk_ui;
+const vkui = ash.ui;
 const ui_basic = ash.ui_theme_basic;
 
 const misc = ash.misc;

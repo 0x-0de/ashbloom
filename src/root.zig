@@ -27,7 +27,7 @@ pub const font = @import("utils/font.zig");
 pub const image_utils = @import("utils/image_utils.zig");
 pub const misc = @import("utils/misc.zig");
 pub const vk_memory = @import("utils/vkmemory.zig");
-pub const vk_ui = @import("utils/vkui.zig");
+pub const ui = @import("utils/vkui.zig");
 pub const vk_utils = @import("utils/vkutils.zig");
 
 pub const ui_theme_basic = @import("utils/ui_themes/basic.zig");
@@ -68,13 +68,13 @@ pub const FontFamily = misc.FontFamily;
 
 pub const VulkanAllocator = vk_memory.VulkanAllocator;
 
-pub const Bounds = vk_ui.Bounds;
-pub const Alignment = vk_ui.Alignment;
-pub const ElementCallback = vk_ui.ElementCallback;
-pub const ContainerInputData = vk_ui.ContainerInputData;
-pub const Element = vk_ui.Element;
-pub const ContainerRendering = vk_ui.ContainerRendering;
-pub const Container = vk_ui.Container;
+pub const Bounds = ui.Bounds;
+pub const Alignment = ui.Alignment;
+pub const ElementCallback = ui.ElementCallback;
+pub const ContainerInputData = ui.ContainerInputData;
+pub const Element = ui.Element;
+pub const ContainerRendering = ui.ContainerRendering;
+pub const Container = ui.Container;
 
 var stdout_io: std.Io.Threaded = undefined;
 var stdout_buffer: [2048]u8 = undefined;
@@ -124,7 +124,7 @@ comptime
     _ = image_utils;
     _ = misc;
     _ = vk_memory;
-    _ = vk_ui;
+    _ = ui;
     _ = vk_utils;
 
     _ = ui_theme_basic;
