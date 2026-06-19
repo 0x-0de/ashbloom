@@ -2401,6 +2401,7 @@ pub fn init_render_instance(context: *VkContext, vulkan_allocator: *VulkanAlloca
         .descriptor_set = ui_descriptor_set,
         .pipeline = ui_pipeline,
         .render_queue = render_queue,
-        .uniform_callback = update_ui_basic_uniforms
+        .uniform_callback = update_ui_basic_uniforms,
+        .render_pass_is_reference = render_pass != null
     };
 }

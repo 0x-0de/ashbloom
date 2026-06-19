@@ -701,6 +701,7 @@ pub const ContainerRendering = struct
     render_pass: *RenderPass,
     render_queue: vk.Queue,
     uniform_callback: *const fn(Container, u16) anyerror!void,
+    render_pass_is_reference: bool,
 
     pub fn deinit(self: *ContainerRendering, vk_context: VkContext) void
     {
@@ -710,8 +711,11 @@ pub const ContainerRendering = struct
         self.descriptor_set.deinit();
         vk_context.allocator.destroy(self.descriptor_set);
 
-        self.render_pass.deinit();
-        vk_context.allocator.destroy(self.render_pass);
+        if(!self.render_pass_is_reference)
+        {
+            self.render_pass.deinit();
+            vk_context.allocator.destroy(self.render_pass);
+        }
     }
 };
 
