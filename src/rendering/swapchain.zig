@@ -344,7 +344,7 @@ pub const Swapchain = struct
 
     /// Creates framebuffers using the swap chain's images (or image views) and associates them with a render pass.
     /// Includes swapchain attachments as additional attachments to the framebuffer.
-    pub fn create_framebuffers(self: *Swapchain, render_pass: *rp.RenderPass) !std.ArrayList(vk.Framebuffer)
+    pub fn create_framebuffers(self: *Swapchain, render_pass: *rp.RenderPass, attachment_indices: []const u8) !std.ArrayList(vk.Framebuffer)
     {
         // A framebuffer attaches an ImageView to a render pass.
         // Both framebuffers and render passes are actually considered legacy features now with Vulkan 1.4, where the paradigm has shifted to
@@ -360,13 +360,13 @@ pub const Swapchain = struct
 
         for(0..num_images) |i|
         {
-            var attachments = try self.context.allocator.alloc(vk.ImageView, self.attachments.items.len + 1);
+            var attachments = try self.context.allocator.alloc(vk.ImageView, attachment_indices.len + 1);
             defer self.context.allocator.free(attachments);
 
             attachments[0] = self.image_views.items[i];
             for(1..attachments.len) |j|
             {
-                attachments[j] = self.attachments.items[j - 1].image_view.?;
+                attachments[j] = self.attachments.items[attachment_indices[j - 1]].image_view.?;
             }
 
             // As you can see, creating them is rather straightforward.

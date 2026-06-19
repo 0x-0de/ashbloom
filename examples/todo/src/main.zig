@@ -604,7 +604,7 @@ pub fn main() !void
     app_ui_container.set_render_instance(container_resources);
 
     // Creating the framebuffers necessary for the UI's render pass.
-    var framebuffers_ui = try swapchain.create_framebuffers(container_resources.render_pass);
+    var framebuffers_ui = try swapchain.create_framebuffers(container_resources.render_pass, &.{});
     defer framebuffers_ui.deinit(allocator);
     defer swapchain.deinit_framebuffers(framebuffers_ui);
 
@@ -643,7 +643,7 @@ pub fn main() !void
         {
             swapchain.deinit_framebuffers(framebuffers_ui);
             framebuffers_ui.deinit(allocator);
-            framebuffers_ui = try swapchain.create_framebuffers(container_resources.render_pass);
+            framebuffers_ui = try swapchain.create_framebuffers(container_resources.render_pass, &.{});
         }
 
         fb_size = window.get_framebuffer_size();

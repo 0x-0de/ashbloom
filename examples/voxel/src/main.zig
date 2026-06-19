@@ -636,7 +636,7 @@ pub fn main() !void
     try init_graphics_pipelines();
     defer deinit_graphics_pipelines();
 
-    var framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry));
+    var framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry), &.{0});
     defer
     {
         swapchain.deinit_framebuffers(framebuffers);
@@ -741,7 +741,7 @@ pub fn main() !void
 
                 try swapchain.refresh_attachments();
 
-                framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry));
+                framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry), &.{0});
 
                 try selection_buffer.build(.{
                     .width = swapchain.extent.width,
