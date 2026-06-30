@@ -25,6 +25,15 @@ pub const freetype = @import("freetype");
 /// FreeType library instance. init() must be called before this is accessed.
 pub var ft: freetype.FT_Library = undefined;
 
+/// True if Ashbloom's UI system has been initialized.
+pub var initialized: bool = false;
+
+pub const AshbloomUIError = error
+{
+    /// Ashbloom UI is uninititalized (remember to call ash.ui.init()).
+    UIisUninitialized
+};
+
 /// Used to represent the position and scale of a UI object.
 pub const Bounds = struct
 {
@@ -472,6 +481,8 @@ pub const Element = struct
     /// Initializes an element.
     pub fn init(allocator: *const std.mem.Allocator, draw_mode: ElementDrawMode, placement: Placement, coordinates: [4]f32) !Element
     {
+        if(!initialized) return AshbloomUIError.UIisUninitialized;
+
         return .{
             .allocator = allocator,
             .enabled = true,
@@ -967,6 +978,8 @@ pub const Container = struct
     /// Creates a new Container object.
     pub fn init(context: *VkContext, vulkan_allocator: *VulkanAllocator) !Container
     {
+        if(!initialized) return AshbloomUIError.UIisUninitialized;
+
         const container: Container = .{
             .context = context,
             .vk_allocator = vulkan_allocator,
@@ -1155,6 +1168,7 @@ pub const Container = struct
     }
 };
 
+/// The "default" scroll callback. Moves the scroll position of an element with the mouse scrollwheel.
 pub fn default_scroll_callback(e: *Element, input_data: ContainerInputData) !void
 {
     if(e.space.scl_y != -1)
@@ -1177,11 +1191,15 @@ pub fn default_scroll_callback(e: *Element, input_data: ContainerInputData) !voi
     }
 }
 
+/// Deinitializes Ashbloom UI.
 pub fn deinit() void
 {
     _ = freetype.FT_Done_FreeType(ft);
+
+    initialized = false;
 }
 
+/// Initializes Ashbloom UI.
 pub fn init() VulkanUIError!void
 {
     const err = freetype.FT_Init_FreeType(&ft);
@@ -1190,4 +1208,6 @@ pub fn init() VulkanUIError!void
         std.debug.print("Error initializing FreeType library.\nError code: {d}.\n", .{err});
         return VulkanUIError.CantInitializeFreeType;
     }
+
+    initialized = true;
 }

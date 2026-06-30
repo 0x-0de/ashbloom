@@ -3,9 +3,9 @@
 const std = @import("std");
 
 const images = @import("image_utils.zig");
-const vkui = @import("vkui.zig");
+const ui = @import("vkui.zig");
 
-const freetype = vkui.freetype;
+const freetype = ui.freetype;
 
 const VkContext = @import("../rendering/vkcontext.zig").VkContext;
 const VulkanAllocator = @import("vkmemory.zig").VulkanAllocator;
@@ -15,6 +15,8 @@ const TextureAtlas2D = images.TextureAtlas2D;
 
 pub const FontError = error
 {
+    /// Ashbloom's UI is uninititalized (remember to call ash.ui.init()).
+    UIisUninitialized,
     /// Failure to load a font file.
     FailedToLoadFont,
     /// Failure to load a character into a font.
@@ -127,6 +129,8 @@ pub const Font = struct
     /// Initializes the font class. If `atlas` is null, it will need to be set before `request` is called.
     pub fn init(context: *VkContext, vk_allocator: *VulkanAllocator, path: []const u8, size: c_uint, atlas: ?*TextureAtlas2D) !Font
     {
+        if(!ui.initialized) return FontError.UIisUninitialized;
+
         var font: Font = .{
             .context = context,
             .vk_allocator = vk_allocator,
@@ -146,7 +150,7 @@ pub const Font = struct
 
         c_path_slc[path.len] = 0;
 
-        if(freetype.FT_New_Face(vkui.ft, @as([*:0]const u8, @ptrCast(c_path_slc.ptr)), 0, &font.typeface) != 0)
+        if(freetype.FT_New_Face(ui.ft, @as([*:0]const u8, @ptrCast(c_path_slc.ptr)), 0, &font.typeface) != 0)
         {
             return FontError.FailedToLoadFont;
         }

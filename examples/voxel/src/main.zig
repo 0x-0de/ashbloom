@@ -43,31 +43,39 @@ var vk_queues: std.EnumArray(AppQueues, vk.Queue) = .initUndefined();
 
 var vk_command_pool: vk.CommandPool = undefined;
 
+/// Initializes the Vulkan context, allocator, and queues.
 fn init_vk_context() !void
 {
+    // Initializing the VkContext object.
+    // Requires a list of instance & device extensions, as well as validation layers (if applicable).
     const vk_context_options: VkContext.InitOptions = .{
         .instance_extensions = @ptrCast(&debug_required_instance_extensions),
         .instance_layers = @ptrCast(&debug_required_validation_layers),
         .required_device_extensions = @ptrCast(&required_device_extensions),
         .required_device_features = .{
-            .logic_op = .true
+            .logic_op = .true // Used for color blending.
         }
     };
 
     vk_context = try .init(&allocator, &window, vk_context_options);
 
+    // Getting the necessary Vulkan queues.
     const queue_families = vk_context.physical_device_queue_families;
 
     vk_queues.set(.Graphics, vk_context.get_queue(queue_families.graphics_family_index.?, 0));
     vk_queues.set(.Presentation, vk_context.get_queue(queue_families.present_family_index.?, 0));
 
+    // Creating a command pool for graphics commands.
     vk_command_pool = try ash.commands.create_command_pool(&vk_context, @truncate(queue_families.graphics_family_index.?));
 
+    // Initialing a VulkanAllocator to allocate GPU memory.
+    // You'll notice I'm using a graphics command pool and queue for the transfer commands (which are the category of commands that allocate, free, and manage memory).
+    // This is because all graphics queues in Vulkan inherently support transfer commands.
     vk_allocator = try .init(&vk_context, &allocator, .{
-        .transfer_command_pool = &vk_command_pool,
-        .transfer_queue = vk_queues.getPtr(.Graphics),
-        .page_size = 128 << 20, // 128 MB.
-        .staging_size = 32 << 20 // 32 MB.
+        .transfer_command_pool = &vk_command_pool, // Command pool used for allocation commands (needs to support transfer operations)
+        .transfer_queue = vk_queues.getPtr(.Graphics), // Queue used for allocation commands (needs to support transfer commands).
+        .page_size = 128 << 20, // 128 MB - every memory page holds 128 MB.
+        .staging_size = 32 << 20 // 32 MB - can stage up to 32 MB at a time.
     });
 }
 
@@ -81,9 +89,19 @@ fn deinit_vk_context() void
 
 var swapchain: ash.Swapchain = undefined;
 
+/// Initializes a Vulkan KHR swapchain.
 fn init_swapchain() !void
 {
+    // Requires the aforementioned graphics command pool. This is because the swapchain is set up to handle rendering and presentation with command buffers.
+    // The vk_allocator is there to allocate any additional attachments added to the framebuffer (see below).
+    // This swapchain only needs 1 render stage, used to render the main pipeline.
     swapchain = try .init(&window, &vk_context, &vk_allocator, vk_command_pool, 1);
+
+    // This swapchain requires an additional attachment: one depth buffer for each swapchain image.
+    // Since the depth buffer needs to be updated for every single frame drawn to the screen, it's best to implement this depth buffer as an attachment to the main graphics pipeline's render pass.
+    // We can store the depth buffer(s) as an attachment to each swapchain framebuffer.
+
+    // For each swapchain attachment, the `image` and `extent` fields need not be defined - they are set automatically when the swapchain is created/updated.
 
     const info_depth_buffer: vk.ImageCreateInfo = .{
         .image_type = .@"2d",
@@ -117,6 +135,9 @@ fn init_swapchain() !void
         .view_type = .@"2d"
     };
 
+    // Adding attachments to the swapchain is as simple as adding the creation info structs, as well as setting the `image_usage` field, which will determine how the image is allocated with
+    // vk_allocator. Most of the time, you'll probably use either DepthAttachment or GenericAttachment.
+
     try swapchain.add_attachment(.{
         .info_image = info_depth_buffer,
         .info_image_view = info_depth_image_view,
@@ -136,22 +157,33 @@ const Attachments = enum(u8)
 
 var attachments: std.EnumArray(Attachments, ash.AttachmentBundle) = .initUndefined();
 
+/// Initializes additional image attachments not associated with the framebuffer.
 fn init_attachments() !void
 {
+    // This voxel demo implements mouse picking by rendering a special kind of image using a purpose-made graphics pipeline, and then transfering data from that image to a CPU-readable buffer to that
+    // it can be read from the CPU-side. Every pixel of the image has information regarding the voxel that occupies said pixel, so that the pixel at the mouse position "points" to the voxel at said
+    // mouse position.
+    //
+    // An attachment in Ashbloom can be stored as an `AttachmentBundle`. `AttachmentBundle`s, similarly to swapchain attachments (in fact, swapchain attachments are internally stored as `AttachmentBundle`s,
+    // which is why the initialization process is the same) are a wrapper around a group of image attachments which can more easily handle creation, deletion, and recreation (for when the window resizes,
+    // in this case).
     const att_selection_buffer = attachments.getPtr(.SelectionBuffer);
     att_selection_buffer.* = try .init(&allocator, &vk_context, &vk_allocator);
 
+    // Like the swapchain attachments, `extent` and `image` need not be set.
+
     const selection_buffer_create_info: vk.ImageCreateInfo = .{
         .image_type = .@"2d",
-        .format = .r32g32b32a32_uint,
+        .format = .r32g32b32a32_uint, // I'm choosing to store a perhaps unnessecary amount of data per-pixel, maybe I'll make more use of it if I ever extend the functionality of this demo.
         .extent = undefined,
         .mip_levels = 1,
         .array_layers = 1,
         .tiling = .optimal,
-        .usage = .{ .transfer_src_bit = true, .color_attachment_bit = true },
+        .usage = .{ .transfer_src_bit = true, .color_attachment_bit = true }, // This is important; I render to this image as a standard color buffer, so I set `color_attachment_bit`, and I also
+                                                                              // want to move data **out** of this image into a CPU-readable buffer, so `transfer_src_bit` is also set.
         .sharing_mode = .exclusive,
         .samples = .{ .@"1_bit" = true },
-        .initial_layout = .undefined
+        .initial_layout = .undefined // Set by the render pass.
     };
 
     const selection_buffer_view_create_info: vk.ImageViewCreateInfo = .{
@@ -173,11 +205,15 @@ fn init_attachments() !void
         }
     };
 
+    // Once again, the attachment is added with both the creation info structs and an `image_usage` defining how `vk_allocator` allocates the image.
+
     try att_selection_buffer.add_attachment(.{
         .info_image = selection_buffer_create_info,
         .info_image_view = selection_buffer_view_create_info,
         .image_usage = .GenericAttachment
     });
+
+    // This attachment bundle will also need it's own depth buffer, since the voxels that ought to show up on the buffer should be the visible ones.
 
     const info_depth_buffer: vk.ImageCreateInfo = .{
         .image_type = .@"2d",
@@ -217,6 +253,7 @@ fn init_attachments() !void
         .image_usage = .DepthAttachment
     });
 
+    // Building an attachment bundle at last requires an `extent`.
     try att_selection_buffer.build(.{
         .width = swapchain.extent.width,
         .height = swapchain.extent.height,
@@ -233,7 +270,9 @@ fn deinit_attachments() void
 
 const RenderPasses = enum(u8)
 {
+    /// Used for both the main graphics pipeline as well as some debug pipelines.
     DebugGeometry,
+    /// Used for the selection buffer render.
     Selection
 };
 
@@ -241,6 +280,9 @@ var render_passes: std.EnumArray(RenderPasses, ash.RenderPass) = .initUndefined(
 
 fn init_render_passes() !void
 {
+    // Both of these render passes ended up being virtually the same, other than the difference between the swapchain format and the selection buffer format.
+    // This should be familiar to you if you're familiar with Vulkan render passes.
+
     const depth_format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context);
 
     const sp_color_depth: ash.RenderPass.Subpass = .{
@@ -306,7 +348,9 @@ fn deinit_render_passes() void
 
 const PipelineDescriptorSets = enum(u8)
 {
+    /// Creating more than one descriptor set was, in this case, unnessecary, but I do it anyways to show how it's done.
     DebugGeometryModelView,
+    /// Generic model view - includes a projection and viewport matrix.
     ModelView
 };
 
@@ -322,6 +366,7 @@ var pipeline_descriptor_sets: std.EnumArray(PipelineDescriptorSets, ash.Pipeline
 var pipeline_vertex_inputs: std.EnumArray(Pipelines, ash.PipelineVertexInput) = .initUndefined();
 var pipelines: std.EnumArray(Pipelines, ash.Pipeline) = .initUndefined();
 
+/// Initializes all pipeline vertex inputs.
 fn init_graphics_pipeline_vertex_inputs() !void
 {
     // Debug geometry.
@@ -391,6 +436,7 @@ fn init_graphics_pipeline_descriptor_sets() !void
     try pds_main.build();
 }
 
+/// Initializes the Vulkan graphics pipelines.
 fn init_graphics_pipelines() !void
 {
     try init_graphics_pipeline_vertex_inputs();
@@ -483,20 +529,23 @@ fn init_graphics_pipelines() !void
 
 fn deinit_graphics_pipelines() void
 {
-    pipelines.getPtr(.DebugGeometry).deinit();
-    pipelines.getPtr(.Main).deinit();
-    pipelines.getPtr(.SelectionDisplay).deinit();
-    pipelines.getPtr(.Selection).deinit();
+    const v_pipelines = std.enums.values(Pipelines);
 
-    pipeline_vertex_inputs.getPtr(.DebugGeometry).deinit();
-    pipeline_vertex_inputs.getPtr(.Main).deinit();
-    pipeline_vertex_inputs.getPtr(.SelectionDisplay).deinit();
-    pipeline_vertex_inputs.getPtr(.Selection).deinit();
+    for(v_pipelines) |e|
+    {
+        pipelines.getPtr(e).deinit();
+        pipeline_vertex_inputs.getPtr(e).deinit();
+    }
 
-    pipeline_descriptor_sets.getPtr(.DebugGeometryModelView).deinit();
-    pipeline_descriptor_sets.getPtr(.ModelView).deinit();
+    const v_pipeline_descriptor_sets = std.enums.values(PipelineDescriptorSets);
+
+    for(v_pipeline_descriptor_sets) |e|
+    {
+        pipeline_descriptor_sets.getPtr(e).deinit();
+    }
 }
 
+/// Returns the tick count for this frame.
 fn get_tick_count(time_start_frame: *f64, tick_timer: *f64) usize
 {
     const time_of_last_frame = ash.glfw.getTime() - time_start_frame.*;
@@ -518,6 +567,8 @@ const Camera = @import("utils/camera.zig").Camera;
 
 var camera: Camera = undefined;
 
+/// Updating both uniform buffers (pipeline descriptor sets).
+/// The projection matrix is calculated here.
 fn update_shader_uniforms() !void
 {
     const pds_debug_geometry = pipeline_descriptor_sets.getPtr(.DebugGeometryModelView);
@@ -554,6 +605,7 @@ const Chunk = imp_chunk.Chunk;
 
 var input_mode: u8 = 0;
 
+/// Updating certain user inputs, such as the window focusing/unfocusing and graphics pipeline switching.
 fn update_main_input(draw_pipeline: *Pipelines) void
 {
     if(input_mode != 0)
@@ -594,6 +646,8 @@ fn update_main_input(draw_pipeline: *Pipelines) void
     }
     else if(glfw.getKey(window.glfw_handle, glfw.KeyF2) == glfw.Press)
     {
+        // This is broken because I didn't update the shader after switching how voxels are made.
+        // I'm keeping the bug though because it looks cool.
         draw_pipeline.* = .DebugGeometry;
     }
     else if(glfw.getKey(window.glfw_handle, glfw.KeyF3) == glfw.Press)
@@ -604,6 +658,7 @@ fn update_main_input(draw_pipeline: *Pipelines) void
 
 pub fn main() !void
 {   
+    // Setting up the CPU allocator.
     var dba: std.heap.DebugAllocator(.{}) = .{};
     defer {
         const dba_result = dba.deinit();
@@ -615,9 +670,11 @@ pub fn main() !void
 
     allocator = dba.allocator();
 
+    // Initializing Ashbloom.
     try ash.init_graphics(&allocator);
     defer ash.deinit_graphics();
 
+    // Creating the window.
     window = try .init(1280, 720, "Voxel demo");
     defer window.destroy();
 
