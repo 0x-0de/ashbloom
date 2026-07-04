@@ -543,6 +543,8 @@ pub const Pipeline = struct
     descriptor_sets: std.ArrayList(PipelineDescriptorSet),
     /// List of color blend attachments (one for every type of framebuffer used in the graphics pipeline) which describe a color blend operation.
     color_blend_attachments: std.ArrayList(vk.PipelineColorBlendAttachmentState),
+    /// List of push constant ranges. These are small packets of data that can be sent to the GPU, analogous to uniform variables in OpenGL shaders.
+    push_constant_ranges: std.ArrayList(vk.PushConstantRange),
 
     /// VkPipelineLayout object specifying the layout of the pipeline (used to describe push constants and descriptor sets).
     pipeline_layout: ?vk.PipelineLayout,
@@ -594,6 +596,17 @@ pub const Pipeline = struct
         p_ds.* = state;
     }
 
+    /// Adds a push constant range to the pipeline.
+    pub fn add_push_constant_range(self: *Pipeline, offset: u32, size: u32, shader_stage: vk.ShaderStageFlags) !void
+    {
+        const p_pc = try self.push_constant_ranges.addOne(self.vkc.allocator.*);
+        p_pc.* = .{
+            .offset = offset,
+            .size = size,
+            .stage_flags = shader_stage
+        };
+    }
+
     /// Creates and adds a shader module to the pipeline. 'path' must be a valid path to a pre-compiled shader .spv bytecode file.
     pub fn add_shader_module(self: *Pipeline, path: [*:0]const u8, shader_stage: vk.ShaderStageFlags) !void
     {
@@ -633,8 +646,6 @@ pub const Pipeline = struct
             .blend_constants = .{0, 0, 0, 0}
         };
 
-        // TODO: Push constants.
-
         var set_layouts = try std.ArrayList(vk.DescriptorSetLayout).initCapacity(self.vkc.allocator.*, self.descriptor_sets.items.len);
         defer set_layouts.deinit(self.vkc.allocator.*);
 
@@ -647,7 +658,8 @@ pub const Pipeline = struct
         const info_pipeline_layout: vk.PipelineLayoutCreateInfo = .{
             .set_layout_count = @truncate(set_layouts.items.len),
             .p_set_layouts = @ptrCast(set_layouts.items),
-            .push_constant_range_count = 0
+            .push_constant_range_count = @truncate(self.push_constant_ranges.items.len),
+            .p_push_constant_ranges = @ptrCast(self.push_constant_ranges.items)
         };
 
         self.pipeline_layout = try self.vkc.device.createPipelineLayout(&info_pipeline_layout, null);
@@ -690,6 +702,7 @@ pub const Pipeline = struct
         self.dynamic_states.deinit(self.vkc.allocator.*);
         self.shader_modules.deinit(self.vkc.allocator.*);
         self.descriptor_sets.deinit(self.vkc.allocator.*);
+        self.push_constant_ranges.deinit(self.vkc.allocator.*);
         self.color_blend_attachments.deinit(self.vkc.allocator.*);
     }
 
@@ -714,6 +727,7 @@ pub const Pipeline = struct
             .dynamic_states = try std.ArrayList(vk.DynamicState).initCapacity(vkc.allocator.*, 0),
             .descriptor_sets = try std.ArrayList(PipelineDescriptorSet).initCapacity(vkc.allocator.*, 0),
             .color_blend_attachments = try std.ArrayList(vk.PipelineColorBlendAttachmentState).initCapacity(vkc.allocator.*, 0),
+            .push_constant_ranges = try std.ArrayList(vk.PushConstantRange).initCapacity(vkc.allocator.*, 0),
             .pipeline_layout = null,
 
             .info_vertex_input = pipeline_vertex_input_no_input(),

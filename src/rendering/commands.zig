@@ -125,6 +125,12 @@ pub const CommandBuffer = struct
     {
         self.vkc.device.cmdBindVertexBuffers(self.handle, binding, &.{ buffer }, &.{ offset });
     }
+    
+    /// Pushes constants to a set push constant location in the shader.
+    pub fn cmd_push_constants(self: *CommandBuffer, pipeline: *Pipeline, range: vk.PushConstantRange, data: *const anyopaque) void
+    {
+        self.vkc.device.cmdPushConstants(self.handle, pipeline.pipeline_layout.?, range.stage_flags, range.offset, range.size, data);
+    }
 
     /// Sets the scissor of the current draw operation. Used for graphics pipelines with dynamic viewports and scissors.
     pub fn cmd_set_scissor(self: *CommandBuffer, bounds: vk.Rect2D) void
