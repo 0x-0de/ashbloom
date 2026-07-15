@@ -10,6 +10,12 @@ pub const VertexError = error
     BufferOverflow
 };
 
+/// Errors relating to mesh operations.
+pub const MeshError = error
+{
+    MeshIsEmpty
+};
+
 /// Utility struct for storing vertex data.
 pub const Vertex = struct
 {
@@ -161,15 +167,16 @@ pub const Mesh = struct
     }
 
     /// Use the `command_buffer` to bind the Mesh's vertex buffer.
-    pub fn bind(self: *Mesh, command_buffer: *ash.CommandBuffer) void
+    pub fn bind(self: *Mesh, command_buffer: *ash.CommandBuffer) MeshError!void
     {
+        if(self.buffer == null) return MeshError.MeshIsEmpty;
         command_buffer.cmd_bind_vertex_buffer(self.vertex_binding, self.buffer.?.buffer, 0);
     }
 
     /// Binds, then draws, the Mesh as vertices (records those commands onto the `command_buffer`).
-    pub fn bind_and_draw_vertices(self: *Mesh, command_buffer: *ash.CommandBuffer) void
+    pub fn bind_and_draw_vertices(self: *Mesh, command_buffer: *ash.CommandBuffer) MeshError!void
     {
-        self.bind(command_buffer);
+        try self.bind(command_buffer);
         self.draw_vertices(command_buffer);
     }
 
@@ -182,18 +189,36 @@ pub const Mesh = struct
         }
 
         self.num_vertices = @truncate(self.vertex_data.items.len / self.vertex_size);
-        self.buffer = try self.vk_allocator.alloc_buffer(u8, self.vertex_data.items, .exclusive, .VertexBuffer);
-
-        if(clear)
+        if(self.num_vertices == 0)
         {
             self.vertex_data.clearAndFree(self.allocator.*);
             self.vertices.clearAndFree(self.allocator.*);
+
+            self.buffer = null;
         }
+        else
+        {
+            self.buffer = try self.vk_allocator.alloc_buffer(u8, self.vertex_data.items, .exclusive, .VertexBuffer);
+
+            if(clear)
+            {
+                self.vertex_data.clearAndFree(self.allocator.*);
+                self.vertices.clearAndFree(self.allocator.*);
+            }
+        }
+    }
+
+    /// Uses the `command_buffer` to draw the Mesh as instances.
+    pub fn draw_instances(self: *Mesh, command_buffer: *ash.CommandBuffer, vertex_count: u32) void
+    {
+        if(self.num_vertices == 0) return;
+        command_buffer.cmd_draw(vertex_count, self.num_vertices);
     }
 
     /// Uses the `command_buffer` to draw the Mesh as vertices.
     pub fn draw_vertices(self: *Mesh, command_buffer: *ash.CommandBuffer) void
     {
+        if(self.num_vertices == 0) return;
         command_buffer.cmd_draw(self.num_vertices, 1);
     }
 

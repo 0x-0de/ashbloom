@@ -239,15 +239,15 @@ pub const Chunk = struct
         self.allocator.free(self.voxels);
     }
 
-    pub fn draw(self: *Chunk, mode: MeshMode, command_buffer: *CommandBuffer) void
+    pub fn draw(self: *Chunk, mode: MeshMode, command_buffer: *CommandBuffer) !void
     {
         switch(mode)
         {
             .Main => {
-                self.mesh.bind_and_draw_vertices(command_buffer);
+                try self.mesh.bind_and_draw_vertices(command_buffer);
             },
             .Selection => {
-                self.mesh_selection.bind_and_draw_vertices(command_buffer);
+                try self.mesh_selection.bind_and_draw_vertices(command_buffer);
             }
         }
     }

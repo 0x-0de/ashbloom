@@ -958,7 +958,7 @@ pub fn main() !void
             selection_command_buffer.cmd_set_scissor(.{ .offset = .{ .x = cursor_pos.x, .y = cursor_pos.y }, .extent = .{ .width = 1, .height = 1 } });
             selection_command_buffer.cmd_bind_pipeline(pipelines.getPtr(.Selection));
             selection_command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(.Selection), &pipeline_descriptor_sets.getPtr(.ModelView).sets[swapchain.current_image_index]);
-            chunk.draw(.Selection, &selection_command_buffer);
+            try chunk.draw(.Selection, &selection_command_buffer);
             selection_command_buffer.cmd_end_render_pass();
             try selection_command_buffer.end_recording();
 
@@ -978,7 +978,7 @@ pub fn main() !void
         command_buffer.cmd_set_viewport_scissor_full(swapchain.extent);
         command_buffer.cmd_bind_pipeline(pipelines.getPtr(draw_pipeline));
         command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(draw_pipeline), &pipeline_descriptor_sets.getPtr(descriptor_set).sets[swapchain.current_image_index]);
-        chunk.draw(chunk_mesh_mode, command_buffer);
+        try chunk.draw(chunk_mesh_mode, command_buffer);
         command_buffer.cmd_end_render_pass();
         try command_buffer.end_recording();
 
