@@ -2,34 +2,25 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 /// Adding other dependencies for ashbloom.
-fn add_library_dependencies(b: *std.Build, ashbloom: *std.Build.Dependency) void
+fn add_library_dependencies(b: *std.Build, install_step: *std.Build.Step, ashbloom: *std.Build.Dependency) void
 {
-    const install_glfw = b.addInstallFile(ashbloom.path("deps/glfw.dll"), "../bin/glfw.dll");
-    const install_freetype = b.addInstallFile(ashbloom.path("deps/libfreetype.dll"), "../bin/libfreetype.dll");
+    const install_glfw = b.addInstallFile(ashbloom.path("deps/glfw.dll"), "bin/glfw.dll");
+    const install_freetype = b.addInstallFile(ashbloom.path("deps/libfreetype.dll"), "bin/libfreetype.dll");
 
-    const install_shader_ui_basic_vert = b.addInstallFile(ashbloom.path("src/utils/ui_themes/ui_basic_vert.spv"), "../bin/shaders/ui_basic_vert.spv");
-    const install_shader_ui_basic_frag = b.addInstallFile(ashbloom.path("src/utils/ui_themes/ui_basic_frag.spv"), "../bin/shaders/ui_basic_frag.spv");
+    const install_shader_ui_basic_vert = b.addInstallFile(ashbloom.path("src/utils/ui_themes/ui_basic_vert.spv"), "bin/shaders/ui_basic_vert.spv");
+    const install_shader_ui_basic_frag = b.addInstallFile(ashbloom.path("src/utils/ui_themes/ui_basic_frag.spv"), "bin/shaders/ui_basic_frag.spv");
 
-    b.getInstallStep().dependOn(&install_glfw.step);
-    b.getInstallStep().dependOn(&install_freetype.step);
+    install_step.dependOn(&install_glfw.step);
+    install_step.dependOn(&install_freetype.step);
 
-    b.getInstallStep().dependOn(&install_shader_ui_basic_vert.step);
-    b.getInstallStep().dependOn(&install_shader_ui_basic_frag.step);
+    install_step.dependOn(&install_shader_ui_basic_vert.step);
+    install_step.dependOn(&install_shader_ui_basic_frag.step);
 }
 
 /// Adding the Ashbloom library to the compile object.
-fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void
+fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, ashbloom: *std.Build.Dependency, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void
 {
-    const ashbloom = b.dependency("ashbloom", .{
-        .target = target,
-        .optimize = optimize,
-    });
-
-    add_library_dependencies(b, ashbloom);
-
-    cmp.root_module.addImport("ashbloom", ashbloom.module("ashbloom"));
-
-    cmp.root_module.addLibraryPath(.{ .cwd_relative = "bin" });
+    cmp.root_module.addLibraryPath(.{ .cwd_relative = "zig-out/bin" });
     
     // Searching for the Vulkan drivers.
     // On Windows, they're located in System32.
@@ -84,15 +75,23 @@ pub fn build(b: *std.Build) void
             .link_libc = true
         })
     });
+    
+    const ashbloom = b.dependency("ashbloom", .{
+        .target = std_target,
+        .optimize = std_optimize,
+    });
 
-    add_libraries(b, exe, std_target, std_optimize);
-    add_libraries(b, exe_test, std_target, std_optimize);
-
+    exe.root_module.addImport("ashbloom", ashbloom.module("ashbloom"));
+    exe_test.root_module.addImport("ashbloom", ashbloom.module("ashbloom"));
+    
     // Building test .exe.
 
-    const install_exe = b.addInstallArtifact(exe, .{
-        .dest_dir = .{ .override = .{ .custom = "../bin" } }
-    });
+    const install_exe = b.addInstallArtifact(exe, .{});
+    
+    add_library_dependencies(b, &install_exe.step, ashbloom);
+    
+    add_libraries(b, exe, ashbloom, std_target, std_optimize);
+    add_libraries(b, exe_test, ashbloom, std_target, std_optimize);
 
     b.getInstallStep().dependOn(&install_exe.step);
 
@@ -100,15 +99,14 @@ pub fn build(b: *std.Build) void
     
     const run_step = b.step("run", "Run the application.");
     const run_exe = b.addRunArtifact(exe);
-    run_exe.setCwd(b.path("./bin"));
+    run_exe.setCwd(b.path("./zig-out/bin"));
 
+    run_exe.step.dependOn(&install_exe.step);
     run_step.dependOn(&run_exe.step);
 
     // Building unit tests.
 
-    const install_exe_test = b.addInstallArtifact(exe_test, .{
-        .dest_dir = .{ .override = .{ .custom = "../bin" } }
-    });
+    const install_exe_test = b.addInstallArtifact(exe_test, .{});
 
     const test_step = b.step("app-test", "Build unit tests");
     test_step.dependOn(&install_exe_test.step);

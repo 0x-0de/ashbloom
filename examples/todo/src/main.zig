@@ -582,7 +582,7 @@ pub fn main() !void
 
     // Loading the trash icon texture for the delete button, and adding it to the UI container's texture atlas.
     // Any textures that should be used as part of the UI must be loaded into the UI container's texture atlas.
-    var trash_texture: Texture2D = try .init(&vk_context, &vk_allocator, "../res/trash.bmp", .Subtexture);
+    var trash_texture: Texture2D = try .init(&vk_context, &vk_allocator, "../../res/trash.bmp", .Subtexture);
     icon_trash = try app_ui_container.texture_atlas.add_texture(&trash_texture);
     trash_texture.deinit();
 

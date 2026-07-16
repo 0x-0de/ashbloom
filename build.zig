@@ -16,7 +16,7 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
     cmp.root_module.addImport("glfw", glfw.module("glfw"));
     cmp.root_module.addImport("vulkan", vulkan.module("vulkan-zig"));
 
-    cmp.root_module.addLibraryPath(.{ .cwd_relative = "bin" });
+    // cmp.root_module.addLibraryPath(.{ .cwd_relative = "bin" });
     
     // Searching for the Vulkan drivers.
     // On Windows, they're located in System32.
@@ -105,7 +105,7 @@ pub fn build(b: *std.Build) void
     // Building library documentation.
 
     const install_docs = b.addInstallDirectory(.{
-        .install_dir = .{ .custom = ".." },
+        .install_dir = .prefix,
         .install_subdir = "docs",
         .source_dir = lib.getEmittedDocs()
     });
@@ -115,9 +115,7 @@ pub fn build(b: *std.Build) void
 
     // Building unit tests.
 
-    const install_exe_test = b.addInstallArtifact(exe_test, .{
-        .dest_dir = .{ .override = .{ .custom = "../bin" } }
-    });
+    const install_exe_test = b.addInstallArtifact(exe_test, .{});
 
     const test_step = b.step("lib-test", "Build unit tests");
     test_step.dependOn(&install_exe_test.step);
