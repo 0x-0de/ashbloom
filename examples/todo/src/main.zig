@@ -620,6 +620,17 @@ pub fn main() !void
     var timer: f64 = glfw.getTime();
     var frames: u32 = 0;
 
+    var pvi: ash.PipelineVertexInput = try .init(&allocator);
+    defer pvi.deinit();
+
+    try pvi.add_attribute(0, 0, .r32g32b32_sfloat, 0);
+    try pvi.build(0, .vertex);
+
+    var test_mesh: ash.Mesh = try .init(&allocator, &vk_allocator, pvi, 0, 0);
+    defer test_mesh.deinit();
+
+    try test_mesh.build(true);
+
     while(!window.should_close())
     {
         // Simple FPS timer.
