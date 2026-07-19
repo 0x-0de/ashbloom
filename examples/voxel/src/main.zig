@@ -456,8 +456,8 @@ fn init_graphics_pipelines() !void
 
     try p_debug_geometry.add_descriptor_set(pipeline_descriptor_sets.get(.DebugGeometryModelView));
 
-    try p_debug_geometry.add_shader_module("../res/shaders/debug/geometry_vert.spv", .{.vertex_bit = true});
-    try p_debug_geometry.add_shader_module("../res/shaders/debug/geometry_frag.spv", .{.fragment_bit = true});
+    try p_debug_geometry.add_shader_module("../../res/shaders/debug/geometry_vert.spv", .{.vertex_bit = true});
+    try p_debug_geometry.add_shader_module("../../res/shaders/debug/geometry_frag.spv", .{.fragment_bit = true});
 
     try p_debug_geometry.add_color_blend_attachment(ash.pipeline.pipeline_color_blend_attachment_alpha_blend());
 
@@ -477,8 +477,8 @@ fn init_graphics_pipelines() !void
 
     try p_main.add_descriptor_set(pipeline_descriptor_sets.get(.ModelView));
 
-    try p_main.add_shader_module("../res/shaders/main_vert.spv", .{.vertex_bit = true});
-    try p_main.add_shader_module("../res/shaders/main_frag.spv", .{.fragment_bit = true});
+    try p_main.add_shader_module("../../res/shaders/main_vert.spv", .{.vertex_bit = true});
+    try p_main.add_shader_module("../../res/shaders/main_frag.spv", .{.fragment_bit = true});
 
     try p_main.add_color_blend_attachment(ash.pipeline.pipeline_color_blend_attachment_alpha_blend());
 
@@ -498,8 +498,8 @@ fn init_graphics_pipelines() !void
 
     try p_selection_display.add_descriptor_set(pipeline_descriptor_sets.get(.ModelView));
 
-    try p_selection_display.add_shader_module("../res/shaders/debug/selection_vert.spv", .{.vertex_bit = true});
-    try p_selection_display.add_shader_module("../res/shaders/debug/selection_frag.spv", .{.fragment_bit = true});
+    try p_selection_display.add_shader_module("../../res/shaders/debug/selection_vert.spv", .{.vertex_bit = true});
+    try p_selection_display.add_shader_module("../../res/shaders/debug/selection_frag.spv", .{.fragment_bit = true});
 
     try p_selection_display.add_color_blend_attachment(ash.pipeline.pipeline_color_blend_attachment_no_blend());
 
@@ -519,8 +519,8 @@ fn init_graphics_pipelines() !void
 
     try p_selection.add_descriptor_set(pipeline_descriptor_sets.get(.ModelView));
 
-    try p_selection.add_shader_module("../res/shaders/selection_vert.spv", .{.vertex_bit = true});
-    try p_selection.add_shader_module("../res/shaders/selection_frag.spv", .{.fragment_bit = true});
+    try p_selection.add_shader_module("../../res/shaders/selection_vert.spv", .{.vertex_bit = true});
+    try p_selection.add_shader_module("../../res/shaders/selection_frag.spv", .{.fragment_bit = true});
 
     try p_selection.add_color_blend_attachment(ash.pipeline.pipeline_color_blend_attachment_no_blend());
 
