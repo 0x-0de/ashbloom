@@ -183,6 +183,7 @@ pub const VkContext = struct
     debug_messenger: ?vk.DebugUtilsMessengerEXT = null,
 
     physical_device: vk.PhysicalDevice = undefined,
+    physical_device_features: vk.PhysicalDeviceFeatures = undefined,
     physical_device_queue_families: PhysicalDeviceQueueFamilies = undefined,
 
     window_surface: vk.SurfaceKHR = undefined,
@@ -200,10 +201,15 @@ pub const VkContext = struct
         /// List of layers to add to the Vulkan instance.
         instance_layers: [][*:0]const u8 = &.{},
 
-        /// List of required extensions to add to the Vulkan device interface. Includes VkSwapchainKHR by default (required by v0lcano's Swapchain).
+        /// List of required extensions to add to the Vulkan device interface. Includes VkSwapchainKHR by default (required by Ashbloom's swapchain).
         required_device_extensions: [][*:0]const u8 = &default_device_extensions,
         /// List of required device features to enable.
-        required_device_features: vk.PhysicalDeviceFeatures = .{}
+        required_device_features: vk.PhysicalDeviceFeatures = .{},
+
+        /// List of non-required extensions to attempt to add to the Vulkan device interface.
+        preferred_device_extensions: [][*:0]const u8 = &.{},
+        /// List of non-required device features to attempt to enable on the Vulkan device.
+        preferred_device_features: vk.PhysicalDeviceFeatures = .{}
     };
 
     /// Checks if the required Vulkan extensions for the build are supported, and initializes and populates required_extensions_list if they are supported.
@@ -304,11 +310,73 @@ pub const VkContext = struct
         return true;
     }
 
-    /// Check if the required physical device features are supported. TODO: Actually implement this.
-    fn check_device_feature_support(self: VkContext, features: vk.PhysicalDeviceFeatures) !bool
+    fn compare_features_lists(self: VkContext, desired_features: vk.PhysicalDeviceFeatures, available_features: vk.PhysicalDeviceFeatures, total_features: *usize, features_supported: ?*vk.PhysicalDeviceFeatures) !usize
     {
-        const available_features = self.vki.getPhysicalDeviceFeatures(self.physical_device);
-        return features == available_features;
+        var score: usize = 0;
+        var total: usize = 0;
+
+        const num_features = @sizeOf(vk.PhysicalDeviceFeatures) / @sizeOf(vk.Bool32);
+
+        const available_memory = try self.allocator.alloc(vk.Bool32, num_features);
+        const desired_memory = try self.allocator.alloc(vk.Bool32, num_features);
+
+        var avf = available_features;
+        var dvf = desired_features;
+
+        @memcpy(available_memory, @as([*]vk.Bool32, @ptrCast(&avf)));
+        @memcpy(desired_memory, @as([*]vk.Bool32, @ptrCast(&dvf)));
+
+        var supported_feature_data: ?[]vk.Bool32 = null;
+        if(features_supported != null)
+        {
+            features_supported.?.* = .{};
+            supported_feature_data = try self.allocator.alloc(vk.Bool32, num_features);
+            for(0..num_features) |i|
+            {
+                supported_feature_data.?[i] = .false;
+            }
+        }
+
+        for(0..available_memory.len) |i|
+        {
+            if(desired_memory[i] == .true)
+            {
+                total += 1;
+                if(available_memory[i] == .true)
+                {
+                    score += 1;
+                    if(supported_feature_data != null) supported_feature_data.?[i] = .true;
+                }
+            }
+        }
+
+        self.allocator.free(available_memory);
+        self.allocator.free(desired_memory);
+
+        if(supported_feature_data != null)
+        {
+            @memcpy(@as([*]vk.Bool32, @ptrCast(features_supported.?)), supported_feature_data.?);
+            self.allocator.free(supported_feature_data.?);
+        }
+
+        total_features.* = total;
+        return score;
+    }
+
+    /// Check if the required and preferred physical device features are supported.
+    fn check_device_feature_support(self: VkContext, physical_device: vk.PhysicalDevice, required_features: vk.PhysicalDeviceFeatures, preferred_features: vk.PhysicalDeviceFeatures,
+        num_preferred_features_supported: *usize, preferred_features_supported: ?*vk.PhysicalDeviceFeatures) !bool
+    {
+        const available_features = self.vki.getPhysicalDeviceFeatures(physical_device);
+
+        var total_required_features: usize = undefined;
+        const required_score = try self.compare_features_lists(required_features, available_features, &total_required_features, null);
+        if(required_score != total_required_features) return false;
+
+        const preferred_score = try self.compare_features_lists(preferred_features, available_features, num_preferred_features_supported, preferred_features_supported);
+        num_preferred_features_supported.* = preferred_score;
+
+        return true;
     }
 
     /// Creates the vk.Instance handle, used for initializing Vulkan.
@@ -419,7 +487,7 @@ pub const VkContext = struct
     }
 
     /// Checking if a physical device can support the provided list of extensions.
-    fn check_device_extension_support(self: VkContext, physical_device: vk.PhysicalDevice, extensions: [][*:0]const u8) !bool
+    fn check_device_extension_support(self: VkContext, physical_device: vk.PhysicalDevice, required_extensions: [][*:0]const u8, preferred_extensions: [][*:0]const u8, num_preferred_extensions_supported: *usize) !bool
     {
         var available_extension_count: u32 = undefined;
         _ = try self.vki.enumerateDeviceExtensionProperties(physical_device, null, &available_extension_count, null);
@@ -431,7 +499,7 @@ pub const VkContext = struct
         _ = try self.vki.enumerateDeviceExtensionProperties(physical_device, null, &available_extension_count,
         @ptrCast(available_extensions.items));
 
-        for(extensions) |ext|
+        for(required_extensions) |ext|
         {
             var supported: bool = false;
             for(available_extensions.items) |a_ext|
@@ -445,6 +513,22 @@ pub const VkContext = struct
             if(!supported) return false;
         }
 
+        var num_extensions_supported: usize = 0;
+
+        for(preferred_extensions) |ext|
+        {
+            for(available_extensions.items) |a_ext|
+            {
+                if(c_strequal(ext, @ptrCast(&a_ext.extension_name)))
+                {
+                    num_extensions_supported += 1;
+                    break;
+                }
+            }
+        }
+
+        num_preferred_extensions_supported.* = num_extensions_supported;
+
         return true;
     }
 
@@ -457,7 +541,8 @@ pub const VkContext = struct
 
     /// Gives a vk.PhysicalDevice a score depending on how usable it is for the current program. Used by select_physical_device.
     /// A score of -1 indicates that the device isn't usable.
-    fn rate_physical_device(self: VkContext, physical_device: vk.PhysicalDevice, required_extensions: [][*:0]const u8) !i32
+    fn rate_physical_device(self: VkContext, physical_device: vk.PhysicalDevice, required_extensions: [][*:0]const u8, preferred_extensions: [][*:0]const u8,
+        required_features: vk.PhysicalDeviceFeatures, preferred_features: vk.PhysicalDeviceFeatures, preferred_features_supported: *vk.PhysicalDeviceFeatures) !i32
     {
         var score: i32 = -1;
 
@@ -478,8 +563,18 @@ pub const VkContext = struct
         if(queue_families.graphics_family_index == null) score = -1;
 
         // Checking if the GPU supports the required extensions.
-        if(!(try self.check_device_extension_support(physical_device, required_extensions))) score = -1;
+        var num_preferred_extensions_supported: usize = undefined;
+        if(!(try self.check_device_extension_support(physical_device, required_extensions, preferred_extensions, &num_preferred_extensions_supported))) score = -1;
         if(!(try self.check_device_swapchain_support(physical_device))) score = -1;
+
+        var num_preferred_features_supported: usize = undefined;
+        if(!(try self.check_device_feature_support(physical_device, required_features, preferred_features, &num_preferred_features_supported, preferred_features_supported))) score = -1;
+
+        if(score != -1)
+        {
+            score += @intCast(num_preferred_extensions_supported);
+            score += @intCast(num_preferred_features_supported);
+        }
 
         return score;
     }
@@ -503,7 +598,7 @@ pub const VkContext = struct
     }
 
     /// Selects a physical device for Vulkan to send commands to.
-    fn select_physical_device(self: VkContext, options: InitOptions) !vk.PhysicalDevice
+    fn select_physical_device(self: *VkContext, options: InitOptions) !vk.PhysicalDevice
     {
         // Much like getting the available extensions and layers, we need to poll the available physical devices (GPUs and other hardware that Vulkan can run on)
         // and find the best fit for our program.
@@ -524,13 +619,20 @@ pub const VkContext = struct
         var current_selected_index: usize = 0;
         var current_highest_score: i32 = -1;
 
+        var available_preferred_features: vk.PhysicalDeviceFeatures = undefined;
+
         for(0..available_physical_devices.capacity) |i|
         {
-            const score = try self.rate_physical_device(available_physical_devices.items[i], options.required_device_extensions);
+            var current_available_preferred_features: vk.PhysicalDeviceFeatures = .{};
+
+            const score = try self.rate_physical_device(available_physical_devices.items[i], options.required_device_extensions, options.preferred_device_extensions,
+                options.required_device_features, options.preferred_device_features, &current_available_preferred_features);
+
             if(score > current_highest_score)
             {
                 current_selected_index = i;
                 current_highest_score = score;
+                available_preferred_features = current_available_preferred_features;
             }
         }
 
@@ -547,6 +649,31 @@ pub const VkContext = struct
             }
 
             return VulkanContextInitError.NoSuitableGPUs;
+        }
+        else
+        {
+            self.physical_device_features = options.required_device_features;
+
+            const num_features = @sizeOf(vk.PhysicalDeviceFeatures) / @sizeOf(vk.Bool32);
+
+            const available_feature_memory = try self.allocator.alloc(vk.Bool32, num_features);
+            const total_feature_memory = try self.allocator.alloc(vk.Bool32, num_features);
+
+            @memcpy(available_feature_memory, @as([*]vk.Bool32, @ptrCast(&available_preferred_features)));
+            @memcpy(total_feature_memory, @as([*]vk.Bool32, @ptrCast(&self.physical_device_features)));
+
+            for(0..num_features) |i|
+            {
+                if(available_feature_memory[i] == .true)
+                {
+                    total_feature_memory[i] = .true;
+                }
+            }
+
+            @memcpy(@as([*]vk.Bool32, @ptrCast(&self.physical_device_features)), total_feature_memory);
+
+            self.allocator.free(available_feature_memory);
+            self.allocator.free(total_feature_memory);
         }
 
         const selected_device = available_physical_devices.items[current_selected_index];
@@ -595,7 +722,7 @@ pub const VkContext = struct
 
         unique_families.deinit(self.allocator.*);
 
-        const enabled_features: vk.PhysicalDeviceFeatures = options.required_device_features;
+        const enabled_features: vk.PhysicalDeviceFeatures = self.physical_device_features;
 
         const info_device_create: vk.DeviceCreateInfo = .{
             .p_queue_create_infos = @ptrCast(info_queue_creates.items),
