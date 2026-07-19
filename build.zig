@@ -1,6 +1,16 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+/// Adding other dependencies for ashbloom.
+fn add_library_dependencies(b: *std.Build, install_step: *std.Build.Step) void
+{
+    const install_glfw = b.addInstallFile(b.path("deps/glfw.dll"), "bin/glfw.dll");
+    const install_freetype = b.addInstallFile(b.path("deps/libfreetype.dll"), "bin/libfreetype.dll");
+
+    install_step.dependOn(&install_glfw.step);
+    install_step.dependOn(&install_freetype.step);
+}
+
 /// Adding the Vulkan and GLFW libraries to the compile object.
 fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void
 {
@@ -15,6 +25,8 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
 
     cmp.root_module.addImport("glfw", glfw.module("glfw"));
     cmp.root_module.addImport("vulkan", vulkan.module("vulkan-zig"));
+
+    cmp.root_module.addLibraryPath(b.path("zig-out/bin"));
 
     // cmp.root_module.addLibraryPath(.{ .cwd_relative = "bin" });
     
@@ -99,6 +111,9 @@ pub fn build(b: *std.Build) void
         })
     });
 
+    add_library_dependencies(b, &exe_test.step);
+    add_library_dependencies(b, &lib.step);
+
     add_libraries(b, exe_test, std_target, std_optimize);
     add_libraries(b, lib, std_target, std_optimize);
 
@@ -111,6 +126,8 @@ pub fn build(b: *std.Build) void
     });
 
     const docs_step = b.step("docs", "Build documentation");
+
+    add_library_dependencies(b, &install_docs.step);
     docs_step.dependOn(&install_docs.step);
 
     // Building unit tests.

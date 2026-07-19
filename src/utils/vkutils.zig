@@ -70,7 +70,7 @@ pub fn choose_image_format(vk_context: *ash.VkContext, preferred_tiling: vk.Imag
     for(formats) |f|
     {
         const pf: vk.Flags = @bitCast(preferred_features);
-        const properties = vk_context.instance.getPhysicalDeviceFormatProperties(vk_context.physical_device, f);
+        const properties = vk_context.instance.getPhysicalDeviceFormatProperties(vk_context.physical_device.?, f);
      
         const ltf: vk.Flags = @bitCast(properties.linear_tiling_features);
         const otf: vk.Flags = @bitCast(properties.optimal_tiling_features);

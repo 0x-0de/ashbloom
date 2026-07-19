@@ -20,7 +20,7 @@ pub fn find_physical_device_memory_type(context: *vk_context.VkContext, type_fil
 {
     const prop_code: u32 = @bitCast(requested_properties);
 
-    const device_memory_properties = context.instance.getPhysicalDeviceMemoryProperties(context.physical_device);
+    const device_memory_properties = context.instance.getPhysicalDeviceMemoryProperties(context.physical_device.?);
     
     for(0..device_memory_properties.memory_type_count) |i|
     {

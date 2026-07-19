@@ -60,7 +60,7 @@ fn init_vk_context() !void
     vk_context = try .init(&allocator, &window, vk_context_options);
 
     // Getting the necessary Vulkan queues.
-    const queue_families = vk_context.physical_device_queue_families;
+    const queue_families = vk_context.physical_device_queue_families.?;
 
     vk_queues.set(.Graphics, vk_context.get_queue(queue_families.graphics_family_index.?, 0));
     vk_queues.set(.Presentation, vk_context.get_queue(queue_families.present_family_index.?, 0));

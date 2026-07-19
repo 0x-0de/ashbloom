@@ -149,7 +149,7 @@ pub const Swapchain = struct
     /// Creates the swap chain and image views.
     fn create_swapchain(self: *Swapchain) !void
     {
-        var sc_support = try vkcontext.query_device_swapchain_support(self.context.instance, self.context.allocator, self.context.physical_device, self.context.window_surface);
+        var sc_support = try vkcontext.query_device_swapchain_support(self.context.instance, self.context.allocator, self.context.physical_device.?, self.context.window_surface);
         defer sc_support.deinit(self.context.allocator);
 
         self.format = Swapchain.choose_swapchain_format(sc_support);

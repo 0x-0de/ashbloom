@@ -182,9 +182,9 @@ pub const VkContext = struct
 
     debug_messenger: ?vk.DebugUtilsMessengerEXT = null,
 
-    physical_device: vk.PhysicalDevice = undefined,
-    physical_device_features: vk.PhysicalDeviceFeatures = undefined,
-    physical_device_queue_families: PhysicalDeviceQueueFamilies = undefined,
+    physical_device: ?vk.PhysicalDevice = null,
+    physical_device_features: ?vk.PhysicalDeviceFeatures = null,
+    physical_device_queue_families: ?PhysicalDeviceQueueFamilies = null,
 
     window_surface: vk.SurfaceKHR = undefined,
 
@@ -483,7 +483,7 @@ pub const VkContext = struct
     /// Calls self.get_physical_device_queue_families() with self.physical_device as the parameter.
     pub fn get_queue_families(self: VkContext) !PhysicalDeviceQueueFamilies
     {
-        return self.get_physical_device_queue_families(self.physical_device);
+        return self.get_physical_device_queue_families(self.physical_device.?);
     }
 
     /// Checking if a physical device can support the provided list of extensions.
@@ -660,7 +660,7 @@ pub const VkContext = struct
             const total_feature_memory = try self.allocator.alloc(vk.Bool32, num_features);
 
             @memcpy(available_feature_memory, @as([*]vk.Bool32, @ptrCast(&available_preferred_features)));
-            @memcpy(total_feature_memory, @as([*]vk.Bool32, @ptrCast(&self.physical_device_features)));
+            @memcpy(total_feature_memory, @as([*]vk.Bool32, @ptrCast(&self.physical_device_features.?)));
 
             for(0..num_features) |i|
             {
@@ -670,7 +670,7 @@ pub const VkContext = struct
                 }
             }
 
-            @memcpy(@as([*]vk.Bool32, @ptrCast(&self.physical_device_features)), total_feature_memory);
+            @memcpy(@as([*]vk.Bool32, @ptrCast(&self.physical_device_features.?)), total_feature_memory);
 
             self.allocator.free(available_feature_memory);
             self.allocator.free(total_feature_memory);
@@ -682,10 +682,10 @@ pub const VkContext = struct
 
     /// Creates a Vulkan logical device handle, used for creating Vulkan objects such as pipelines, swap chains (with an extension), buffers, etc.
     /// as well as sending Vulkan commands to the physical device. Also loads the Vulkan queues we'll need.
-    fn create_vulkan_logical_device(self: VkContext, physical_device: vk.PhysicalDevice, options: InitOptions) !vk.Device
+    fn create_vulkan_logical_device(self: VkContext, options: InitOptions) !vk.Device
     {
         // We want to get queues for all queue types specified in the PhysicalDeviceQueueFamilies structure.
-        const queue_families = self.physical_device_queue_families;
+        const queue_families = self.physical_device_queue_families.?;
         const queue_priority: f32 = 1.0;
 
         var unique_families = try std.ArrayList(usize).initCapacity(self.allocator.*, 2);
@@ -722,7 +722,7 @@ pub const VkContext = struct
 
         unique_families.deinit(self.allocator.*);
 
-        const enabled_features: vk.PhysicalDeviceFeatures = self.physical_device_features;
+        const enabled_features: vk.PhysicalDeviceFeatures = self.physical_device_features.?;
 
         const info_device_create: vk.DeviceCreateInfo = .{
             .p_queue_create_infos = @ptrCast(info_queue_creates.items),
@@ -734,7 +734,7 @@ pub const VkContext = struct
             .pp_enabled_layer_names = @ptrCast(options.instance_layers)
         };
 
-        return try self.instance.createDevice(physical_device, &info_device_create, null);
+        return try self.instance.createDevice(self.physical_device.?, &info_device_create, null);
     }
 
     /// Creates a SurfaceKHR object for the GLFW window. Required to display images onto the window.
@@ -799,9 +799,9 @@ pub const VkContext = struct
         // Selecting a GPU to use for the application, and then creating the Vulkan logical device handle.
 
         vk_context.physical_device = try vk_context.select_physical_device(options);
-        vk_context.physical_device_queue_families = try vk_context.get_physical_device_queue_families(vk_context.physical_device);
+        vk_context.physical_device_queue_families = try vk_context.get_physical_device_queue_families(vk_context.physical_device.?);
 
-        const hndl_device = try vk_context.create_vulkan_logical_device(vk_context.physical_device, options);
+        const hndl_device = try vk_context.create_vulkan_logical_device(options);
 
         // Seems like the best way to get the correct vkGetDeviceProcAddr function is to get it straight from the dispatch table.
 
@@ -813,7 +813,7 @@ pub const VkContext = struct
 
         // Testing getting a queue.
 
-        const queue_family = try vk_context.get_physical_device_queue_families(vk_context.physical_device);
+        const queue_family = try vk_context.get_physical_device_queue_families(vk_context.physical_device.?);
 
         const graphics_queue = vk_context.device.getDeviceQueue(@truncate(queue_family.graphics_family_index.?), 0);
         _ = graphics_queue;
