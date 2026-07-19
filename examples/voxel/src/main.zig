@@ -416,7 +416,9 @@ fn init_graphics_pipeline_descriptor_sets() !void
         .binding_index = 0,
         .shader_stage = .{ .vertex_bit = true },
         .type = .uniform_buffer,
-        .buffer_size = 32 * @sizeOf(f32)
+        .info = .{ .buffer = .{
+            .buffer_size = 32 * @sizeOf(f32)
+        }}
     });
 
     try pds_debug_geometry.build();
@@ -430,7 +432,9 @@ fn init_graphics_pipeline_descriptor_sets() !void
         .binding_index = 0,
         .shader_stage = .{ .vertex_bit = true },
         .type = .uniform_buffer,
-        .buffer_size = 32 * @sizeOf(f32)
+        .info = .{ .buffer = .{
+            .buffer_size = 32 * @sizeOf(f32)
+        }}
     });
 
     try pds_main.build();

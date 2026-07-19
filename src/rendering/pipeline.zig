@@ -182,6 +182,31 @@ pub const PipelineDescriptorSet = struct
     pool: vk.DescriptorPool = undefined,
     sets: []vk.DescriptorSet = undefined,
 
+    const DescriptorBindingType = enum
+    {
+        buffer,
+        image
+    };
+
+    const DescriptorBindingBufferInfo = struct
+    {
+        buffer_size: vk.DeviceSize,
+        buffers: ?[]VulkanAllocator.VulkanBufferAllocation = null
+    };
+
+    const DescriptorBindingImageInfo = struct
+    {
+        image_sampler: vk.Sampler,
+        image_view: vk.ImageView,
+        image_layout: vk.ImageLayout
+    };
+
+    const DescriptorBindingInfo = union(DescriptorBindingType)
+    {
+        buffer: DescriptorBindingBufferInfo,
+        image: DescriptorBindingImageInfo
+    };
+
     // TODO: Make this a union.
     /// Struct describing the information and requirements for a descriptor binding. Also contains the DescriptorSetLayoutBinding for the binding.
     const DescriptorBinding = struct
@@ -189,15 +214,9 @@ pub const PipelineDescriptorSet = struct
         binding_index: u32,
         type: vk.DescriptorType,
         shader_stage: vk.ShaderStageFlags,
+        info: DescriptorBindingInfo,
 
         binding: vk.DescriptorSetLayoutBinding = undefined,
-
-        buffers: ?[]VulkanAllocator.VulkanBufferAllocation = null,
-        buffer_size: ?vk.DeviceSize = null,
-
-        image_sampler: ?vk.Sampler = null,
-        image_view: ?vk.ImageView = null,
-        image_layout: ?vk.ImageLayout = null
     };
 
     fn create_descriptor_pool(self: *PipelineDescriptorSet) !void
@@ -272,11 +291,12 @@ pub const PipelineDescriptorSet = struct
         {
             if(self.bindings.items[i].type == .uniform_buffer)
             {
-                self.bindings.items[i].buffers = try self.context.allocator.alloc(VulkanAllocator.VulkanBufferAllocation, self.set_count);
+
+                self.bindings.items[i].info.buffer.buffers = try self.context.allocator.alloc(VulkanAllocator.VulkanBufferAllocation, self.set_count);
                 for(0..self.set_count) |j|
                 {
-                    self.bindings.items[i].buffers.?[j] = try self.vk_allocator.alloc_buffer_empty(
-                        self.bindings.items[i].buffer_size.?, .exclusive, .UniformBuffer);
+                    self.bindings.items[i].info.buffer.buffers.?[j] = try self.vk_allocator.alloc_buffer_empty(
+                        self.bindings.items[i].info.buffer.buffer_size, .exclusive, .UniformBuffer);
                 }
             }
             else if(self.bindings.items[i].type == .combined_image_sampler)
@@ -329,9 +349,9 @@ pub const PipelineDescriptorSet = struct
                 if(descriptor_type == vk.DescriptorType.uniform_buffer)
                 {
                     const info_buffer: vk.DescriptorBufferInfo = .{
-                        .buffer = self.bindings.items[j].buffers.?[i].buffer,
+                        .buffer = self.bindings.items[j].info.buffer.buffers.?[i].buffer,
                         .offset = 0,
-                        .range = self.bindings.items[j].buffer_size.?
+                        .range = self.bindings.items[j].info.buffer.buffer_size
                     };
 
                     const index = info_buffers.items.len;
@@ -344,9 +364,9 @@ pub const PipelineDescriptorSet = struct
                 else if(descriptor_type == vk.DescriptorType.combined_image_sampler)
                 {
                     const info_image: vk.DescriptorImageInfo = .{
-                        .sampler = self.bindings.items[j].image_sampler.?,
-                        .image_view = self.bindings.items[j].image_view.?,
-                        .image_layout = self.bindings.items[j].image_layout.?
+                        .sampler = self.bindings.items[j].info.image.image_sampler,
+                        .image_view = self.bindings.items[j].info.image.image_view,
+                        .image_layout = self.bindings.items[j].info.image.image_layout
                     };
 
                     const index = info_images.items.len;
@@ -371,9 +391,9 @@ pub const PipelineDescriptorSet = struct
             {
                 for(0..self.set_count) |j|
                 {
-                    self.vk_allocator.free_buffer(self.bindings.items[i].buffers.?[j]);
+                    self.vk_allocator.free_buffer(self.bindings.items[i].info.buffer.buffers.?[j]);
                 }
-                self.context.allocator.free(self.bindings.items[i].buffers.?);
+                self.context.allocator.free(self.bindings.items[i].info.buffer.buffers.?);
             }
         }
 
@@ -400,7 +420,7 @@ pub const PipelineDescriptorSet = struct
         if(binding_index >= self.bindings.items.len or self.bindings.items[binding_index].type != .uniform_buffer)
             return PipelineError.InvalidDescriptorBinding;
 
-        try self.vk_allocator.map_data_to_buffer_subsection(T, data, self.bindings.items[binding_index].buffers.?[set_index], offset);
+        try self.vk_allocator.map_data_to_buffer_subsection(T, data, self.bindings.items[binding_index].info.buffer.buffers.?[set_index], offset);
     }
 };
 

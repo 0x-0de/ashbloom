@@ -2321,7 +2321,9 @@ fn init_basic_pipeline_descriptor_set(context: *VkContext, vk_allocator: *Vulkan
         .shader_stage = .{
             .vertex_bit = true
         },
-        .buffer_size = 16 * @sizeOf(f32)
+        .info = .{ .buffer = .{
+            .buffer_size = 16 * @sizeOf(f32)
+        }}
     });
 
     try ui_descriptor_set.add_binding(.{
@@ -2330,9 +2332,11 @@ fn init_basic_pipeline_descriptor_set(context: *VkContext, vk_allocator: *Vulkan
         .shader_stage = .{
             .fragment_bit = true
         },
-        .image_sampler = container.texture_atlas.sampler,
-        .image_layout = .shader_read_only_optimal,
-        .image_view = container.texture_atlas.image_view
+        .info = .{ .image = .{
+            .image_sampler = container.texture_atlas.sampler,
+            .image_layout = .shader_read_only_optimal,
+            .image_view = container.texture_atlas.image_view
+        }}
     });
 
     try ui_descriptor_set.build();
