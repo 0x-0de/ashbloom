@@ -768,7 +768,7 @@ pub fn main() !void
     const selection_fence = try vk_context.device.createFence(&selection_fence_info, null);
     defer vk_context.device.destroyFence(selection_fence, null);
 
-    const selection_data = try vk_allocator.alloc_buffer_empty(4 * @sizeOf(f32), .exclusive, .CPUTransferDst);
+    const selection_data = try vk_allocator.alloc_buffer_empty(4 * @sizeOf(f32), .exclusive, .CPUTransferDst) orelse unreachable;
     defer vk_allocator.free_buffer(selection_data);
 
     var first_frame = true;

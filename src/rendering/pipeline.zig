@@ -296,7 +296,7 @@ pub const PipelineDescriptorSet = struct
                 for(0..self.set_count) |j|
                 {
                     self.bindings.items[i].info.buffer.buffers.?[j] = try self.vk_allocator.alloc_buffer_empty(
-                        self.bindings.items[i].info.buffer.buffer_size, .exclusive, .UniformBuffer);
+                        self.bindings.items[i].info.buffer.buffer_size, .exclusive, .UniformBuffer) orelse unreachable;
                 }
             }
             else if(self.bindings.items[i].type == .combined_image_sampler)

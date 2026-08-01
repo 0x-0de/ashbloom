@@ -607,20 +607,25 @@ pub const VulkanAllocator = struct
 
     /// Allocates a vk.Buffer object of a size, share mode, and allocator usage. Returns an allocation object used to keep track of
     /// where the buffer is in GPU memory. DO NOT edit the contents of the allocation object.
-    pub fn alloc_buffer(self: *VulkanAllocator, comptime T: type, data: []T, share_mode: vk.SharingMode, usage: VulkanAllocatorUsage) !VulkanBufferAllocation
+    pub fn alloc_buffer(self: *VulkanAllocator, comptime T: type, data: []T, share_mode: vk.SharingMode, usage: VulkanAllocatorUsage) !?VulkanBufferAllocation
     {
         const size: vk.DeviceSize = data.len * @sizeOf(T);
         const allocation = try self.alloc_buffer_empty(size, share_mode, usage);
 
-        try self.stage_buffer(allocation.buffer, T, data);
+        if(allocation != null) try self.stage_buffer(allocation.?.buffer, T, data);
 
         return allocation;
     }
 
     /// Allocates a vk.Buffer with uninitialized memory. Returns an allocation object used to keep track of where the buffer is in GPU
     /// memory. DO NOT edit the contents of the allocation object.
-    pub fn alloc_buffer_empty(self: *VulkanAllocator, size: vk.DeviceSize, share_mode: vk.SharingMode, usage: VulkanAllocatorUsage) !VulkanBufferAllocation
+    pub fn alloc_buffer_empty(self: *VulkanAllocator, size: vk.DeviceSize, share_mode: vk.SharingMode, usage: VulkanAllocatorUsage) !?VulkanBufferAllocation
     {
+        if(size == 0)
+        {
+            return null;
+        }
+
         const memory_properties = get_allocator_usage_memory_properties(usage);
 
         const info_buffer: vk.BufferCreateInfo = .{
