@@ -1852,23 +1852,48 @@ fn get_text_space(element: *Element, container_data: ContainerInputData) !vkui.B
         }
     }
 
-    var scl_y = max_y - min_y;
+    var scl_y = max_y - min_y + text_data.size;
     if(scl_y < border_bounds.scl_y - 2)
     {
+        // Ensures the text space is always at least as tall as the textfield space.
         scl_y = border_bounds.scl_y - 2;
     }
 
-    var pos_y: f32 = (cursor_bounds.pos_y - inner_bounds.pos_y) - border_bounds.scl_y + cursor_bounds.scl_y;
+    var pos_y: f32 = cursor_bounds.pos_y - inner_bounds.pos_y;
+    
+    if(text_data.alignment.y == .Bottom)
+    {
+        pos_y += -border_bounds.scl_y + cursor_bounds.scl_y;
+    }
+    else if(text_data.alignment.y == .Top)
+    {
+        ash.print_stdout("{d}\n", .{pos_y});
+        const scroll_boundary = border_bounds.scl_y - 2 + text_data.size;
+        if(pos_y < border_bounds.scl_y - 2 - text_data.size and scl_y > scroll_boundary)
+        {
+            pos_y = min_y;
+        }
+        else if(scl_y <= scroll_boundary)
+        {
+            pos_y = 0;
+        }
+        else if(pos_y >= border_bounds.scl_y - 2 - text_data.size)
+        {
+            pos_y += -border_bounds.scl_y + cursor_bounds.scl_y;
+        }
+    }
+
+
     if(pos_y < 0)
     {
-        pos_y = 0;
+        pos_y = 0; // <- Bottom alignment.
     }
 
     return .{
         .pos_x = 0,
         .pos_y = pos_y,
         .scl_x = inner_bounds.scl_x,
-        .scl_y = scl_y + text_data.size
+        .scl_y = scl_y
     };
 }
 
@@ -1938,8 +1963,6 @@ fn textfield_callback_mouse_press(e: *Element, data: ContainerInputData) !void
 
 fn textfield_callback_rebuild(e: *Element, data: ContainerInputData) !void
 {
-    _ = data;
-
     var textfield_data: TextFieldData = undefined;
     memcpy_anonymous(&textfield_data, e.data.?.ptr, @sizeOf(TextFieldData));
 
@@ -1966,7 +1989,8 @@ fn textfield_callback_rebuild(e: *Element, data: ContainerInputData) !void
     memcpy_anonymous(e.data.?.ptr, &textfield_data, @sizeOf(TextFieldData));
 
     const text_index = text_space.children.items.len - 1;
-    try text_space.children.items[text_index].force_callback(.WindowResize);
+    // try text_space.children.items[text_index].force_callback(.WindowResize);
+    try text_parent_resize_callback(text_space.children.items[text_index], data);
 }
 
 fn textfield_callback_window_resize(e: *Element, data: ContainerInputData) !void
@@ -2205,6 +2229,7 @@ fn textfield_callback_tick(e: *Element, data: ContainerInputData) !void
     if(prev_space.pos_x != space.pos_x or prev_space.pos_y != space.pos_y or prev_space.scl_x != space.scl_x or prev_space.scl_y != space.scl_y)
     {
         text_space.space = space;
+        try text_parent_resize_callback(text_space.children.items[1], data);
         text_space.refresh(true);
     }
 
