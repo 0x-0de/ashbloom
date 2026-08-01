@@ -1,6 +1,8 @@
 const std = @import("std");
 const glfw = @import("glfw");
 
+const ash = @import("../../root.zig");
+
 const vk = @import("vulkan");
 
 const imp_font = @import("../font.zig");
@@ -233,6 +235,8 @@ fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextDat
 
         var should_break = false;
 
+        var check_end: usize = undefined;
+
         word_mode = text.string[line_start] != ' ';
         
         for(line_start..text.string.len) |i|
@@ -243,10 +247,16 @@ fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextDat
             loop_text_character(i, text.string, character, container_width, &line_end, &offset, &prev_offset,
             &line_length, &end_skip, &word_mode, &should_break);
 
+            check_end = i;
             if(should_break) break;
         }
 
         line += 1;
+        if(line_start == line_end)
+        {
+            // No whitespaces in the current line.
+            line_end = check_end;
+        }
         line_start = line_end + end_skip;
         if(line_end == element.children.items.len - 1) should_loop = false;
     }
@@ -272,6 +282,8 @@ fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextDat
         lines[line].start = line_start;
         word_mode = text.string[line_start] != ' ';
 
+        var check_end: usize = undefined;
+
         for(line_start..element.children.items.len) |i|
         {
             const unicode = text.string[i];
@@ -280,7 +292,14 @@ fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextDat
             loop_text_character(i, text.string, character, container_width, &line_end, &offset, &prev_offset,
             &line_length, &end_skip, &word_mode, &should_break);
 
+            check_end = i;
             if(should_break) break;
+        }
+
+        if(line_start == line_end)
+        {
+            // No whitespaces in the current line.
+            line_end = check_end;
         }
 
         lines[line].length = line_end - line_start;
@@ -1628,7 +1647,7 @@ pub const TextFieldProperties = struct
 
     /// Initial text for the field to start with.
     initial_text: []u32 = &.{},
-    /// Determines how the textfield should handle overflow.
+    /// Determines how the textfield should handle text overflow.
     extension_protocol: TextFieldExtension = .ScrollHorizontally
 };
 

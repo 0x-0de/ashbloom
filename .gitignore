@@ -1,5 +1,6 @@
 .zig-cache
 zig-out
+zig-pkg
 bin/test.exe
 bin/test.pdb
 bin/ashbloom.exe
