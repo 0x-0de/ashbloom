@@ -116,7 +116,7 @@ fn init_ui_elements() !void
     }, .{
         .font = &app_font,
         .text_alignment = .{
-            .x = .Left,
+            .x = .Right,
             .y = .Top
         },
         .text_size = 36

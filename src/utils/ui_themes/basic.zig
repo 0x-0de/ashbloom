@@ -252,7 +252,7 @@ fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextDat
         }
 
         line += 1;
-        if(line_start == line_end)
+        if(line_start == line_end and element.children.items.len - line_start > 1)
         {
             // No whitespaces in the current line.
             line_end = check_end;
@@ -296,10 +296,11 @@ fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextDat
             if(should_break) break;
         }
 
-        if(line_start == line_end)
+        if(line_start == line_end and element.children.items.len - line_start > 1)
         {
             // No whitespaces in the current line.
             line_end = check_end;
+            line_length = offset;
         }
 
         lines[line].length = line_end - line_start;
@@ -1628,7 +1629,6 @@ pub const TextFieldData = struct
 
 const TextFieldExtension = enum
 {
-    ScrollHorizontally,
     ScrollVertically
 };
 
@@ -1648,7 +1648,7 @@ pub const TextFieldProperties = struct
     /// Initial text for the field to start with.
     initial_text: []u32 = &.{},
     /// Determines how the textfield should handle text overflow.
-    extension_protocol: TextFieldExtension = .ScrollHorizontally
+    extension_protocol: TextFieldExtension = .ScrollVertically
 };
 
 fn insert_characters_into_text(allocator: *const std.mem.Allocator, index: usize, characters: []u32, text: []u32) ![]u32
@@ -1867,9 +1867,10 @@ fn get_text_space(element: *Element, container_data: ContainerInputData) !vkui.B
     }
     else if(text_data.alignment.y == .Top)
     {
-        ash.print_stdout("{d}\n", .{pos_y});
+        const cursor_boundary = border_bounds.scl_y - 2 - text_data.size;
         const scroll_boundary = border_bounds.scl_y - 2 + text_data.size;
-        if(pos_y < border_bounds.scl_y - 2 - text_data.size and scl_y > scroll_boundary)
+
+        if(pos_y < cursor_boundary and scl_y > scroll_boundary)
         {
             pos_y = min_y;
         }
@@ -1877,12 +1878,11 @@ fn get_text_space(element: *Element, container_data: ContainerInputData) !vkui.B
         {
             pos_y = 0;
         }
-        else if(pos_y >= border_bounds.scl_y - 2 - text_data.size)
+        else if(pos_y >= cursor_boundary)
         {
             pos_y += -border_bounds.scl_y + cursor_bounds.scl_y;
         }
     }
-
 
     if(pos_y < 0)
     {
@@ -2240,6 +2240,11 @@ fn textfield_callback_tick(e: *Element, data: ContainerInputData) !void
 /// Creates a textfield element, which the user can store text within.
 pub fn create_textfield(allocator: *const std.mem.Allocator, placement: Placement, properties: TextFieldProperties) !*Element
 {
+    if(properties.text_alignment.y == .Center)
+    {
+        @panic("[ASH|ERR] Ashbloom's basic UI theme doesn't support center-Y text alignment for textfields.");
+    }
+
     const e = try allocator.create(Element);
 
     e.* = try Element.init(allocator, .Color, placement, .{0.8, 0.8, 0.8, 1});
