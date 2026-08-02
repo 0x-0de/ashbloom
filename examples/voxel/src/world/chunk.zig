@@ -12,6 +12,7 @@ var chunk_pl: ?ash.PipelineVertexInput = null;
 /// Pipeline layout used for all chunk selection meshes.
 var chunk_pl_selection: ?ash.PipelineVertexInput = null;
 
+/// Adds a left-facing quad to the chunk at x,y,z.
 fn add_left_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
     _ = mode;
@@ -34,6 +35,7 @@ fn add_left_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) 
     try mesh.finalize_vertices();
 }
 
+/// Adds a right-facing quad to the chunk at x,y,z.
 fn add_right_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
     _ = mode;
@@ -56,6 +58,7 @@ fn add_right_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode)
     try mesh.finalize_vertices();
 }
 
+/// Adds a bottom-facing quad to the chunk at x,y,z.
 fn add_bottom_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
     _ = mode;
@@ -78,6 +81,7 @@ fn add_bottom_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode
     try mesh.finalize_vertices();
 }
 
+/// Adds a top-facing quad to the chunk at x,y,z.
 fn add_top_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
     _ = mode;
@@ -100,6 +104,7 @@ fn add_top_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !
     try mesh.finalize_vertices();
 }
 
+/// Adds a front-facing quad to the chunk at x,y,z.
 fn add_front_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
     _ = mode;
@@ -122,6 +127,7 @@ fn add_front_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode)
     try mesh.finalize_vertices();
 }
 
+/// Adds a back-facing quad to the chunk at x,y,z.
 fn add_back_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
     _ = mode;
@@ -144,6 +150,7 @@ fn add_back_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) 
     try mesh.finalize_vertices();
 }
 
+/// Represents a field of voxels. The size is determined by the CHUNK_SIZE constant.
 pub const Chunk = struct
 {
     /// Chunk position. Multiplied by CHUNK_SIZE to get the world position of each chunk and voxel.
@@ -169,8 +176,10 @@ pub const Chunk = struct
         Selection
     };
 
+    /// Loads and compiles the chunk mesh.
     fn build_mesh(self: *Chunk, fill_borders: bool, mesh: *ash.Mesh, mode: MeshMode) !void
     {
+        // I only want to add the visible, outer-facing faces to the mesh, since those are presumably all that the player would see (even though this demo uses a freeroam camera).
         for(0..CHUNK_SIZE.data[0]) |i| {
         for(0..CHUNK_SIZE.data[1]) |j| {
         for(0..CHUNK_SIZE.data[2]) |k|
@@ -211,6 +220,7 @@ pub const Chunk = struct
         }}}
     }
 
+    /// Builds all chunk meshes (the visible mesh and the selection mesh).
     pub fn build(self: *Chunk, fill_borders: bool) !void
     {
         try self.build_mesh(fill_borders, self.mesh, .Main);
@@ -220,6 +230,7 @@ pub const Chunk = struct
         try self.mesh_selection.build(true);
     }
 
+    /// Deinitializes the chunk.
     pub fn deinit(self: *Chunk) void
     {
         self.mesh.deinit();
@@ -239,6 +250,7 @@ pub const Chunk = struct
         self.allocator.free(self.voxels);
     }
 
+    /// Draws a chunk mesh, the specific mesh is determined by the mode.
     pub fn draw(self: *Chunk, mode: MeshMode, command_buffer: *CommandBuffer) !void
     {
         switch(mode)
@@ -252,6 +264,7 @@ pub const Chunk = struct
         }
     }
 
+    /// Initializes a new Chunk.
     pub fn init(allocator: *const std.mem.Allocator, vk_allocator: *ash.VulkanAllocator, position: ash.Vec(isize, 3), scale: u32) !Chunk
     {
         // Must call Chunk.init_context before creating a chunk.

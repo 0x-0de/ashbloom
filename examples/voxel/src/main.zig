@@ -607,6 +607,10 @@ fn update_shader_uniforms() !void
 const imp_chunk = @import("world/chunk.zig");
 const Chunk = imp_chunk.Chunk;
 
+/// A value of 0 indicates the window isn't being focused.
+/// A value of 1 indicates the window is being focused and the cursor should be hidden.
+/// A value of 2 indicates the window is being focused but the cursor should be unhidden.
+/// Probably could've used an enum for this, but whatever.
 var input_mode: u8 = 0;
 
 /// Updating certain user inputs, such as the window focusing/unfocusing and graphics pipeline switching.
@@ -682,6 +686,8 @@ pub fn main() !void
     window = try .init(1280, 720, "Voxel demo");
     defer window.destroy();
 
+    // Initializing Vulkan and various rendering resources.
+
     try init_vk_context();
     defer deinit_vk_context();
 
@@ -696,6 +702,8 @@ pub fn main() !void
 
     try init_graphics_pipelines();
     defer deinit_graphics_pipelines();
+
+    // Initializing framebuffers for both the main drawing pass and the selection buffer drawing pass.
 
     var framebuffers = try swapchain.create_framebuffers(render_passes.getPtr(.DebugGeometry), &.{0});
     defer
@@ -718,6 +726,8 @@ pub fn main() !void
 
     var selection_framebuffer = try vk_context.device.createFramebuffer(&selection_framebuffer_info, null);
     defer vk_context.device.destroyFramebuffer(selection_framebuffer, null);
+
+    // Other miscellaneous resources.
 
     camera = .init();
     camera.pos = .init(.{0, 0, -3});
@@ -748,12 +758,16 @@ pub fn main() !void
         }
     };
 
+    // Initializing the chunk.
+
     Chunk.init_context(pipeline_vertex_inputs.get(.Main), pipeline_vertex_inputs.get(.SelectionDisplay));
     var chunk: Chunk = try .init(&allocator, &vk_allocator, .init(.{0, 0, 1}), 0);
     defer chunk.deinit();
 
     chunk.generate();
     try chunk.build(true);
+
+    // Other drawing resources.
 
     var draw_pipeline: Pipelines = .Main;
 
@@ -777,6 +791,8 @@ pub fn main() !void
     {
         glfw.pollEvents();
 
+        // Getting ticks and FPS count.
+
         const ticks = get_tick_count(&time_start_frame, &tick_timer);
 
         if(ash.glfw.getTime() - fps_timer > 1)
@@ -785,6 +801,8 @@ pub fn main() !void
             frames = 0;
             fps_timer += 1;
         }
+
+        // Acquiring next swapchain image. Handling swapchain resizing if the window has resized.
 
         const sc_next_image_result = try swapchain.acquire_next_image();
         
@@ -824,12 +842,16 @@ pub fn main() !void
 
         update_main_input(&draw_pipeline);
 
+        // Camera updates.
+
         for(0..ticks) |_|
         {
             camera.tick(window);
         }
 
         camera.update_input(window, 0.002, input_mode);
+
+        // Updating shader uniforms and getting the next swapchain command buffer.
 
         try update_shader_uniforms();
         const command_buffer = try swapchain.get_next_command_buffer();
@@ -854,27 +876,40 @@ pub fn main() !void
             cursor_pos.y = @intCast(swapchain.extent.height / 2);
         }
 
+        // Updating (redrawing) the selection buffer and handling input with it.
+
         if(cursor_pos.x >= 0 and cursor_pos.y >= 0 and cursor_pos.x < swapchain.extent.width and cursor_pos.y < swapchain.extent.height)
         {
+            // Waits for the previous selection buffer rendering operation to finish before beginning a new one.
             _ = try vk_context.device.waitForFences(&.{selection_fence}, .true, std.math.maxInt(u64));
             _ = try vk_context.device.resetFences(&.{selection_fence});
 
+            // If this is the first frame, then the selection buffer hasn't been drawn yet, and we need to wait for the first selection buffer draw to finish before
+            // I can do any input with it.
             if(!first_frame)
             {
+                // Take the selection buffer image and copy its data to a readable VkBuffer.
                 try ash.vk_memory.copy_image_to_buffer(&vk_context, selection_buffer.attachments.items[0].image.?.image, selection_data.buffer, .{ .x = cursor_pos.x, .y = cursor_pos.y, .z = 0 },
                     .{ .width = 1, .height = 1, .depth = 1 }, vk_command_pool, vk_queues.get(.Graphics));
 
+                // Pull said buffer data out into a readable slice.
                 const selection_data_slc = try vk_allocator.pull_buffer_data(u32, selection_data);
                 defer allocator.free(selection_data_slc);
 
+                // A value of 1 for the w-component of the selection buffer pixel indicates that something is there.
+                // A value of 0 would indicate that no voxel was drawn at that pixel.
                 if(selection_data_slc[3] == 1)
                 {
+                    // Currently, the only other used data point in the selection buffer is the x-component, which stores the address of the voxel.
+                    // The X,Y,Z values are stored in it's first 3 bytes.
                     var x = (selection_data_slc[0] >> 16) & 255;
                     var y = (selection_data_slc[0] >> 8) & 255;
                     var z = selection_data_slc[0] & 255;
 
+                    // Finally, the value displaying which face of the voxel is being drawn is stored in the 4th byte.
                     const fac = selection_data_slc[0] >> 24;
 
+                    // Voxel destruction is easy. Set the voxel at the extracted address to 0.
                     if(window.get_mouse_button(glfw.MouseButton1) == glfw.Press)
                     {
                         switch(fac)
@@ -889,6 +924,8 @@ pub fn main() !void
                         try chunk.build(true);
                     }
 
+                    // Voxel placement is a bit more difficult, since which voxel gets placed is affected by the face of the voxel currently being hovered by the mouse.
+                    // For example, hovering the top face of a voxel means that the placed voxel should be **above** the hovered one.
                     if(window.get_mouse_button(glfw.MouseButton2) == glfw.Press)
                     {
                         var can_place: bool = true;
@@ -955,6 +992,8 @@ pub fn main() !void
                 }
             }
 
+            // Drawing the selection buffer.
+            // If you're familiar with Vulkan draw commands this should look decently simple.
             try selection_command_buffer.reset();
             try selection_command_buffer.begin_recording();
             selection_command_buffer.cmd_begin_render_pass(render_passes.getPtr(.Selection), selection_framebuffer, swapchain.extent, &.{cv_selection_color, cv_depth});
@@ -976,6 +1015,7 @@ pub fn main() !void
             first_frame = false;
         }
 
+        // Main drawing loop.
         try command_buffer.reset();
         try command_buffer.begin_recording();
         command_buffer.cmd_begin_render_pass(render_passes.getPtr(.DebugGeometry), framebuffers.items[swapchain.current_image_index], swapchain.extent, &.{cv_color, cv_depth});

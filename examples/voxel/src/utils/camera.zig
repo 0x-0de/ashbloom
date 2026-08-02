@@ -14,6 +14,7 @@ const Offset2Df64 = struct
     y: f64
 };
 
+/// Simple struct representing a camera in 3D space.
 pub const Camera = struct
 {
     pos: Vec(f32, 3),
@@ -22,6 +23,7 @@ pub const Camera = struct
     prev_cursor_pos: Offset2Df64,
     cur_cursor_pos: Offset2Df64,
 
+    /// Initializes the camera.
     pub fn init() Camera
     {
         return .{
@@ -38,6 +40,7 @@ pub const Camera = struct
         };
     }
 
+    /// Handles tick-based update events (such as camera movement).
     pub fn tick(self: *Camera, window: ash.ABWindow) void
     {
         var forward = self.rot;
@@ -77,6 +80,7 @@ pub const Camera = struct
         }
     }
 
+    /// Handles non-tick-based update events (such as camera rotation via mouse).
     pub fn update_input(self: *Camera, window: ash.ABWindow, mouse_sensitivity: f64, input_mode: u8) void
     {
         const cursor_pos = window.get_cursor_pos(true);
