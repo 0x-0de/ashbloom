@@ -2,7 +2,7 @@
     .name = .ashbloom_example_todo,
     .version = "0.3.0",
     .fingerprint = 0x11fceb53ec04c94a,
-    .minimum_zig_version = "0.15.2",
+    .minimum_zig_version = "0.16.0",
 
     .paths = .{
         "build.zig",
