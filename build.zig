@@ -26,7 +26,7 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
     cmp.root_module.addImport("glfw", glfw.module("glfw"));
     cmp.root_module.addImport("vulkan", vulkan.module("vulkan-zig"));
 
-    cmp.root_module.addLibraryPath(b.path("zig-out/bin"));
+    cmp.root_module.addLibraryPath(b.path("deps"));
 
     // cmp.root_module.addLibraryPath(.{ .cwd_relative = "bin" });
     
