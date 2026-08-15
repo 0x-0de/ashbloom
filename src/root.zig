@@ -30,6 +30,7 @@ pub const vk_memory = @import("utils/vkmemory.zig");
 pub const ui = @import("utils/vkui.zig");
 pub const vk_utils = @import("utils/vkutils.zig");
 
+pub const ui_layouts = @import("utils/layouts.zig");
 pub const ui_theme_basic = @import("utils/ui_themes/basic.zig");
 
 // Types.
@@ -127,6 +128,7 @@ comptime
     _ = ui;
     _ = vk_utils;
 
+    _ = ui_layouts;
     _ = ui_theme_basic;
 
     _ = RenderPass;

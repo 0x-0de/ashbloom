@@ -206,6 +206,8 @@ pub const Element = struct
     callbacks: std.ArrayList(ElementCallback),
     /// Dynamic array of callback types to force in the next tick.
     force_callbacks: std.ArrayList(ElementCallbackType),
+    /// Data used for this element's layout.
+    layout_data: ?[]u8,
     /// Other data that may be used for this element's extra logic or callbacks.
     data: ?[]u8,
     /// Offset of the element's data in the instance array.
@@ -315,7 +317,7 @@ pub const Element = struct
             {
                 e.lineage.?[i] = self.lineage.?[i];
             }
-            
+
             e.lineage.?[self.lineage.?.len] = self.children.items.len;
         }
         else
@@ -337,6 +339,16 @@ pub const Element = struct
         else
         {
             e.data = null;
+        }
+
+        if(element.layout_data != null)
+        {
+            e.layout_data = try e.allocator.alloc(u8, element.layout_data.?.len);
+            @memcpy(e.layout_data.?, element.layout_data.?);
+        }
+        else
+        {
+            e.layout_data = null;
         }
 
         try self.children.append(self.allocator.*, e);
@@ -425,6 +437,7 @@ pub const Element = struct
         self.force_callbacks.deinit(self.allocator.*);
         if(self.lineage != null) self.allocator.free(self.lineage.?);
         if(self.data != null) self.allocator.free(self.data.?);
+        if(self.layout_data != null) self.allocator.free(self.layout_data.?);
     }
 
     /// Adds a callback type to the force callback queue.
@@ -501,6 +514,7 @@ pub const Element = struct
             .lineage = null,
             .callbacks = try std.ArrayList(ElementCallback).initCapacity(allocator.*, 0),
             .force_callbacks = try std.ArrayList(ElementCallbackType).initCapacity(allocator.*, 0),
+            .layout_data = null,
             .data = null,
             .instance_data_offset = null,
             .should_refresh = false,
