@@ -38,7 +38,7 @@ pub const AshbloomUIError = error
     /// Element can not be refreshed.
     NonRefreshableElement,
     /// Element's lineage implies it exists outside the scope of its parent.
-    MissingLineage,
+    BadLineage,
 };
 
 /// Used to represent the position and scale of a UI object.
@@ -160,6 +160,12 @@ pub const ElementCallback = struct
     callback: *const fn(*Element, ContainerInputData) anyerror!void
 };
 
+pub const CallbackEvent = struct
+{
+    element: *Element,
+    callback: *const fn(*Element, ContainerInputData) anyerror!void
+};
+
 /// Container input data, used in event callbacks.
 pub const ContainerInputData = struct
 {
@@ -170,10 +176,6 @@ pub const ContainerInputData = struct
     text: ?[]u32,
     keys: ?[]u32,
     resized: bool = undefined
-};
-
-pub const AshbloomUIError = error
-{
 };
 
 /// The main unit of the UI system. An Element is a quad that is instanced onto the screen, and can represent a colored box, a textured quad, a
@@ -208,6 +210,8 @@ pub const Element = struct
     lineage: ?[]usize,
     /// Dynamic array of this element's callbacks.
     callbacks: std.ArrayList(ElementCallback),
+    /// Queue of currently activated callbacks.
+    callback_queue: std.ArrayList(CallbackEvent),
     /// Dynamic array of callback types to force in the next tick.
     force_callbacks: std.ArrayList(ElementCallbackType),
     /// Data used for this element's layout.
@@ -302,6 +306,14 @@ pub const Element = struct
         };
     }
 
+    fn queue_callback(self: *Element, callback: ElementCallback) !void
+    {
+        try self.callback_queue.append(self.allocator.*, .{
+            .element = self,
+            .callback = callback.callback
+        });
+    }
+
     /// Adds a copy of 'element' to this element's children array, making the copy one of its children.
     pub fn add(self: *Element, element: *Element) !void
     {
@@ -363,7 +375,7 @@ pub const Element = struct
         {
             if(cb.type == .Copy)
             {
-                try cb.callback(e, undefined);
+                try self.queue_callback(cb);
             }
         }
 
@@ -371,7 +383,7 @@ pub const Element = struct
         {
             if(cb.type == .AddChild)
             {
-                try cb.callback(self, undefined);
+                try self.queue_callback(cb);
             }
         }
 
@@ -439,6 +451,7 @@ pub const Element = struct
         self.children.deinit(self.allocator.*);
         self.callbacks.deinit(self.allocator.*);
         self.force_callbacks.deinit(self.allocator.*);
+        self.callback_queue.deinit(self.allocator.*);
         if(self.lineage != null) self.allocator.free(self.lineage.?);
         if(self.data != null) self.allocator.free(self.data.?);
         if(self.layout_data != null) self.allocator.free(self.layout_data.?);
@@ -517,6 +530,7 @@ pub const Element = struct
             .children = try std.ArrayList(*Element).initCapacity(allocator.*, 0),
             .lineage = null,
             .callbacks = try std.ArrayList(ElementCallback).initCapacity(allocator.*, 0),
+            .callback_queue = try std.ArrayList(CallbackEvent).initCapacity(allocator.*, 0),
             .force_callbacks = try std.ArrayList(ElementCallbackType).initCapacity(allocator.*, 0),
             .layout_data = null,
             .data = null,
@@ -582,7 +596,7 @@ pub const Element = struct
         {
             if(cb.type == .RemoveChild)
             {
-                try cb.callback(self, undefined);
+                try self.queue_callback(cb);
             }
         }
     }
@@ -613,33 +627,33 @@ pub const Element = struct
 
             if(force)
             {
-                try callback.callback(self, input_data);
+                try self.queue_callback(callback);
             }
             else
             {
                 switch(callback.type)
                 {
                     .Tick => {
-                        try callback.callback(self, input_data);
+                        try self.queue_callback(callback);
                     },
                     .MouseEnter => {
                         if(!self.mouse_enter_toggle and cursor_over_element)
                         {
                             self.mouse_enter_toggle = true;
-                            try callback.callback(self, input_data);
+                            try self.queue_callback(callback);
                         }
                     },
                     .MouseLeave => {
                         if(self.mouse_enter_toggle and !cursor_over_element)
                         {
                             self.mouse_enter_toggle = false;
-                            try callback.callback(self, input_data);
+                            try self.queue_callback(callback);
                         }
                     },
                     .MouseHover => {
                         if(cursor_over_element)
                         {
-                            try callback.callback(self, input_data);
+                            try self.queue_callback(callback);
                         }
                     },
                     .MousePress => {
@@ -650,7 +664,7 @@ pub const Element = struct
                                 const button: u8 = @as(u8, 1) << @truncate(i);
                                 if(input_data.mouse_buttons & button != 0 and self.mouse_button_toggles & button == 0)
                                 {
-                                    try callback.callback(self, input_data);
+                                    try self.queue_callback(callback);
                                 }
                             }
                         }
@@ -663,7 +677,7 @@ pub const Element = struct
                                 const button: u8 = @as(u8, 1) << @truncate(i);
                                 if(input_data.mouse_buttons & button == 0 and self.mouse_button_toggles & button != 0)
                                 {
-                                    try callback.callback(self, input_data);
+                                    try self.queue_callback(callback);
                                 }
                             }
                         }
@@ -673,21 +687,21 @@ pub const Element = struct
                         {
                             if(input_data.mouse_buttons != 0)
                             {
-                                try callback.callback(self, input_data);
+                                try self.queue_callback(callback);
                             }
                         }
                     },
                     .WindowResize => {
                         if(input_data.resized)
                         {
-                            try callback.callback(self, input_data);
+                            try self.queue_callback(callback);
                         }
                     },
                     .Scroll => {
                         // It is often advantagous to perform scroll callbacks when the parent is resized.
                         if(input_data.resized or (cursor_over_element and (input_data.scroll.x != 0 or input_data.scroll.y != 0)))
                         {
-                            try callback.callback(self, input_data);
+                            try self.queue_callback(callback);
                         }
                     },
                     .Deinit, .Rebuild, .Copy, .AddChild, .RemoveChild => {},
@@ -714,6 +728,9 @@ pub const Element = struct
         }
 
         self.force_callbacks.clearRetainingCapacity();
+
+        try input_data.container.add_callbacks(self.callback_queue.items);
+        self.callback_queue.clearRetainingCapacity();
 
         for(self.children.items) |child|
         {
@@ -788,6 +805,8 @@ pub const Container = struct
     signal_rebuild: bool = false,
     /// Flag signalled to ignore callbacks for the next tick (useful for rebuilding).
     signal_ignore_callbacks: bool = false,
+    /// Queue of all callbacks for the container.
+    callback_queue: std.ArrayList(CallbackEvent),
 
     /// Returns a list of all of the element data from the origin element and its children.
     fn get_all_element_data(self: *Container) !std.ArrayList(f32)
@@ -859,6 +878,14 @@ pub const Container = struct
         try self.origin.add(element);
     }
 
+    pub fn add_callbacks(self: *Container, callbacks: []CallbackEvent) !void
+    {
+        for(callbacks) |cb|
+        {
+            try self.callback_queue.append(self.context.allocator.*, cb);
+        }
+    }
+
     /// Adds an element to the origin element of this container, then deletes the original element.
     pub fn add_and_dispose(self: *Container, element: *Element) !void
     {
@@ -900,6 +927,7 @@ pub const Container = struct
     {
         try self.origin.deinit();
         self.texture_atlas.deinit();
+        self.callback_queue.deinit(self.context.allocator.*);
         if(self.instance_buffer != null) self.vk_allocator.free_buffer(self.instance_buffer.?);
     }
 
@@ -957,7 +985,7 @@ pub const Container = struct
             }
             else
             {
-                return AshbloomUIError.MissingLineage;
+                return AshbloomUIError.BadLineage;
             }
         }
 
@@ -986,7 +1014,14 @@ pub const Container = struct
             }
             else
             {
-                return AshbloomUIError.MissingLineage;
+                std.debug.print("Bad lineage.\n{{", .{});
+                for(lineage, 0..) |l, i|
+                {
+                    std.debug.print("{d}", .{l});
+                    if(i < lineage.len - 1) std.debug.print(", ", .{});
+                }
+                std.debug.print("}}\n", .{});
+                return AshbloomUIError.BadLineage;
             }
         }
 
@@ -1021,7 +1056,8 @@ pub const Container = struct
             .texture_atlas = try images.TextureAtlas2D.init(context, vulkan_allocator, 1024, 1024),
             .tick_rate = 60,
             .tick_timer = 0,
-            .prev_time = glfw.getTime()
+            .prev_time = glfw.getTime(),
+            .callback_queue = try std.ArrayList(CallbackEvent).initCapacity(context.allocator.*, 0)
         };
 
         return container;
@@ -1108,6 +1144,13 @@ pub const Container = struct
             }
 
             try self.origin.update(erb, final_input_data);
+
+            for(self.callback_queue.items) |cb|
+            {
+                try cb.callback(cb.element, final_input_data);
+            }
+
+            self.callback_queue.clearRetainingCapacity();
 
             if(!self.signal_ignore_callbacks)
             {
