@@ -4,6 +4,7 @@ const ash = @import("../root.zig");
 const ui = @import("vkui.zig");
 
 const Element = ui.Element;
+const Container = ui.Container;
 const ContainerInputData = ui.ContainerInputData;
 
 pub const Direction = enum
@@ -15,12 +16,12 @@ pub const Direction = enum
 
     pub fn is_negative(self: Direction) bool
     {
-        return self == RightToLeft or self == TopToBottom;
+        return self == .RightToLeft or self == .TopToBottom;
     }
 
     pub fn is_vertical(self: Direction) bool
     {
-        return self == BottomToTop or self == TopToBottom;
+        return self == .BottomToTop or self == .TopToBottom;
     }
 };
 
@@ -33,16 +34,22 @@ pub const LinearLayoutDirection = struct
 
 pub const LinearLayoutProperties = struct
 {
+    container: *Container,
     primary_direction: LinearLayoutDirection,
     secondary_direction: LinearLayoutDirection,
 };
 
 fn linear_layout_update(e: *Element, data: ContainerInputData) !void
 {
+    _ = data;
+
+    if(e.lineage == null) return;
+
     var properties: LinearLayoutProperties = undefined;
     ash.misc.memcpy_anonymous(&properties, e.layout_data.?.ptr, @sizeOf(ContainerInputData));
 
-    const parent_bounds = data.container.get_element_bounds(e.lineage.?);
+    const container = properties.container;
+    const parent_bounds = (try container.get_element_bounds(e.lineage.?)).draw_bounds;
 
     var primary_offset: f32 = properties.primary_direction.margin;
     var secondary_offset: f32 = properties.secondary_direction.margin;
@@ -55,9 +62,9 @@ fn linear_layout_update(e: *Element, data: ContainerInputData) !void
 
     var next_line_space: f32 = 0;
 
-    for(e.children.items) |*ch|
+    for(e.children.items) |ch|
     {
-        const bounds = data.container.get_element_bounds(ch.lineage.?);
+        const bounds = (try container.get_element_bounds(ch.lineage.?)).draw_bounds;
 
         const primary_limit = parent_bounds.scl_x - properties.primary_direction.margin;
 
@@ -69,7 +76,7 @@ fn linear_layout_update(e: *Element, data: ContainerInputData) !void
             .TopToBottom => -bounds.scl_y,
         };
 
-        primary_add += primary_spacing * (if(primary_towards.is_negative()) -1 else 1);
+        primary_add += primary_spacing * @as(f32, (if(primary_towards.is_negative()) -1 else 1));
 
         var secondary_add = switch(properties.secondary_direction.towards)
         {
@@ -77,9 +84,9 @@ fn linear_layout_update(e: *Element, data: ContainerInputData) !void
             .RightToLeft => -bounds.scl_x,
             .BottomToTop => bounds.scl_y,
             .TopToBottom => -bounds.scl_y,
-        }
+        };
 
-        secondary_add += secondary_spacing * (if(secondary_towards.is_negative()) -1 else 1);
+        secondary_add += secondary_spacing * @as(f32, (if(secondary_towards.is_negative()) -1 else 1));
 
         if(@abs(secondary_spacing) > @abs(next_line_space))
         {

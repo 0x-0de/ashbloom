@@ -6,6 +6,7 @@ const vk = @import("vulkan");
 const vk_memory = @import("vkmemory.zig");
 const images = @import("image_utils.zig");
 const pipelines = @import("../rendering/pipeline.zig");
+const misc = @import("misc.zig");
 
 const VkContext = @import("../rendering/vkcontext.zig").VkContext;
 const VulkanAllocator = vk_memory.VulkanAllocator;
@@ -31,7 +32,13 @@ pub var initialized: bool = false;
 pub const AshbloomUIError = error
 {
     /// Ashbloom UI is uninititalized (remember to call ash.ui.init()).
-    UIisUninitialized
+    UIisUninitialized,
+    /// Error initializing FreeType library.
+    CantInitializeFreeType,
+    /// Element can not be refreshed.
+    NonRefreshableElement,
+    /// Element's lineage implies it exists outside the scope of its parent.
+    MissingLineage,
 };
 
 /// Used to represent the position and scale of a UI object.
@@ -165,11 +172,8 @@ pub const ContainerInputData = struct
     resized: bool = undefined
 };
 
-pub const VulkanUIError = error
+pub const AshbloomUIError = error
 {
-    CantInitializeFreeType,
-    NonRefreshableElement,
-    MissingLineage,
 };
 
 /// The main unit of the UI system. An Element is a quad that is instanced onto the screen, and can represent a colored box, a textured quad, a
@@ -937,7 +941,7 @@ pub const Container = struct
         try swapchain.render(self.ui_rendering.render_queue);
     }
 
-    pub fn get_element(self: *Container, lineage: []usize) VulkanUIError!*Element
+    pub fn get_element(self: *Container, lineage: []usize) AshbloomUIError!*Element
     {
         var cur_element = &self.origin;
         if(lineage.len == 0) return cur_element;
@@ -953,14 +957,14 @@ pub const Container = struct
             }
             else
             {
-                return VulkanUIError.MissingLineage;
+                return AshbloomUIError.MissingLineage;
             }
         }
 
         return cur_element;
     }
 
-    pub fn get_element_bounds(self: *Container, lineage: []usize) VulkanUIError!Element.RuntimeBounds
+    pub fn get_element_bounds(self: *Container, lineage: []usize) AshbloomUIError!Element.RuntimeBounds
     {
         var cur_bounds: Element.RuntimeBounds = .{
             .draw_bounds = self.bounds,
@@ -982,7 +986,7 @@ pub const Container = struct
             }
             else
             {
-                return VulkanUIError.MissingLineage;
+                return AshbloomUIError.MissingLineage;
             }
         }
 
@@ -1214,13 +1218,13 @@ pub fn deinit() void
 }
 
 /// Initializes Ashbloom UI.
-pub fn init() VulkanUIError!void
+pub fn init() AshbloomUIError!void
 {
     const err = freetype.FT_Init_FreeType(&ft);
     if(err != 0)
     {
         std.debug.print("Error initializing FreeType library.\nError code: {d}.\n", .{err});
-        return VulkanUIError.CantInitializeFreeType;
+        return AshbloomUIError.CantInitializeFreeType;
     }
 
     initialized = true;
