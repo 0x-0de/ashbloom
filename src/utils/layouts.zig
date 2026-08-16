@@ -7,101 +7,85 @@ const Element = ui.Element;
 const Container = ui.Container;
 const ContainerInputData = ui.ContainerInputData;
 
-pub const Direction = enum
-{
-    LeftToRight,
-    RightToLeft,
-    BottomToTop,
-    TopToBottom,
-
-    pub fn is_negative(self: Direction) bool
-    {
-        return self == .RightToLeft or self == .TopToBottom;
-    }
-
-    pub fn is_vertical(self: Direction) bool
-    {
-        return self == .BottomToTop or self == .TopToBottom;
-    }
-};
-
 pub const LinearLayoutDirection = struct
 {
-    towards: Direction,
     spacing: f32,
     margin: f32
 };
 
 pub const LinearLayoutProperties = struct
 {
-    container: *Container,
     primary_direction: LinearLayoutDirection,
     secondary_direction: LinearLayoutDirection,
+    alignment: ui.Alignment
 };
 
 fn linear_layout_update(e: *Element, data: ContainerInputData) !void
 {
-    _ = data;
-
     if(e.lineage == null) return;
 
     var properties: LinearLayoutProperties = undefined;
     ash.misc.memcpy_anonymous(&properties, e.layout_data.?.ptr, @sizeOf(ContainerInputData));
 
-    const container = properties.container;
+    const container = data.container;
     const parent_bounds = (try container.get_element_bounds(e.lineage.?)).draw_bounds;
 
     var primary_offset: f32 = properties.primary_direction.margin;
     var secondary_offset: f32 = properties.secondary_direction.margin;
 
-    const primary_towards = properties.primary_direction.towards;
     const primary_spacing = properties.primary_direction.spacing;
-
-    const secondary_towards = properties.secondary_direction.towards;
     const secondary_spacing = properties.secondary_direction.spacing;
 
     var next_line_space: f32 = 0;
 
-    for(e.children.items) |ch|
+    std.debug.print("------\n", .{});
+
+    var start_line: usize = 0;
+
+    for(e.children.items, 0..) |ch, i|
     {
         const bounds = (try container.get_element_bounds(ch.lineage.?)).draw_bounds;
 
         const primary_limit = parent_bounds.scl_x - properties.primary_direction.margin;
 
-        var primary_add = switch(properties.primary_direction.towards)
+        var primary_add = bounds.scl_x;
+        primary_add += primary_spacing;
+
+        var secondary_add = bounds.scl_y;
+        secondary_add += secondary_spacing;
+
+        var next_primary_offset = primary_offset + primary_add;
+        if(next_primary_offset > primary_limit and i > 0)
         {
-            .LeftToRight => bounds.scl_x,
-            .RightToLeft => -bounds.scl_x,
-            .BottomToTop => bounds.scl_y,
-            .TopToBottom => -bounds.scl_y,
-        };
+            switch(properties.alignment.x)
+            {
+                .Left => {},
+                .Center => {
+                    for(start_line..i) |j|
+                    {
+                        e.children.items[j].placement.absolute_offset.pos_x += (parent_bounds.scl_x - primary_offset) / 2;
+                    }
+                },
+                .Right => {
+                    for(start_line..i) |j|
+                    {
+                        e.children.items[j].placement.absolute_offset.pos_x += (parent_bounds.scl_x - primary_offset);
+                    }
+                }
+            }
 
-        primary_add += primary_spacing * @as(f32, (if(primary_towards.is_negative()) -1 else 1));
-
-        var secondary_add = switch(properties.secondary_direction.towards)
-        {
-            .LeftToRight => bounds.scl_x,
-            .RightToLeft => -bounds.scl_x,
-            .BottomToTop => bounds.scl_y,
-            .TopToBottom => -bounds.scl_y,
-        };
-
-        secondary_add += secondary_spacing * @as(f32, (if(secondary_towards.is_negative()) -1 else 1));
-
-        if(@abs(secondary_spacing) > @abs(next_line_space))
-        {
-            next_line_space = secondary_spacing;
-        }
-
-        const next_primary_offset = primary_offset + primary_add;
-        if(next_primary_offset > primary_limit)
-        {
             primary_offset = properties.primary_direction.margin;
             secondary_offset += next_line_space;
+
+            next_primary_offset = primary_offset + primary_add;
+            next_line_space = 0;
+
+            start_line = i;
         }
-        else
+        
+        if(@abs(secondary_add) > @abs(next_line_space))
         {
-            primary_offset += primary_add;
+            next_line_space = secondary_add;
         }
 
         const prev_placement = ch.placement;
@@ -124,6 +108,44 @@ fn linear_layout_update(e: *Element, data: ContainerInputData) !void
                 .y = .Bottom
             }
         };
+
+        primary_offset += primary_add;
+        
+        if(i == e.children.items.len - 1)
+        {
+            switch(properties.alignment.x)
+            {
+                .Left => {},
+                .Center => {
+                    for(start_line..i + 1) |j|
+                    {
+                        e.children.items[j].placement.absolute_offset.pos_x += (parent_bounds.scl_x - primary_offset) / 2;
+                    }
+                },
+                .Right => {
+                    for(start_line..i + 1) |j|
+                    {
+                        e.children.items[j].placement.absolute_offset.pos_x += (parent_bounds.scl_x - primary_offset);
+                    }
+                }
+            }
+
+            secondary_offset += next_line_space;
+        }
+    }
+
+    for(e.children.items) |ch|
+    {
+        switch(properties.alignment.y)
+        {
+            .Bottom => {},
+            .Center => {
+                ch.placement.absolute_offset.pos_y += (parent_bounds.scl_y - secondary_offset) / 2;
+            },
+            .Top => {
+                ch.placement.absolute_offset.pos_y += (parent_bounds.scl_y - secondary_offset);
+            }
+        }
     }
 }
 
