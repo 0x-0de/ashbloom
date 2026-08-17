@@ -375,7 +375,7 @@ pub const Element = struct
         {
             if(cb.type == .Copy)
             {
-                try self.queue_callback(cb);
+                try cb.callback(e, undefined);
             }
         }
 
