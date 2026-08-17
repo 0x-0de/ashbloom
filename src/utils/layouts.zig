@@ -7,7 +7,7 @@ const Element = ui.Element;
 const Container = ui.Container;
 const ContainerInputData = ui.ContainerInputData;
 
-pub const LinearLayoutAxis = enum
+pub const LayoutAxis = enum
 {
     Horizontal,
     Vertical
@@ -23,8 +23,14 @@ pub const LinearLayoutProperties = struct
 {
     primary_direction: LinearLayoutDirection,
     secondary_direction: LinearLayoutDirection,
-    primary_axis: LinearLayoutAxis,
+    primary_axis: LayoutAxis,
     alignment: ui.Alignment
+};
+
+pub const SplitLayoutProperties = struct
+{
+    primary_axis: LayoutAxis,
+    primary_limit: usize = 0
 };
 
 fn linear_layout_update(e: *Element, data: ContainerInputData) !void
@@ -32,7 +38,7 @@ fn linear_layout_update(e: *Element, data: ContainerInputData) !void
     if(e.lineage == null) return;
 
     var properties: LinearLayoutProperties = undefined;
-    ash.misc.memcpy_anonymous(&properties, e.layout_data.?.ptr, @sizeOf(ContainerInputData));
+    ash.misc.memcpy_anonymous(&properties, e.layout_data.?.ptr, @sizeOf(LinearLayoutProperties));
 
     const container = data.container;
     const parent_bounds = (try container.get_element_bounds(e.lineage.?)).draw_bounds;
@@ -242,4 +248,83 @@ pub fn set_layout_linear(e: *Element, properties: LinearLayoutProperties) !void
     try e.add_callback(.AddChild, linear_layout_callback_add_or_remove_child);
     try e.add_callback(.RemoveChild, linear_layout_callback_add_or_remove_child);
     try e.add_callback(.WindowResize, linear_layout_callback_other);
+}
+
+fn split_layout_update(e: *Element, data: ContainerInputData) !void
+{
+    _ = data;
+
+    var properties: SplitLayoutProperties = undefined;
+    ash.misc.memcpy_anonymous(&properties, e.layout_data.?.ptr, @sizeOf(SplitLayoutProperties));
+
+    const limit = properties.primary_limit;
+    const primary_axis = properties.primary_axis;
+
+    for(e.children.items, 0..) |ch, i|
+    {
+        if(limit == 0)
+        {
+            const total = e.children.items.len;
+            const size: f32 = 1 / @as(f32, @floatFromInt(total));
+            const position = @as(f32, @floatFromInt(i)) * size;
+
+            ch.placement = .{
+                .relative_pos = .{
+                    .pos_x = if(primary_axis == .Horizontal) position else 0,
+                    .pos_y = if(primary_axis == .Horizontal) 0 else position,
+                    .scl_x = if(primary_axis == .Horizontal) size else 1,
+                    .scl_y = if(primary_axis == .Horizontal) 1 else size
+                },
+                .absolute_offset = .get_default(),
+                .alignment = .{
+                    .x = .Left,
+                    .y = .Bottom
+                }
+            };
+        }
+        else
+        {
+            const total_lines: usize = @ceil(@as(f32, @floatFromInt(e.children.items.len)) / @as(f32, @floatFromInt(limit)));
+            const line_size: f32 = 1 / @as(f32, @floatFromInt(total_lines));
+            const line_position = @as(f32, @floatFromInt(i / limit)) * line_size;
+
+            const line_begin = (i / limit) * limit;
+
+            const line_entries: usize = @min(limit, e.children.items.len - line_begin);
+            const entry_size: f32 = 1 / @as(f32, @floatFromInt(line_entries));
+            const entry_position = @as(f32, @floatFromInt(i % limit)) * entry_size;
+
+            ch.placement = .{
+                .relative_pos = .{
+                    .pos_x = if(primary_axis == .Horizontal) entry_position else line_position,
+                    .pos_y = if(primary_axis == .Horizontal) line_position else entry_position,
+                    .scl_x = if(primary_axis == .Horizontal) entry_size else line_size,
+                    .scl_y = if(primary_axis == .Horizontal) line_size else entry_size
+                },
+                .absolute_offset = .get_default(),
+                .alignment = .{
+                    .x = .Left,
+                    .y = .Bottom
+                }
+            };
+        }
+    }
+
+    e.refresh(true);
+}
+
+pub fn set_layout_split(e: *Element, properties: SplitLayoutProperties) !void
+{
+    if(e.layout_data != null)
+    {
+        e.allocator.free(e.layout_data.?);
+    }
+
+    var properties_alias = properties;
+
+    e.layout_data = try e.allocator.alloc(u8, @sizeOf(SplitLayoutProperties));
+    ash.misc.memcpy_anonymous(e.layout_data.?.ptr, &properties_alias, @sizeOf(SplitLayoutProperties));
+
+    try e.add_callback(.AddChild, split_layout_update);
+    try e.add_callback(.RemoveChild, split_layout_update);
 }
