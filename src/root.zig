@@ -11,6 +11,7 @@ pub const UNICODE = false;
 
 pub const vk = @import("vulkan");
 pub const glfw = @import("glfw");
+pub const xml = @import("xml");
 
 pub const attachment = @import("rendering/attachment.zig");
 pub const commands = @import("rendering/commands.zig");

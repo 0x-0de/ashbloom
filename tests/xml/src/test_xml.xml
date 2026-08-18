@@ -1,0 +1,7 @@
+<container>
+<quad color="(1, 0, 0.5, 1)">
+	<button>
+		<text>This is some "freaking awesome" text.</text>
+	</button>
+</quad>
+</container>

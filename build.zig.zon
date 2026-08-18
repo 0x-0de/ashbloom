@@ -1,6 +1,6 @@
 .{
     .name = .ashbloom, 
-    .version = "0.1.2",
+    .version = "0.2.0",
     .fingerprint = 0x40abb2cb32622512,
     .minimum_zig_version = "0.16.0",
     .paths = .{
@@ -22,7 +22,11 @@
         },
         .vulkan = .{
             .url = "git+https://github.com/Snektron/vulkan-zig.git#5234ae68d1ac143b3ebd1a6e2e40aaa0ef7693c7",
-            .hash = "vulkan-0.0.0-r7Ytx7t9AwBjKG7tnhReEVo0P2fvstTc8G_0qF8iog_V",
+            .hash = "vulkan-0.0.0-r7Ytx7t9AwBjKG7tnhReEVo0P2fvstTc8G_0qF8iog_V"
         },
+        .xml = .{
+            .url = "https://github.com/ianprime0509/zig-xml.git",
+            .hash = "xml-0.2.0-ZTbP35V4AgA_pFiWGWiBILJK7ifCCvj7mbiGfyMcEi2K"
+        }
     }
 }
