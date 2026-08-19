@@ -2458,3 +2458,109 @@ pub fn init_render_instance(context: *VkContext, vulkan_allocator: *VulkanAlloca
         .render_pass_is_reference = render_pass != null
     };
 }
+
+const xml = ash.xml;
+
+const XMLUIError = error
+{
+    UnknownAttribute
+};
+
+const XMLAttribute = struct
+{
+    name: []const u8,
+    value: []const u8
+};
+
+fn character_is_whitespace(c: u32) bool
+{
+    return c == ' ' or c == '\t' or c == '\n' or c == '\r';
+}
+
+fn parse_4_floats(s: []const u8) [4]f32
+{
+    
+}
+
+fn load_xml_ui_element(allocator: *const std.mem.Allocator, reader: *xml.Reader.Streaming) !*Element
+{
+    const element_name = reader.elementNameNs().local;
+    ash.print_stdout("New element: {s}\n", .{element_name});
+
+    var attributes = try allocator.alloc(XMLAttribute, reader.attributeCount());
+    defer allocator.free(attributes);
+
+    for(0..reader.attributeCount()) |i|
+    {
+        const attribute_name = xml_reader.attributeNameNs(i);
+        ash.print_stdout("\tAttribute: {s} = {s}\n", .{attribute_name.local, try reader.attributeValue(i)});
+
+        attributes[i] = .{
+            .name = attribute_name.local,
+            .value = try reader.attributeValue(i)
+        };
+    }
+
+    if(std.mem.eql(u8, element_name, "quad"))
+    {
+        var color: [4]f32 = undefined;
+        for(attributes) |att|
+        {
+            if(std.mem.eql(u8, att.name, "color"))
+            {
+                
+            }
+            else
+            {
+                return XMLUIError.UnknownAttribute;
+            }
+        }
+        var element = try create_quad(allocator, undefined, );
+    }
+}
+
+pub fn load_xml_ui(allocator: *const std.mem.Allocator, path: []const u8, element: *Element) !void
+{
+    var io_threaded = std.Io.Threaded.init(allocator.*, .{});
+    defer io_threaded.deinit();
+
+    const io = io_threaded.io();
+
+    const cwd = std.Io.Dir.cwd();
+
+    const file = try cwd.openFile(io, path, .{});
+    defer file.close(io);
+
+    var read_buffer: [1024]u8 = undefined;
+    var reader = file.reader(io, &read_buffer);
+
+    var xml_streaming_reader: xml.Reader.Streaming = .init(allocator.*, &reader.interface, .{});
+    defer xml_streaming_reader.deinit();
+
+    var xml_reader = &xml_streaming_reader.interface;
+
+    while(true)
+    {
+        const node = xml_reader.read() catch |err| switch(err)
+        {
+            error.MalformedXml => {
+                const loc = xml_reader.errorLocation();
+
+                std.debug.print("[ASH|XML|ERR] Bad XML at {}:{} - {}\n", .{loc.line, loc.column, xml_reader.errorCode()});
+                return error.MalformedXml;
+            },
+            else => {
+                std.debug.print("[ASH|XML|ERR] Unknown XML error.\n", .{});
+                return err;
+            }
+        };
+
+        switch(node)
+        {
+            .eof => break,
+            .element_start => {
+                try load_xml_ui_element(allocator, &xml_reader);
+            }
+        }
+    }
+}
