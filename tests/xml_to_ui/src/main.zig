@@ -96,6 +96,8 @@ fn init_ui_elements() !void
         }
     }, .{0.01, 0.01, 0.05, 1});
 
+    try ash.ui_theme_basic.load_xml_ui(&allocator, "../../res/test_xml.xml", background);
+
     try app_ui_container.add_and_dispose(background);
 }
 

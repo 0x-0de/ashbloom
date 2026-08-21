@@ -31,6 +31,19 @@ const VulkanAllocator = @import("../vkmemory.zig").VulkanAllocator;
 
 const memcpy_anonymous = @import("../misc.zig").memcpy_anonymous;
 
+const BasicUIElementType = enum
+{
+    Quad,
+    Icon,
+    TextCharacter,
+    Text,
+    Button,
+    Scrollbar,
+    Checkbox,
+    Slider,
+    Textfield
+};
+
 /// Creates a colored quad.
 pub fn create_quad(allocator: *const std.mem.Allocator, placement: Placement, color: [4]f32) !*Element
 {
@@ -163,7 +176,6 @@ fn loop_text_character(index: usize, text: []u32, character: FontCharacter, boun
         should_break.* = true;
         return;
     }
-
     if(!word_mode.* and character.unicode != ' ')
     {
         word_mode.* = true;
@@ -2463,7 +2475,11 @@ const xml = ash.xml;
 
 const XMLUIError = error
 {
-    UnknownAttribute
+    UnknownElement,
+    UnknownAttribute,
+    CannotParseData,
+    TooMuchData,
+    WrongClosingTag
 };
 
 const XMLAttribute = struct
@@ -2477,45 +2493,359 @@ fn character_is_whitespace(c: u32) bool
     return c == ' ' or c == '\t' or c == '\n' or c == '\r';
 }
 
-fn parse_4_floats(s: []const u8) [4]f32
+fn character_is_number(c: u32) bool
 {
-    
+    return (c >= 48 and c <= 57) or c == 46;
 }
 
-fn load_xml_ui_element(allocator: *const std.mem.Allocator, reader: *xml.Reader.Streaming) !*Element
+fn character_is_letter(c: u32) bool
 {
-    const element_name = reader.elementNameNs().local;
-    ash.print_stdout("New element: {s}\n", .{element_name});
+    return (c >= 65 and c <= 90) or (c >= 97 and c <= 122) or c == 95;
+}
 
-    var attributes = try allocator.alloc(XMLAttribute, reader.attributeCount());
-    defer allocator.free(attributes);
+fn parse_4_floats(s: []const u8) ![4]f32
+{
+    var reading_number = false;
+    var number_start: usize = 0;
 
-    for(0..reader.attributeCount()) |i|
+    var current_float: usize = 0;
+    var floats: [4]f32 = undefined;
+
+    for(s, 0..) |_, i|
     {
-        const attribute_name = xml_reader.attributeNameNs(i);
-        ash.print_stdout("\tAttribute: {s} = {s}\n", .{attribute_name.local, try reader.attributeValue(i)});
+        if(character_is_whitespace(s[i]))
+        {
+            if(reading_number)
+            {
+                reading_number = false;
 
-        attributes[i] = .{
-            .name = attribute_name.local,
-            .value = try reader.attributeValue(i)
-        };
+                if(current_float >= 4)
+                {
+                    return XMLUIError.TooMuchData;
+                }
+
+                const number_str = s[number_start..i];
+                floats[current_float] = try std.fmt.parseFloat(f32, number_str);
+            }
+
+            continue;
+        }
+
+        if(character_is_number(s[i]))
+        {
+            if(!reading_number)
+            {
+                reading_number = true;
+                number_start = i;
+            }
+        }
+        else
+        {
+            if(reading_number)
+            {
+                reading_number = false;
+
+                if(current_float >= 4)
+                {
+                    return XMLUIError.TooMuchData;
+                }
+
+                const number_str = s[number_start..i];
+                floats[current_float] = try std.fmt.parseFloat(f32, number_str);
+            }
+        }
+
+        if(s[i] == ',')
+        {
+            current_float += 1;
+        }
+
+        if(i == s.len - 1)
+        {
+            if(reading_number)
+            {
+                reading_number = false;
+
+                if(current_float >= 4)
+                {
+                    return XMLUIError.TooMuchData;
+                }
+
+                const number_str = s[number_start..s.len];
+                floats[current_float] = try std.fmt.parseFloat(f32, number_str);
+            }
+        }
     }
 
-    if(std.mem.eql(u8, element_name, "quad"))
+    return floats;
+}
+
+fn parse_alignment(s: []const u8) !vkui.Alignment
+{
+    var reading_word = false;
+    var word_start: usize = 0;
+
+    var current_word: usize = 0;
+    var words: [2][]const u8 = undefined;
+
+    for(s, 0..) |_, i|
     {
-        var color: [4]f32 = undefined;
-        for(attributes) |att|
+        if(character_is_whitespace(s[i]))
         {
-            if(std.mem.eql(u8, att.name, "color"))
+            if(reading_word)
             {
-                
+                words[current_word] = s[word_start..i];
+                reading_word = false;
+            }
+
+            continue;
+        }
+
+        if(character_is_letter(s[i]))
+        {
+            if(!reading_word)
+            {
+                if(current_word >= 2) return XMLUIError.CannotParseData;
+
+                word_start = i;
+                reading_word = true;
+            }
+        }
+        else if(s[i] == ',')
+        {
+            if(reading_word)
+            {
+                words[current_word] = s[word_start..i];
+                reading_word = false;
+            }
+
+            current_word += 1;
+        }
+        else
+        {
+            return XMLUIError.CannotParseData;
+        }
+
+        if(i == s.len - 1)
+        {
+            words[current_word] = s[word_start..s.len];
+        }
+    }
+
+    var horizontal = false;
+    var vertical = false;
+
+    var alignment: vkui.Alignment = undefined;
+
+    for(0..2) |i|
+    {
+        ash.print_stdout("{s}\n", .{words[i]});
+
+        if(std.mem.eql(u8, words[i], "left"))
+        {
+            horizontal = true;
+            alignment.x = .Left;
+        }
+        else if(std.mem.eql(u8, words[i], "right"))
+        {
+            horizontal = true;
+            alignment.x = .Right;
+        }
+        else if(std.mem.eql(u8, words[i], "bottom"))
+        {
+            vertical = true;
+            alignment.y = .Bottom;
+        }
+        else if(std.mem.eql(u8, words[i], "top"))
+        {
+            vertical = true;
+            alignment.y = .Top;
+        }
+        else if(std.mem.eql(u8, words[i], "center"))
+        {
+            if(horizontal and !vertical)
+            {
+                vertical = true;
+                alignment.y = .Center;
             }
             else
             {
-                return XMLUIError.UnknownAttribute;
+                horizontal = true;
+                alignment.x = .Center;
             }
         }
-        var element = try create_quad(allocator, undefined, );
+    }
+
+    ash.print_stdout("{}, {}\n", .{horizontal, vertical});
+    if(!horizontal or !vertical) return XMLUIError.CannotParseData;
+
+    return alignment;
+}
+
+fn load_xml_quad(allocator: *const std.mem.Allocator, attributes: []XMLAttribute) !*Element
+{
+    var color: [4]f32 = undefined;
+    for(attributes) |att|
+    {
+        if(std.mem.eql(u8, att.name, "color"))
+        {
+            color = try parse_4_floats(att.value);
+        }
+        else
+        {
+            return XMLUIError.UnknownAttribute;
+        }
+    }
+
+    const default_placement: Placement = .{
+        .relative_pos = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 1,
+            .scl_y = 1
+        },
+        .absolute_offset = .get_default(),
+        .alignment = .{
+            .x = .Left,
+            .y = .Bottom
+        }
+    };
+
+    return create_quad(allocator, default_placement, color);
+}
+
+fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader, root: *Element) !void
+{
+    var element_stack: std.ArrayList(*Element) = try .initCapacity(allocator.*, 0);
+    defer element_stack.deinit(allocator.*);
+
+    var current_type: BasicUIElementType = .Quad;
+
+    while(true)
+    {
+        const node = reader.read() catch |err| switch(err)
+        {
+            error.MalformedXml => {
+                const loc = reader.errorLocation();
+
+                std.debug.print("[ASH|XML|ERR] Bad XML at {}:{} - {}\n", .{loc.line, loc.column, reader.errorCode()});
+                return error.MalformedXml;
+            },
+            else => {
+                std.debug.print("[ASH|XML|ERR] Unknown XML error.\n", .{});
+                return err;
+            }
+        };
+
+        switch(node)
+        {
+            .eof => break,
+            .element_start =>
+            {
+                const element_name = reader.elementNameNs().local;
+                ash.print_stdout("New tag: {s}\n", .{element_name});
+
+                var attributes = try allocator.alloc(XMLAttribute, reader.attributeCount());
+                defer allocator.free(attributes);
+
+                for(0..reader.attributeCount()) |i|
+                {
+                    const attribute_name = reader.attributeNameNs(i);
+                    const attribute_value = try reader.attributeValue(i);
+
+                    ash.print_stdout("\tAttribute: {s} = {s}\n", .{attribute_name.local, attribute_value});
+
+                    attributes[i] = .{
+                        .name = attribute_name.local,
+                        .value = attribute_value
+                    };
+                }
+
+                if(std.mem.eql(u8, element_name, "quad"))
+                {
+                    current_type = .Quad;
+
+                    const new_element = try load_xml_quad(allocator, attributes);
+                    try element_stack.append(allocator.*, new_element);
+                }
+                else if(std.mem.eql(u8, element_name, "placement"))
+                {
+                    var relative: [4]f32 = undefined;
+                    var absolute: [4]f32 = undefined;
+
+                    var alignment: vkui.Alignment = undefined;
+
+                    for(attributes) |att|
+                    {
+                        if(std.mem.eql(u8, att.name, "relative"))
+                        {
+                            relative = try parse_4_floats(att.value);
+                        }
+                        else if(std.mem.eql(u8, att.name, "absolute"))
+                        {
+                            absolute = try parse_4_floats(att.value);
+                        }
+                        else if(std.mem.eql(u8, att.name, "alignment"))
+                        {
+                            alignment = try parse_alignment(att.value);
+                        }
+                        else
+                        {
+                            return XMLUIError.UnknownAttribute;
+                        }
+                    }
+
+                    const placement: Placement = .{
+                        .relative_pos = .{
+                            .pos_x = relative[0],
+                            .pos_y = relative[1],
+                            .scl_x = relative[2],
+                            .scl_y = relative[3]
+                        },
+                        .absolute_offset = .{
+                            .pos_x = absolute[0],
+                            .pos_y = absolute[1],
+                            .scl_x = absolute[2],
+                            .scl_y = absolute[3]
+                        },
+                        .alignment = alignment
+                    };
+
+                    element_stack.items[element_stack.items.len - 1].placement = placement;
+                }
+                else
+                {
+                    return XMLUIError.UnknownElement;
+                }
+            },
+            .element_end => {
+                const element_name = reader.elementNameNs().local;
+                ash.print_stdout("End tag: {s}\n", .{element_name});
+
+                if(std.mem.eql(u8, element_name, "quad"))
+                {
+                    if(current_type != .Quad)
+                    {
+                        return XMLUIError.WrongClosingTag;
+                    }
+                    else
+                    {
+                        if(element_stack.items.len == 1)
+                        {
+                            try root.add_and_dispose(element_stack.items[0]);
+                        }
+                        else
+                        {
+                            const end = element_stack.items.len - 1;
+                            try element_stack.items[end - 1].add_and_dispose(element_stack.items[end]);
+                        }
+
+                        _ = element_stack.pop();
+                    }
+                }
+            },
+            else => {}
+        }
     }
 }
 
@@ -2537,30 +2867,7 @@ pub fn load_xml_ui(allocator: *const std.mem.Allocator, path: []const u8, elemen
     var xml_streaming_reader: xml.Reader.Streaming = .init(allocator.*, &reader.interface, .{});
     defer xml_streaming_reader.deinit();
 
-    var xml_reader = &xml_streaming_reader.interface;
+    const xml_reader = &xml_streaming_reader.interface;
 
-    while(true)
-    {
-        const node = xml_reader.read() catch |err| switch(err)
-        {
-            error.MalformedXml => {
-                const loc = xml_reader.errorLocation();
-
-                std.debug.print("[ASH|XML|ERR] Bad XML at {}:{} - {}\n", .{loc.line, loc.column, xml_reader.errorCode()});
-                return error.MalformedXml;
-            },
-            else => {
-                std.debug.print("[ASH|XML|ERR] Unknown XML error.\n", .{});
-                return err;
-            }
-        };
-
-        switch(node)
-        {
-            .eof => break,
-            .element_start => {
-                try load_xml_ui_element(allocator, &xml_reader);
-            }
-        }
-    }
+    try load_xml_ui_elements(allocator, xml_reader, element);
 }
