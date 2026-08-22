@@ -592,7 +592,7 @@ pub fn test_callback_button_press(e: *Element) void
     std.debug.print("Button pressed.\nAddress of element: {*}\n", .{e});
 }
 
-fn empty_press_callback(e: *Element) void
+fn empty_press_callback(e: *Element) !void
 {
     _ = e;
 }
@@ -2495,7 +2495,7 @@ fn character_is_whitespace(c: u32) bool
 
 fn character_is_number(c: u32) bool
 {
-    return (c >= 48 and c <= 57) or c == 46;
+    return (c >= 48 and c <= 57) or c == 46 or c == 45;
 }
 
 fn character_is_letter(c: u32) bool
@@ -2802,6 +2802,127 @@ fn load_xml_text(allocator: *const std.mem.Allocator, attributes: []XMLAttribute
     return try create_text(allocator, text_properties);
 }
 
+fn load_xml_button(allocator: *const std.mem.Allocator, attributes: []XMLAttribute) !*Element
+{
+    var color_idle: [4]f32 = .{1, 1, 1, 0.3};
+    var color_hover: [4]f32 = .{1, 1, 1, 0.6};
+    var color_press: [4]f32 = .{1, 1, 1, 0.75};
+
+    for(attributes) |att|
+    {
+        if(std.mem.eql(u8, att.name, "color_idle"))
+        {
+            color_idle = try parse_4_floats(att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "color_hover"))
+        {
+            color_hover = try parse_4_floats(att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "color_press"))
+        {
+            color_press = try parse_4_floats(att.value);
+        }
+        else
+        {
+            return XMLUIError.UnknownAttribute;
+        }
+    }
+
+    const button_properties: ButtonProperties = .{
+        .color_idle = color_idle,
+        .color_hover = color_hover,
+        .color_press = color_press,
+        
+        .placement = .{
+            .relative_pos = .{
+                .pos_x = 0,
+                .pos_y = 0,
+                .scl_x = 1,
+                .scl_y = 1
+            },
+            .absolute_offset = .get_default(),
+            .alignment = .{
+                .x = .Left,
+                .y = .Bottom
+            }
+        },
+
+        .press_callback = empty_press_callback
+    };
+
+    return create_button(allocator, button_properties);
+}
+
+fn load_xml_scrollbar(allocator: *const std.mem.Allocator) !*Element
+{
+    return create_scrollbar(allocator);
+}
+
+fn load_xml_checkbox(allocator: *const std.mem.Allocator, attributes: []XMLAttribute) !*Element
+{
+    var color_border: [4]f32 = .{1, 1, 1, 1};
+    var color_hover: [4]f32 = .{1, 1, 1, 0.4};
+    var color_ticked: [4]f32 = .{1, 1, 1, 1};
+
+    var border_width: f32 = 4;
+    var start_ticked: u1 = 0;
+
+    for(attributes) |att|
+    {
+        if(std.mem.eql(u8, att.name, "color_border"))
+        {
+            color_border = try parse_4_floats(att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "color_hover"))
+        {
+            color_hover = try parse_4_floats(att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "color_ticked"))
+        {
+            color_ticked = try parse_4_floats(att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "border_width"))
+        {
+            border_width = try std.fmt.parseFloat(f32, att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "start_ticked"))
+        {
+            start_ticked = try std.fmt.parseInt(u1, att.value, 10);
+        }
+        else
+        {
+            return XMLUIError.UnknownAttribute;
+        }
+    }
+
+    const checkbox_properties: CheckboxProperties = .{
+        .color_border = color_border,
+        .color_hover = color_hover,
+        .color_ticked = color_ticked,
+
+        .border_width = border_width,
+        .start_ticked = start_ticked == 1,
+        
+        .placement = .{
+            .relative_pos = .{
+                .pos_x = 0,
+                .pos_y = 0,
+                .scl_x = 1,
+                .scl_y = 1
+            },
+            .absolute_offset = .get_default(),
+            .alignment = .{
+                .x = .Left,
+                .y = .Bottom
+            }
+        },
+
+        .callback = empty_checkbox_callback
+    };
+
+    return create_checkbox(allocator, checkbox_properties);
+}
+
 fn load_xml_placement(attributes: []XMLAttribute) !Placement
 {
     var relative: [4]f32 = undefined;
@@ -2951,6 +3072,27 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
                     const new_element = try load_xml_text(allocator, attributes, assets);
                     try element_stack.append(allocator.*, new_element);
                 }
+                else if(std.mem.eql(u8, element_name, "button"))
+                {
+                    try element_type_stack.append(allocator.*, .Button);
+
+                    const new_element = try load_xml_button(allocator, attributes);
+                    try element_stack.append(allocator.*, new_element);
+                }
+                else if(std.mem.eql(u8, element_name, "scrollbar"))
+                {
+                    try element_type_stack.append(allocator.*, .Scrollbar);
+
+                    const new_element = try load_xml_scrollbar(allocator);
+                    try element_stack.append(allocator.*, new_element);
+                }
+                else if(std.mem.eql(u8, element_name, "checkbox"))
+                {
+                    try element_type_stack.append(allocator.*, .Checkbox);
+
+                    const new_element = try load_xml_checkbox(allocator, attributes);
+                    try element_stack.append(allocator.*, new_element);
+                }
                 else if(std.mem.eql(u8, element_name, "placement"))
                 {
                     const placement = try load_xml_placement(attributes);
@@ -2973,6 +3115,18 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
                 else if(std.mem.eql(u8, element_name, "text"))
                 {
                     try xml_finish_element(.Text, root, &element_stack, &element_type_stack);
+                }
+                else if(std.mem.eql(u8, element_name, "button"))
+                {
+                    try xml_finish_element(.Button, root, &element_stack, &element_type_stack);
+                }
+                else if(std.mem.eql(u8, element_name, "scrollbar"))
+                {
+                    try xml_finish_element(.Scrollbar, root, &element_stack, &element_type_stack);
+                }
+                else if(std.mem.eql(u8, element_name, "checkbox"))
+                {
+                    try xml_finish_element(.Checkbox, root, &element_stack, &element_type_stack);
                 }
             },
             .text => {
