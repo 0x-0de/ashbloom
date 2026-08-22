@@ -2503,6 +2503,48 @@ fn character_is_letter(c: u32) bool
     return (c >= 65 and c <= 90) or (c >= 97 and c <= 122) or c == 95;
 }
 
+fn trim_string(comptime T: type, str: []const T) []const T
+{
+    var start_index: usize = 0;
+    var end_index: usize = str.len - 1;
+
+    for(0..str.len) |i|
+    {
+        if(character_is_whitespace(str[i]))
+        {
+            start_index += 1;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    if(start_index == str.len) return &.{};
+
+    var read_mode = false;
+
+    for(start_index..str.len) |i|
+    {
+        if(character_is_whitespace(str[i]) and !read_mode)
+        {
+            read_mode = true;
+            end_index = i;
+        }
+        else if(!character_is_whitespace(str[i]))
+        {
+            read_mode = false;
+        }
+
+        if(i == str.len - 1 and !read_mode)
+        {
+            end_index = str.len;
+        }
+    }
+
+    return str[start_index..end_index];
+}
+
 fn parse_4_floats(s: []const u8) ![4]f32
 {
     var reading_number = false;
@@ -2639,8 +2681,6 @@ fn parse_alignment(s: []const u8) !vkui.Alignment
 
     for(0..2) |i|
     {
-        ash.print_stdout("{s}\n", .{words[i]});
-
         if(std.mem.eql(u8, words[i], "left"))
         {
             horizontal = true;
@@ -2676,9 +2716,7 @@ fn parse_alignment(s: []const u8) !vkui.Alignment
         }
     }
 
-    ash.print_stdout("{}, {}\n", .{horizontal, vertical});
     if(!horizontal or !vertical) return XMLUIError.CannotParseData;
-
     return alignment;
 }
 
@@ -2714,12 +2752,150 @@ fn load_xml_quad(allocator: *const std.mem.Allocator, attributes: []XMLAttribute
     return create_quad(allocator, default_placement, color);
 }
 
-fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader, root: *Element) !void
+fn load_xml_text(allocator: *const std.mem.Allocator, attributes: []XMLAttribute, assets: XMLUIAssets) !*Element
+{
+    var font = assets.fonts[0].font;
+
+    var alignment: vkui.Alignment = .{ .x = .Center, .y = .Center };
+
+    var margin: f32 = 3;
+    var size: f32 = 30;
+
+    for(attributes) |att|
+    {
+        if(std.mem.eql(u8, att.name, "alignment"))
+        {
+            alignment = try parse_alignment(att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "margin"))
+        {
+            margin = try std.fmt.parseFloat(f32, att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "size"))
+        {
+            size = try std.fmt.parseFloat(f32, att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "font"))
+        {
+            for(assets.fonts) |f|
+            {
+                if(std.mem.eql(u8, att.value, f.name))
+                {
+                    font = f.font;
+                }
+            }
+        }
+        else
+        {
+            return XMLUIError.UnknownAttribute;
+        }
+    }
+
+    const text_properties: TextProperties = .{
+        .alignment = alignment,
+        .font = font,
+        .margin = margin,
+        .size = size,
+        .string = &.{}
+    };
+
+    return try create_text(allocator, text_properties);
+}
+
+fn load_xml_placement(attributes: []XMLAttribute) !Placement
+{
+    var relative: [4]f32 = undefined;
+    var absolute: [4]f32 = undefined;
+
+    var alignment: vkui.Alignment = undefined;
+
+    for(attributes) |att|
+    {
+        if(std.mem.eql(u8, att.name, "relative"))
+        {
+            relative = try parse_4_floats(att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "absolute"))
+        {
+            absolute = try parse_4_floats(att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "alignment"))
+        {
+            alignment = try parse_alignment(att.value);
+        }
+        else
+        {
+            return XMLUIError.UnknownAttribute;
+        }
+    }
+
+    return .{
+        .relative_pos = .{
+            .pos_x = relative[0],
+            .pos_y = relative[1],
+            .scl_x = relative[2],
+            .scl_y = relative[3]
+        },
+        .absolute_offset = .{
+            .pos_x = absolute[0],
+            .pos_y = absolute[1],
+            .scl_x = absolute[2],
+            .scl_y = absolute[3]
+        },
+        .alignment = alignment
+    };
+}
+
+pub const XMLUIFontEntry = struct
+{
+    name: []const u8,
+    font: *Font
+};
+
+pub const XMLUICallbackEntry = struct
+{
+    name: []const u8,
+    callback: *const fn(*Element, ContainerInputData) anyerror!void
+};
+
+pub const XMLUIAssets = struct
+{
+    fonts: []const XMLUIFontEntry,
+    callbacks: []const XMLUICallbackEntry
+};
+
+fn xml_finish_element(element_type: BasicUIElementType, root: *Element, element_stack: *std.ArrayList(*Element), element_type_stack: *std.ArrayList(BasicUIElementType)) !void
+{
+    const current_type = element_type_stack.items[element_type_stack.items.len - 1];
+
+    if(current_type != element_type)
+    {
+        return XMLUIError.WrongClosingTag;
+    }
+    else
+    {
+        if(element_stack.items.len == 1)
+        {
+            try root.add_and_dispose(element_stack.items[0]);
+        }
+        else
+        {
+            const end = element_stack.items.len - 1;
+            try element_stack.items[end - 1].add_and_dispose(element_stack.items[end]);
+        }
+
+        _ = element_stack.pop();
+        _ = element_type_stack.pop();
+    }
+}
+
+fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader, root: *Element, assets: XMLUIAssets) !void
 {
     var element_stack: std.ArrayList(*Element) = try .initCapacity(allocator.*, 0);
     defer element_stack.deinit(allocator.*);
 
-    var current_type: BasicUIElementType = .Quad;
+    var element_type_stack: std.ArrayList(BasicUIElementType) = try .initCapacity(allocator.*, 0);
+    defer element_type_stack.deinit(allocator.*);
 
     while(true)
     {
@@ -2763,54 +2939,21 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
 
                 if(std.mem.eql(u8, element_name, "quad"))
                 {
-                    current_type = .Quad;
+                    try element_type_stack.append(allocator.*, .Quad);
 
                     const new_element = try load_xml_quad(allocator, attributes);
                     try element_stack.append(allocator.*, new_element);
                 }
+                else if(std.mem.eql(u8, element_name, "text"))
+                {
+                    try element_type_stack.append(allocator.*, .Text);
+
+                    const new_element = try load_xml_text(allocator, attributes, assets);
+                    try element_stack.append(allocator.*, new_element);
+                }
                 else if(std.mem.eql(u8, element_name, "placement"))
                 {
-                    var relative: [4]f32 = undefined;
-                    var absolute: [4]f32 = undefined;
-
-                    var alignment: vkui.Alignment = undefined;
-
-                    for(attributes) |att|
-                    {
-                        if(std.mem.eql(u8, att.name, "relative"))
-                        {
-                            relative = try parse_4_floats(att.value);
-                        }
-                        else if(std.mem.eql(u8, att.name, "absolute"))
-                        {
-                            absolute = try parse_4_floats(att.value);
-                        }
-                        else if(std.mem.eql(u8, att.name, "alignment"))
-                        {
-                            alignment = try parse_alignment(att.value);
-                        }
-                        else
-                        {
-                            return XMLUIError.UnknownAttribute;
-                        }
-                    }
-
-                    const placement: Placement = .{
-                        .relative_pos = .{
-                            .pos_x = relative[0],
-                            .pos_y = relative[1],
-                            .scl_x = relative[2],
-                            .scl_y = relative[3]
-                        },
-                        .absolute_offset = .{
-                            .pos_x = absolute[0],
-                            .pos_y = absolute[1],
-                            .scl_x = absolute[2],
-                            .scl_y = absolute[3]
-                        },
-                        .alignment = alignment
-                    };
-
+                    const placement = try load_xml_placement(attributes);
                     element_stack.items[element_stack.items.len - 1].placement = placement;
                 }
                 else
@@ -2821,27 +2964,53 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
             .element_end => {
                 const element_name = reader.elementNameNs().local;
                 ash.print_stdout("End tag: {s}\n", .{element_name});
+                ash.print_stdout("\tCurrent stack length: {d}\n", .{element_stack.items.len});
 
                 if(std.mem.eql(u8, element_name, "quad"))
                 {
-                    if(current_type != .Quad)
-                    {
-                        return XMLUIError.WrongClosingTag;
-                    }
-                    else
-                    {
-                        if(element_stack.items.len == 1)
-                        {
-                            try root.add_and_dispose(element_stack.items[0]);
-                        }
-                        else
-                        {
-                            const end = element_stack.items.len - 1;
-                            try element_stack.items[end - 1].add_and_dispose(element_stack.items[end]);
-                        }
+                    try xml_finish_element(.Quad, root, &element_stack, &element_type_stack);
+                }
+                else if(std.mem.eql(u8, element_name, "text"))
+                {
+                    try xml_finish_element(.Text, root, &element_stack, &element_type_stack);
+                }
+            },
+            .text => {
+                const current_type = element_type_stack.items[element_type_stack.items.len - 1];
+                
+                if(current_type == .Text)
+                {
+                    const text = try reader.text();
+                    const index = element_stack.items.len - 1;
 
-                        _ = element_stack.pop();
+                    ash.print_stdout("Text tag: {s}\n", .{text});
+
+                    const flattened_text = trim_string(u8, text);
+                    ash.print_stdout("\t(trim string): {s}\n", .{flattened_text});
+
+                    var text_data: TextData = undefined;
+                    memcpy_anonymous(&text_data, element_stack.items[index].data.?.ptr, @sizeOf(TextData));
+
+                    try element_stack.items[index].deinit();
+                    allocator.destroy(element_stack.items[index]);
+
+                    const str = try allocator.alloc(u32, flattened_text.len);
+                    defer allocator.free(str);
+
+                    const text_properties: TextProperties = .{
+                        .alignment = text_data.alignment,
+                        .font = text_data.font,
+                        .margin = text_data.margin,
+                        .size = text_data.size,
+                        .string = str
+                    };
+
+                    for(0..flattened_text.len) |i|
+                    {
+                        text_properties.string[i] = flattened_text[i];
                     }
+
+                    element_stack.items[index] = try create_text(allocator, text_properties);
                 }
             },
             else => {}
@@ -2849,7 +3018,7 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
     }
 }
 
-pub fn load_xml_ui(allocator: *const std.mem.Allocator, path: []const u8, element: *Element) !void
+pub fn load_xml_ui(allocator: *const std.mem.Allocator, path: []const u8, element: *Element, assets: XMLUIAssets) !void
 {
     var io_threaded = std.Io.Threaded.init(allocator.*, .{});
     defer io_threaded.deinit();
@@ -2869,5 +3038,5 @@ pub fn load_xml_ui(allocator: *const std.mem.Allocator, path: []const u8, elemen
 
     const xml_reader = &xml_streaming_reader.interface;
 
-    try load_xml_ui_elements(allocator, xml_reader, element);
+    try load_xml_ui_elements(allocator, xml_reader, element, assets);
 }
