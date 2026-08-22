@@ -80,7 +80,7 @@ var app_ui_container: ui.Container = undefined;
 /// The application's chosen text font.
 var app_font: ash.Font = undefined;
 
-fn init_ui_elements() !void
+fn init_ui_elements(font: *ash.Font) !void
 {
     const background = try ash.ui_theme_basic.create_quad(&allocator, .{
         .relative_pos = .{
@@ -96,7 +96,17 @@ fn init_ui_elements() !void
         }
     }, .{0.01, 0.01, 0.05, 1});
 
-    try ash.ui_theme_basic.load_xml_ui(&allocator, "../../res/test_xml.xml", background);
+    const ui_assets: ash.ui_theme_basic.XMLUIAssets = .{
+        .fonts = &.{
+            .{
+                .name = "main",
+                .font = font
+            }
+        },
+        .callbacks = &.{}
+    };
+
+    try ash.ui_theme_basic.load_xml_ui(&allocator, "../../res/test_xml.xml", background, ui_assets);
 
     try app_ui_container.add_and_dispose(background);
 }
@@ -157,7 +167,7 @@ pub fn main() !void
     defer framebuffers_ui.deinit(allocator);
     defer swapchain.deinit_framebuffers(framebuffers_ui);
     
-    try init_ui_elements();
+    try init_ui_elements(&app_font);
 
     var cur_size = window.get_framebuffer_size();
 
