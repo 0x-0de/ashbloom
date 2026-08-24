@@ -3080,6 +3080,7 @@ fn load_xml_textfield(allocator: *const std.mem.Allocator, attributes: []XMLAttr
 
     return create_textfield(allocator, placement, textfield_properties);
 }
+
 fn load_xml_placement(attributes: []XMLAttribute) !Placement
 {
     var relative: [4]f32 = undefined;
