@@ -2479,7 +2479,8 @@ const XMLUIError = error
     UnknownAttribute,
     CannotParseData,
     TooMuchData,
-    WrongClosingTag
+    WrongClosingTag,
+    MultipleContainers
 };
 
 const XMLAttribute = struct
@@ -2923,6 +2924,162 @@ fn load_xml_checkbox(allocator: *const std.mem.Allocator, attributes: []XMLAttri
     return create_checkbox(allocator, checkbox_properties);
 }
 
+fn load_xml_slider(allocator: *const std.mem.Allocator, attributes: []XMLAttribute) !*Element
+{
+    var bar_width: f32 = 3;
+    
+    var color_bar: [4]f32 = .{0.1, 0.1, 0.1, 1};
+    var color_knob_hover: [4]f32 = .{0.45, 0.45, 0.45, 1};
+    var color_knob_idle: [4]f32 = .{0.25, 0.25, 0.25, 1};
+    var color_knob_press: [4]f32 = .{0.55, 0.55, 0.55, 1};
+
+    var discrete_values: u32 = 0;
+    var horizontal: bool = true;
+
+    var knob_width: f32 = 8;
+    var start_value: f32 = 0.5;
+
+    for(attributes) |att|
+    {
+        if(std.mem.eql(u8, att.name, "color_bar"))
+        {
+            color_bar = try parse_4_floats(att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "color_knob_hover"))
+        {
+            color_knob_hover = try parse_4_floats(att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "color_knob_idle"))
+        {
+            color_knob_idle = try parse_4_floats(att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "color_knob_press"))
+        {
+            color_knob_press = try parse_4_floats(att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "discrete_values"))
+        {
+            discrete_values = try std.fmt.parseInt(u32, att.value, 10);
+        }
+        else if(std.mem.eql(u8, att.name, "horizontal"))
+        {
+            horizontal = (try std.fmt.parseInt(u32, att.value, 10)) == 1;
+        }
+        else if(std.mem.eql(u8, att.name, "bar_width"))
+        {
+            bar_width = try std.fmt.parseFloat(f32, att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "knob_width"))
+        {
+            knob_width = try std.fmt.parseFloat(f32, att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "start_value"))
+        {
+            start_value = try std.fmt.parseFloat(f32, att.value);
+        }
+        else
+        {
+            return XMLUIError.UnknownAttribute;
+        }
+    }
+
+    const slider_properties: SliderProperties = .{
+        .bar_width = bar_width,
+        .callback = empty_slider_callback,
+        .color_bar = color_bar,
+        .color_knob_hover = color_knob_hover,
+        .color_knob_idle = color_knob_idle,
+        .color_knob_press = color_knob_press,
+        .discrete_values = discrete_values,
+        .horizontal = horizontal,
+        .knob_width = knob_width,
+        .placement = .{
+            .relative_pos = .{
+                .pos_x = 0,
+                .pos_y = 0,
+                .scl_x = 1,
+                .scl_y = 1
+            },
+            .absolute_offset = .get_default(),
+            .alignment = .{
+                .x = .Left,
+                .y = .Bottom
+            }
+        },
+        .start_value = start_value
+    };
+
+    return create_slider(allocator, slider_properties);
+}
+
+fn load_xml_textfield(allocator: *const std.mem.Allocator, attributes: []XMLAttribute, assets: XMLUIAssets) !*Element
+{
+    var font = assets.fonts[0].font;
+    var text_alignment: vkui.Alignment = .{ .x = .Left, .y = .Top };
+    var text_size: f32 = 30;
+
+    var initial_text: []u32 = &.{};
+    defer allocator.free(initial_text);
+
+    for(attributes) |att|
+    {
+        if(std.mem.eql(u8, att.name, "font"))
+        {
+            for(assets.fonts) |f|
+            {
+                if(std.mem.eql(u8, att.value, f.name))
+                {
+                    font = f.font;
+                }
+            }
+        }
+        else if(std.mem.eql(u8, att.name, "initial_text"))
+        {
+            var t = try allocator.alloc(u32, att.value.len);
+            for(0..att.value.len) |i|
+            {
+                t[i] = att.value[i];
+            }
+            initial_text = t;
+        }
+        else if(std.mem.eql(u8, att.name, "text_alignment"))
+        {
+            text_alignment = try parse_alignment(att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "text_size"))
+        {
+            text_size = try std.fmt.parseFloat(f32, att.value);
+        }
+        else
+        {
+            return XMLUIError.UnknownAttribute;
+        }
+    }
+
+    const textfield_properties: TextFieldProperties = .{
+        .font = font,
+        .extension_protocol = .ScrollVertically,
+        .initial_text = initial_text,
+        .text_alignment = text_alignment,
+        .text_size = text_size
+    };
+
+    const placement: Placement = .{
+        .relative_pos = .{
+            .pos_x = 0,
+            .pos_y = 0,
+            .scl_x = 1,
+            .scl_y = 1
+        },
+        .absolute_offset = .get_default(),
+        .alignment = .{
+            .x = .Left,
+            .y = .Bottom
+        }
+    };
+
+    return create_textfield(allocator, placement, textfield_properties);
+}
 fn load_xml_placement(attributes: []XMLAttribute) !Placement
 {
     var relative: [4]f32 = undefined;
@@ -3018,6 +3175,8 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
     var element_type_stack: std.ArrayList(BasicUIElementType) = try .initCapacity(allocator.*, 0);
     defer element_type_stack.deinit(allocator.*);
 
+    var first_element_start = true;
+
     while(true)
     {
         const node = reader.read() catch |err| switch(err)
@@ -3093,10 +3252,36 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
                     const new_element = try load_xml_checkbox(allocator, attributes);
                     try element_stack.append(allocator.*, new_element);
                 }
+                else if(std.mem.eql(u8, element_name, "slider"))
+                {
+                    try element_type_stack.append(allocator.*, .Slider);
+
+                    const new_element = try load_xml_slider(allocator, attributes);
+                    try element_stack.append(allocator.*, new_element);
+                }
+                else if(std.mem.eql(u8, element_name, "textfield"))
+                {
+                    try element_type_stack.append(allocator.*, .Textfield);
+
+                    const new_element = try load_xml_textfield(allocator, attributes, assets);
+                    try element_stack.append(allocator.*, new_element);
+                }
                 else if(std.mem.eql(u8, element_name, "placement"))
                 {
                     const placement = try load_xml_placement(attributes);
                     element_stack.items[element_stack.items.len - 1].placement = placement;
+                }
+                else if(std.mem.eql(u8, element_name, "container"))
+                {
+                    if(!first_element_start)
+                    {
+                        std.debug.print("[ASH|XML|ERR] Cannot start with a non-container object, and cannot have multiple container objects.\n", .{});
+                        return XMLUIError.MultipleContainers;
+                    }
+                    else
+                    {
+                        first_element_start = false;
+                    }
                 }
                 else
                 {
@@ -3128,43 +3313,61 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
                 {
                     try xml_finish_element(.Checkbox, root, &element_stack, &element_type_stack);
                 }
+                else if(std.mem.eql(u8, element_name, "slider"))
+                {
+                    try xml_finish_element(.Slider, root, &element_stack, &element_type_stack);
+                }
+                else if(std.mem.eql(u8, element_name, "textfield"))
+                {
+                    try xml_finish_element(.Textfield, root, &element_stack, &element_type_stack);
+                }
+                else if(std.mem.eql(u8, element_name, "container"))
+                {
+                    if(element_stack.items.len != 0)
+                    {
+                        return XMLUIError.WrongClosingTag;
+                    }
+                }
             },
             .text => {
-                const current_type = element_type_stack.items[element_type_stack.items.len - 1];
-                
-                if(current_type == .Text)
+                if(element_type_stack.items.len > 0)
                 {
-                    const text = try reader.text();
-                    const index = element_stack.items.len - 1;
+                    const current_type = element_type_stack.items[element_type_stack.items.len - 1];
 
-                    ash.print_stdout("Text tag: {s}\n", .{text});
-
-                    const flattened_text = trim_string(u8, text);
-                    ash.print_stdout("\t(trim string): {s}\n", .{flattened_text});
-
-                    var text_data: TextData = undefined;
-                    memcpy_anonymous(&text_data, element_stack.items[index].data.?.ptr, @sizeOf(TextData));
-
-                    try element_stack.items[index].deinit();
-                    allocator.destroy(element_stack.items[index]);
-
-                    const str = try allocator.alloc(u32, flattened_text.len);
-                    defer allocator.free(str);
-
-                    const text_properties: TextProperties = .{
-                        .alignment = text_data.alignment,
-                        .font = text_data.font,
-                        .margin = text_data.margin,
-                        .size = text_data.size,
-                        .string = str
-                    };
-
-                    for(0..flattened_text.len) |i|
+                    if(current_type == .Text)
                     {
-                        text_properties.string[i] = flattened_text[i];
-                    }
+                        const text = try reader.text();
+                        const index = element_stack.items.len - 1;
 
-                    element_stack.items[index] = try create_text(allocator, text_properties);
+                        ash.print_stdout("Text tag: {s}\n", .{text});
+
+                        const flattened_text = trim_string(u8, text);
+                        ash.print_stdout("\t(trim string): {s}\n", .{flattened_text});
+
+                        var text_data: TextData = undefined;
+                        memcpy_anonymous(&text_data, element_stack.items[index].data.?.ptr, @sizeOf(TextData));
+
+                        try element_stack.items[index].deinit();
+                        allocator.destroy(element_stack.items[index]);
+
+                        const str = try allocator.alloc(u32, flattened_text.len);
+                        defer allocator.free(str);
+
+                        const text_properties: TextProperties = .{
+                            .alignment = text_data.alignment,
+                            .font = text_data.font,
+                            .margin = text_data.margin,
+                            .size = text_data.size,
+                            .string = str
+                        };
+
+                        for(0..flattened_text.len) |i|
+                        {
+                            text_properties.string[i] = flattened_text[i];
+                        }
+
+                        element_stack.items[index] = try create_text(allocator, text_properties);
+                    }
                 }
             },
             else => {}

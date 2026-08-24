@@ -1,3 +1,4 @@
+<container>
 <quad color="0.1, 0.6, 0.3, 1">
 	<placement relative="0.5, 0.5, 0.5, 0.5" absolute="0,0,0,0" alignment="center, center" />
 	<text font="main" size="50" alignment="left, bottom" margin="20">
@@ -6,7 +7,15 @@
 	<button>
 		<placement relative="0, 1, 0.3, 0.3" alignment="top, left" />
 	</button>
-	<checkbox>
+	<checkbox border_width="5">
 		<placement relative="0.5, 1, 0, 0" absolute="0, -20, 50, 50" alignment="top, center" />
 	</checkbox>
 </quad>
+<quad color="0, 0, 1, 1">
+	<placement relative="0, 1, 0.3, 0" absolute="0, 0, 0, 100" alignment="top, left" />
+	<slider knob_width="15" bar_width="10" discrete_values="5" start_value="0.5" />
+</quad>
+<textfield text_alignment="right, bottom" text_size="20" initial_text="This is some initial text.">
+	<placement relative="1, 1, 0.3, 0.3" absolute="0, 0, 0, 30" alignment="top, right" />
+</textfield>
+</container>
