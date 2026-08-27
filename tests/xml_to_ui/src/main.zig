@@ -118,7 +118,7 @@ pub fn main() !void
         const dba_result = dba.deinit();
         if(dba_result == .leak)
         {
-            std.debug.print("Program terminates with {d} memory leaks.\n", .{@intFromEnum(dba_result)});
+            std.debug.print("Program terminated with {d} memory leaks.\n", .{@intFromEnum(dba_result)});
         }
     }
 

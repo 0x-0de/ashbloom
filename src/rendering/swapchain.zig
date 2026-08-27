@@ -48,6 +48,8 @@ pub const Swapchain = struct
     /// Current render stage being performed by the current image. This field is updated automatically when a call to render() is performed, and
     /// shouldn't be modified externally.
     current_render_stage: u16 = undefined,
+    /// The last render stage which was actually rendered. Incremented when a call to render(...) is performed.
+    last_render_stage: ?u16 = null,
     /// List of semaphore lists for each render stage, each semaphore list having one semaphore for each image to signal when their renders have finished.
     semaphores_render_stage_finished: []std.ArrayList(vk.Semaphore) = undefined,
 
@@ -276,6 +278,8 @@ pub const Swapchain = struct
     pub fn acquire_next_image(self: *Swapchain) !AcquireImageResult
     {
         try self.context.device.resetFences(&.{ self.fence_image_acquired });
+        self.last_render_stage = null;
+
         var result = try self.context.device.acquireNextImageKHR(self.handle, std.math.maxInt(u64), .null_handle, self.fence_image_acquired);
 
         var window_width: c_int = undefined;
@@ -474,13 +478,28 @@ pub const Swapchain = struct
         const final_stage = self.render_stages - 1;
         const index = self.current_image_index;
 
-        const info_present: vk.PresentInfoKHR = .{
-            .wait_semaphore_count = 1,
-            .p_wait_semaphores = @ptrCast(&self.semaphores_render_stage_finished[final_stage].items[index]),
-            .swapchain_count = 1,
-            .p_swapchains = @ptrCast(&self.handle),
-            .p_image_indices = @ptrCast(&index)
-        };
+        var info_present: vk.PresentInfoKHR = undefined;
+
+        if(self.last_render_stage != null)
+        {
+            info_present = .{
+                .wait_semaphore_count = 1,
+                .p_wait_semaphores = @ptrCast(&self.semaphores_render_stage_finished[final_stage].items[index]),
+                .swapchain_count = 1,
+                .p_swapchains = @ptrCast(&self.handle),
+                .p_image_indices = @ptrCast(&index)
+            };
+        }
+        else
+        {
+            _ = try self.context.device.waitForFences(&.{ self.fence_image_acquired }, .true, std.math.maxInt(u64));
+
+            info_present = .{
+                .swapchain_count = 1,
+                .p_swapchains = @ptrCast(&self.handle),
+                .p_image_indices = @ptrCast(&index)
+            };
+        }
 
         _ = try self.context.device.queuePresentKHR(present_queue, &info_present);
 
@@ -531,10 +550,10 @@ pub const Swapchain = struct
             .bottom_of_pipe_bit = true
         };
 
-        if(self.current_render_stage > 0)
+        if(self.last_render_stage != null)
         {
             info_submit.wait_semaphore_count = 1;
-            info_submit.p_wait_semaphores = @ptrCast(&self.semaphores_render_stage_finished[self.current_render_stage - 1].items[index]);
+            info_submit.p_wait_semaphores = @ptrCast(&self.semaphores_render_stage_finished[self.last_render_stage.?].items[index]);
             info_submit.p_wait_dst_stage_mask = @ptrCast(&wait_stage);
         }
         else
@@ -544,6 +563,18 @@ pub const Swapchain = struct
 
         try self.context.device.queueSubmit(render_queue, &.{ info_submit }, self.fences_command_buffers_finished[stage].items[index]);
 
+        self.last_render_stage = self.current_render_stage;
+        self.current_render_stage += 1;
+    }
+
+    /// Skips the current render stage this frame.
+    pub fn skip_render_stage(self: *Swapchain, render_queue: vk.Queue) !void
+    {
+        const index = self.current_image_index;
+        const stage = self.current_render_stage;
+
+        // Signals the fence.
+        try self.context.device.queueSubmit(render_queue, null, self.fences_command_buffers_finished[stage].items[index]);
         self.current_render_stage += 1;
     }
 };
