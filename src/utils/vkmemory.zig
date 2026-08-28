@@ -5,6 +5,9 @@ const vk = @import("vulkan");
 
 const vk_context = @import("../rendering/vkcontext.zig");
 
+const VkContext = vk_context.VkContext;
+const VkInterface = vk_context.VkInterface;
+
 const commands = @import("../rendering/commands.zig");
 const image_utils = @import("image_utils.zig");
 
@@ -16,11 +19,11 @@ pub const VulkanMemoryError = error
 };
 
 /// Helper function to find the correct memory type in the selected physical device, if one exists.
-pub fn find_physical_device_memory_type(context: *vk_context.VkContext, type_filter: u32, requested_properties: vk.MemoryPropertyFlags) VulkanMemoryError!u32
+pub fn find_physical_device_memory_type(context: *VkContext, interface: *VkInterface, type_filter: u32, requested_properties: vk.MemoryPropertyFlags) VulkanMemoryError!u32
 {
     const prop_code: u32 = @bitCast(requested_properties);
 
-    const device_memory_properties = context.instance.getPhysicalDeviceMemoryProperties(context.physical_device.?);
+    const device_memory_properties = context.instance.getPhysicalDeviceMemoryProperties(interface.physical_device.?);
     
     for(0..device_memory_properties.memory_type_count) |i|
     {
@@ -37,7 +40,7 @@ pub fn find_physical_device_memory_type(context: *vk_context.VkContext, type_fil
 }
 
 /// Helper function to create a vk.Buffer with the buffer_size, share_mode, and usage flags.
-pub fn create_buffer(context: *vk_context.VkContext, buffer_size: vk.DeviceSize, share_mode: vk.SharingMode, usage: vk.BufferUsageFlags) !vk.Buffer
+pub fn create_buffer(interface: *VkInterface, buffer_size: vk.DeviceSize, share_mode: vk.SharingMode, usage: vk.BufferUsageFlags) !vk.Buffer
 {
     const info_buffer: vk.BufferCreateInfo = .{
         .size = buffer_size,
@@ -45,14 +48,14 @@ pub fn create_buffer(context: *vk_context.VkContext, buffer_size: vk.DeviceSize,
         .sharing_mode = share_mode
     };
 
-    return try context.device.createBuffer(&info_buffer, null);
+    return try interface.device.createBuffer(&info_buffer, null);
 }
 
 /// Helper function to allocate memory directly from Vulkan, and then bind the memory to the buffer. Should never be used outside of the allocator.
-pub fn allocate_vulkan_memory_from_buffer(context: *vk_context.VkContext, buffer: vk.Buffer, requested_properties: vk.MemoryPropertyFlags) !vk.DeviceMemory
+pub fn allocate_vulkan_memory_from_buffer(context: *VkContext, interface: *VkInterface, buffer: vk.Buffer, requested_properties: vk.MemoryPropertyFlags) !vk.DeviceMemory
 {
-    const memory_requirements = context.device.getBufferMemoryRequirements(buffer);
-    const memory_type_index = try find_physical_device_memory_type(context, memory_requirements.memory_type_bits, requested_properties);
+    const memory_requirements = interface.device.getBufferMemoryRequirements(buffer);
+    const memory_type_index = try find_physical_device_memory_type(context, interface, memory_requirements.memory_type_bits, requested_properties);
 
     const info_memory_allocate: vk.MemoryAllocateInfo = .{
         .allocation_size = memory_requirements.size,
@@ -66,22 +69,21 @@ pub fn allocate_vulkan_memory_from_buffer(context: *vk_context.VkContext, buffer
 }
 
 /// Maps data directly to Vulkan memory. Will only work with data that can be accessed by the CPU. Assumes the offset of memory to map to is 0.
-pub fn map_data_to_memory(comptime T: type, context: *vk_context.VkContext, memory: vk.DeviceMemory, data: []T) !void
+pub fn map_data_to_memory(comptime T: type, interface: *VkInterface, memory: vk.DeviceMemory, data: []T) !void
 {
-    const map: *anyopaque = (try context.device.mapMemory(memory, 0, data.len * @sizeOf(T), .{})).?;
+    const map: *anyopaque = (try interface.device.mapMemory(memory, 0, data.len * @sizeOf(T), .{})).?;
     const map_data: []u8 = @as([*]u8, @ptrCast(map))[0..data.len * @sizeOf(T)];
         @memcpy(map_data, @as([*]u8, @ptrCast(data)));
-    context.device.unmapMemory(memory);
+    interface.device.unmapMemory(memory);
 }
-
 
 /// Perform a copy operation to copy data from one buffer to another, with offset values (often used for copying CPU-visible data to GPU-only buffers).
 /// Command pool and queue must both support transfer operations. NOTE: All Vulkan queues and command buffers that support graphics operations implicitly
 /// support transfer operations as well.
-pub fn copy_buffer_with_offsets(context: *vk_context.VkContext, size: vk.DeviceSize, src_buffer: vk.Buffer, dst_buffer: vk.Buffer, command_pool: vk.CommandPool,
+pub fn copy_buffer_with_offsets(interface: *VkInterface, size: vk.DeviceSize, src_buffer: vk.Buffer, dst_buffer: vk.Buffer, command_pool: vk.CommandPool,
 transfer_queue: vk.Queue, src_offset: vk.DeviceSize, dst_offset: vk.DeviceSize) !void
 {
-    const command_buffer = try commands.begin_single_time_command_buffer(context, command_pool);
+    const command_buffer = try commands.begin_single_time_command_buffer(interface, command_pool);
 
     const info_buffer_copy: vk.BufferCopy = .{
         .src_offset = src_offset,
@@ -89,17 +91,17 @@ transfer_queue: vk.Queue, src_offset: vk.DeviceSize, dst_offset: vk.DeviceSize) 
         .size = size
     };
 
-    context.device.cmdCopyBuffer(command_buffer, src_buffer, dst_buffer, &.{ info_buffer_copy });
-    try commands.end_and_submit_single_time_command_buffer(context, command_pool, command_buffer, transfer_queue);
+    interface.device.cmdCopyBuffer(command_buffer, src_buffer, dst_buffer, &.{ info_buffer_copy });
+    try commands.end_and_submit_single_time_command_buffer(interface, command_pool, command_buffer, transfer_queue);
 }
 
 /// Perform a copy operation to copy data from one buffer to another (often used for copying CPU-visible data to GPU-only buffers). Command pool and queue
 /// must both support transfer operations. NOTE: All Vulkan queues and command buffers that support graphics operations implicitly support transfer
 /// operations as well.
-pub fn copy_buffer(context: *vk_context.VkContext, size: vk.DeviceSize, src_buffer: vk.Buffer, dst_buffer: vk.Buffer, command_pool: vk.CommandPool,
+pub fn copy_buffer(interface: *VkInterface, size: vk.DeviceSize, src_buffer: vk.Buffer, dst_buffer: vk.Buffer, command_pool: vk.CommandPool,
 transfer_queue: vk.Queue) !void
 {
-    const command_buffer = try commands.begin_single_time_command_buffer(context, command_pool);
+    const command_buffer = try commands.begin_single_time_command_buffer(interface, command_pool);
 
     const info_buffer_copy: vk.BufferCopy = .{
         .src_offset = 0,
@@ -107,15 +109,15 @@ transfer_queue: vk.Queue) !void
         .size = size
     };
 
-    context.device.cmdCopyBuffer(command_buffer, src_buffer, dst_buffer, &.{ info_buffer_copy });
-    try commands.end_and_submit_single_time_command_buffer(context, command_pool, command_buffer, transfer_queue);
+    interface.device.cmdCopyBuffer(command_buffer, src_buffer, dst_buffer, &.{ info_buffer_copy });
+    try commands.end_and_submit_single_time_command_buffer(interface, command_pool, command_buffer, transfer_queue);
 }
 
-pub fn copy_image(context: *vk_context.VkContext, src_image: vk.Image, dst_image: vk.Image, src_layout: vk.ImageLayout, dst_layout: vk.ImageLayout,
+pub fn copy_image(interface: *VkInterface, src_image: vk.Image, dst_image: vk.Image, src_layout: vk.ImageLayout, dst_layout: vk.ImageLayout,
 command_pool: vk.CommandPool, transfer_queue: vk.Queue, src_offset: vk.Offset3D, dst_offset: vk.Offset3D, copy_extent: vk.Extent3D,
 src_subresource: vk.ImageSubresourceLayers, dst_subresource: vk.ImageSubresourceLayers) !void
 {
-    const command_buffer = try commands.begin_single_time_command_buffer(context, command_pool);
+    const command_buffer = try commands.begin_single_time_command_buffer(interface, command_pool);
 
     const image_copy: vk.ImageCopy = .{
         .src_offset = src_offset,
@@ -125,16 +127,16 @@ src_subresource: vk.ImageSubresourceLayers, dst_subresource: vk.ImageSubresource
         .dst_subresource = dst_subresource
     };
 
-    context.device.cmdCopyImage(command_buffer, src_image, src_layout, dst_image, dst_layout, &.{ image_copy });
-    try commands.end_and_submit_single_time_command_buffer(context, command_pool, command_buffer, transfer_queue);
+    interface.device.cmdCopyImage(command_buffer, src_image, src_layout, dst_image, dst_layout, &.{ image_copy });
+    try commands.end_and_submit_single_time_command_buffer(interface, command_pool, command_buffer, transfer_queue);
 }
 
 /// Perform a copy operation to copy data from a buffer to an image. Command pool and queue must both support transfer operations. NOTE: All Vulkan queues
 /// and command buffers that support graphics operations implicitly support transfer operations as well.
-pub fn copy_buffer_to_image(context: *vk_context.VkContext, src_buffer: vk.Buffer, dst_image: vk.Image, image_extent: vk.Extent3D, command_pool: vk.CommandPool,
+pub fn copy_buffer_to_image(interface: *VkInterface, src_buffer: vk.Buffer, dst_image: vk.Image, image_extent: vk.Extent3D, command_pool: vk.CommandPool,
 transfer_queue: vk.Queue) !void
 {
-    const command_buffer = try commands.begin_single_time_command_buffer(context, command_pool);
+    const command_buffer = try commands.begin_single_time_command_buffer(interface, command_pool);
 
     const info_buffer_image_copy: vk.BufferImageCopy = .{
         .buffer_offset = 0,
@@ -154,16 +156,16 @@ transfer_queue: vk.Queue) !void
         .image_extent = image_extent
     };
 
-    context.device.cmdCopyBufferToImage(command_buffer, src_buffer, dst_image, .transfer_dst_optimal, &.{ info_buffer_image_copy });
-    try commands.end_and_submit_single_time_command_buffer(context, command_pool, command_buffer, transfer_queue);
+    interface.device.cmdCopyBufferToImage(command_buffer, src_buffer, dst_image, .transfer_dst_optimal, &.{ info_buffer_image_copy });
+    try commands.end_and_submit_single_time_command_buffer(interface, command_pool, command_buffer, transfer_queue);
 }
 
 /// Perform a copy operation to copy data from an image to a buffer. Command pool and queue must both support transfer operations. NOTE: All Vulkan queues
 /// and command buffers that support graphics operations implicitly support transfer operations as well.
-pub fn copy_image_to_buffer(context: *vk_context.VkContext, src_image: vk.Image, dst_buffer: vk.Buffer, image_offset: vk.Offset3D, image_extent: vk.Extent3D, command_pool: vk.CommandPool,
+pub fn copy_image_to_buffer(interface: *VkInterface, src_image: vk.Image, dst_buffer: vk.Buffer, image_offset: vk.Offset3D, image_extent: vk.Extent3D, command_pool: vk.CommandPool,
 transfer_queue: vk.Queue) !void
 {
-    const command_buffer = try commands.begin_single_time_command_buffer(context, command_pool);
+    const command_buffer = try commands.begin_single_time_command_buffer(interface, command_pool);
 
     const info_image_buffer_copy: vk.BufferImageCopy = .{
         .buffer_offset = 0,
@@ -181,8 +183,8 @@ transfer_queue: vk.Queue) !void
         .image_extent = image_extent
     };
 
-    context.device.cmdCopyImageToBuffer(command_buffer, src_image, .transfer_src_optimal, dst_buffer, &.{ info_image_buffer_copy });
-    try commands.end_and_submit_single_time_command_buffer(context, command_pool, command_buffer, transfer_queue);
+    interface.device.cmdCopyImageToBuffer(command_buffer, src_image, .transfer_src_optimal, dst_buffer, &.{ info_image_buffer_copy });
+    try commands.end_and_submit_single_time_command_buffer(interface, command_pool, command_buffer, transfer_queue);
 }
 
 pub const VulkanAllocatorUsage = enum
@@ -300,7 +302,9 @@ pub const VulkanAllocator = struct
     };
 
     /// Vulkan context handle.
-    context: *vk_context.VkContext,
+    context: *VkContext,
+    /// Vulkan interface handle.
+    interface: *VkInterface,
 
     /// std.mem.Allocator object used for allocating an ArrayList on the CPU.
     cpu_allocator: *const std.mem.Allocator,
@@ -352,7 +356,7 @@ pub const VulkanAllocator = struct
             .memory_type_index = memory_type_index
         };
 
-        page.memory = try self.context.device.allocateMemory(&info_memory_allocate, null);
+        page.memory = try self.interface.device.allocateMemory(&info_memory_allocate, null);
 
         try self.memory_pages.append(self.cpu_allocator.*, page);
     }
@@ -556,30 +560,30 @@ pub const VulkanAllocator = struct
     /// Maps memory to the staging buffer, then transfers said memory to it's proper place in Vulkan memory.
     fn stage_buffer(self: *VulkanAllocator, buffer: vk.Buffer, comptime T: type, data: []T) !void
     {
-        try map_data_to_memory(T, self.context, self.staging_buffer_memory, data);
-        try copy_buffer(self.context, data.len * @sizeOf(T), self.staging_buffer, buffer, self.staging_command_pool.*,
+        try map_data_to_memory(T, self.interface, self.staging_buffer_memory, data);
+        try copy_buffer(self.interface, data.len * @sizeOf(T), self.staging_buffer, buffer, self.staging_command_pool.*,
         self.staging_queue.*);
     }
 
     /// Maps memory to the staging buffer, transfers said memory to the image, and then transitions the image's layout to be read by the shader.
     fn setup_image_texture(self: *VulkanAllocator, image: vk.Image, extent: vk.Extent3D, format: vk.Format) !void
     {
-        try image_utils.transition_vulkan_image_layout(self.context, image, format, .undefined, .transfer_dst_optimal,
+        try image_utils.transition_vulkan_image_layout(self.interface, image, format, .undefined, .transfer_dst_optimal,
         self.staging_command_pool.*, self.staging_queue.*);
-        try copy_buffer_to_image(self.context, self.staging_buffer, image, extent, self.staging_command_pool.*,
+        try copy_buffer_to_image(self.interface, self.staging_buffer, image, extent, self.staging_command_pool.*,
         self.staging_queue.*);
-        try image_utils.transition_vulkan_image_layout(self.context, image, format, .transfer_dst_optimal, 
+        try image_utils.transition_vulkan_image_layout(self.interface, image, format, .transfer_dst_optimal, 
         .shader_read_only_optimal, self.staging_command_pool.*, self.staging_queue.*);
     }
 
     /// Maps memory to the staging buffer, transfers said memory to the image, and then transitions the image's layout to be used as a source in a copy operation.
     fn setup_image_subtexture(self: *VulkanAllocator, image: vk.Image, extent: vk.Extent3D, format: vk.Format) !void
     {
-        try image_utils.transition_vulkan_image_layout(self.context, image, format, .undefined, .transfer_dst_optimal,
+        try image_utils.transition_vulkan_image_layout(self.interface, image, format, .undefined, .transfer_dst_optimal,
         self.staging_command_pool.*, self.staging_queue.*);
-        try copy_buffer_to_image(self.context, self.staging_buffer, image, extent, self.staging_command_pool.*,
+        try copy_buffer_to_image(self.interface, self.staging_buffer, image, extent, self.staging_command_pool.*,
         self.staging_queue.*);
-        try image_utils.transition_vulkan_image_layout(self.context, image, format, .undefined, .transfer_src_optimal,
+        try image_utils.transition_vulkan_image_layout(self.interface, image, format, .undefined, .transfer_src_optimal,
         self.staging_command_pool.*, self.staging_queue.*);
     }
 
@@ -634,10 +638,10 @@ pub const VulkanAllocator = struct
             .sharing_mode = share_mode
         };
 
-        const buffer = try self.context.device.createBuffer(&info_buffer, null);
+        const buffer = try self.interface.device.createBuffer(&info_buffer, null);
 
-        const memory_requirements = self.context.device.getBufferMemoryRequirements(buffer);
-        const memory_type_index = try find_physical_device_memory_type(self.context, memory_requirements.memory_type_bits, 
+        const memory_requirements = self.interface.device.getBufferMemoryRequirements(buffer);
+        const memory_type_index = try find_physical_device_memory_type(self.interface, memory_requirements.memory_type_bits, 
         memory_properties);
 
         var free_location = self.find_memory_space(memory_requirements.size, memory_requirements.alignment, 
@@ -654,7 +658,7 @@ pub const VulkanAllocator = struct
         }
 
         const page_memory = self.memory_pages.items[free_location.?.page].memory;
-        try self.context.device.bindBufferMemory(buffer, page_memory, free_location.?.offset);
+        try self.interface.device.bindBufferMemory(buffer, page_memory, free_location.?.offset);
 
         try self.page_freelist_fill(free_location.?, memory_requirements.size);
 
@@ -668,14 +672,14 @@ pub const VulkanAllocator = struct
 
     fn alloc_image_resource(self: *VulkanAllocator, image_info: vk.ImageCreateInfo) !VulkanImageAllocation
     {
-        const image = try self.context.device.createImage(&image_info, null);
+        const image = try self.interface.device.createImage(&image_info, null);
 
         const memory_properties: vk.MemoryPropertyFlags = .{
             .device_local_bit = true
         };
 
-        const memory_requirements = self.context.device.getImageMemoryRequirements(image);
-        const memory_type_index = try find_physical_device_memory_type(self.context, memory_requirements.memory_type_bits, memory_properties);
+        const memory_requirements = self.interface.device.getImageMemoryRequirements(image);
+        const memory_type_index = try find_physical_device_memory_type(self.context, self.interface, memory_requirements.memory_type_bits, memory_properties);
 
         var free_location = self.find_memory_space(memory_requirements.size, memory_requirements.alignment, 
         memory_type_index, memory_properties);
@@ -691,7 +695,7 @@ pub const VulkanAllocator = struct
         }
         
         const page_memory = self.memory_pages.items[free_location.?.page].memory;
-        try self.context.device.bindImageMemory(image, page_memory, free_location.?.offset);
+        try self.interface.device.bindImageMemory(image, page_memory, free_location.?.offset);
 
         try self.page_freelist_fill(free_location.?, memory_requirements.size);
 
@@ -721,7 +725,7 @@ pub const VulkanAllocator = struct
     {
         const allocation = try self.alloc_image_resource(image_info);
 
-        try map_data_to_memory(u8, self.context, self.staging_buffer_memory, image_data);
+        try map_data_to_memory(u8, self.interface, self.staging_buffer_memory, image_data);
 
         switch(usage)
         {
@@ -786,28 +790,28 @@ pub const VulkanAllocator = struct
     {
         for(self.memory_pages.items, 0..) |page, i|
         {
-            self.context.device.freeMemory(page.memory, null);
+            self.interface.device.freeMemory(page.memory, null);
             self.memory_pages.items[i].freelist.deinit(self.cpu_allocator.*);
         }
 
         self.memory_pages.deinit(self.cpu_allocator.*);
 
-        self.context.device.destroyBuffer(self.staging_buffer, null);
-        self.context.device.freeMemory(self.staging_buffer_memory, null);
+        self.interface.device.destroyBuffer(self.staging_buffer, null);
+        self.interface.device.freeMemory(self.staging_buffer_memory, null);
     }
 
     /// Frees a VulkanBufferAllocation from memory.
     pub fn free_buffer(self: *VulkanAllocator, allocation: VulkanBufferAllocation) void
     {
         self.page_freelist_clear(allocation.page, allocation.offset, allocation.size);
-        self.context.device.destroyBuffer(allocation.buffer, null);
+        self.interface.device.destroyBuffer(allocation.buffer, null);
     }
 
     /// Frees a VulkanImageAllocation from memory.
     pub fn free_image(self: *VulkanAllocator, allocation: VulkanImageAllocation) void
     {
         self.page_freelist_clear(allocation.page, allocation.offset, allocation.size);
-        self.context.device.destroyImage(allocation.image, null);
+        self.interface.device.destroyImage(allocation.image, null);
     }
 
     /// For buffers that are host-visible and host-coherent (such as UniformBuffers), maps data directly to their memory.
@@ -835,10 +839,10 @@ pub const VulkanAllocator = struct
 
         std.debug.assert(data_size <= size);
 
-        const map: *anyopaque = (try self.context.device.mapMemory(page.memory, offset + buffer_offset, size, .{})).?;
+        const map: *anyopaque = (try self.interface.device.mapMemory(page.memory, offset + buffer_offset, size, .{})).?;
         const map_coherent: []u8 = @as([*]u8, @ptrCast(map))[0..data.len * @sizeOf(T)];
             @memcpy(map_coherent, @as([*]u8, @ptrCast(data)));
-        self.context.device.unmapMemory(page.memory);
+        self.interface.device.unmapMemory(page.memory);
     }
 
     pub fn map_data_to_buffer(self: *VulkanAllocator, comptime T: type, data: []T, allocation: VulkanBufferAllocation) !void
@@ -848,8 +852,8 @@ pub const VulkanAllocator = struct
 
     pub fn overwrite_buffer(self: *VulkanAllocator, allocation: VulkanBufferAllocation, comptime T: type, data: []T, offset: vk.DeviceSize) !void
     {
-        try map_data_to_memory(T, self.context, self.staging_buffer_memory, data);
-        try copy_buffer_with_offsets(self.context, data.len * @sizeOf(T), self.staging_buffer, allocation.buffer, 
+        try map_data_to_memory(T, self.interface, self.staging_buffer_memory, data);
+        try copy_buffer_with_offsets(self.interface, data.len * @sizeOf(T), self.staging_buffer, allocation.buffer, 
         self.staging_command_pool.*, self.staging_queue.*, 0, offset * @sizeOf(T));
     }
 
@@ -859,12 +863,12 @@ pub const VulkanAllocator = struct
         const page = self.memory_pages.items[buffer.page];
 
         const data_size = buffer.size / @sizeOf(T);
-        const data = try self.context.allocator.alloc(T, data_size);
+        const data = try self.interface.allocator.alloc(T, data_size);
 
-        const map: *anyopaque = (try self.context.device.mapMemory(page.memory, buffer.offset, buffer.size, .{})).?;
+        const map: *anyopaque = (try self.interface.device.mapMemory(page.memory, buffer.offset, buffer.size, .{})).?;
         const map_data: []u8 = @as([*]u8, @ptrCast(map))[0..buffer.size];
             @memcpy(@as([*]u8, @ptrCast(data)), map_data);
-        self.context.device.unmapMemory(page.memory);
+        self.interface.device.unmapMemory(page.memory);
 
         return data;
     }
@@ -885,10 +889,11 @@ pub const VulkanAllocator = struct
     }
 
     /// Create an instance of VulkanAllocator.
-    pub fn init(context: *vk_context.VkContext, allocator: *const std.mem.Allocator, options: VulkanAllocatorOptions) !VulkanAllocator
+    pub fn init(context: *VkContext, interface: *VkInterface, allocator: *const std.mem.Allocator, options: VulkanAllocatorOptions) !VulkanAllocator
     {
         var alloc: VulkanAllocator = .{
             .context = context,
+            .interface = interface,
             .cpu_allocator = allocator,
             .memory_pages = try std.ArrayList(VulkanMemoryPage).initCapacity(allocator.*, 0),
             .staging_command_pool = options.transfer_command_pool,

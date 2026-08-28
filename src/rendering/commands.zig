@@ -7,11 +7,13 @@ const glfw = @import("glfw");
 const vk = @import("vulkan");
 
 const vkcontext = @import("vkcontext.zig");
+
+const VkInterface = vkcontext.VkInterface;
 const RenderPass = @import("renderpass.zig").RenderPass;
 const Pipeline = @import("pipeline.zig").Pipeline;
 
 /// Creates a command pool to allocate graphics command buffers.
-pub fn create_command_pool(vkc: *vkcontext.VkContext, queue_family_index: u32) !vk.CommandPool
+pub fn create_command_pool(vkc: *VkInterface, queue_family_index: u32) !vk.CommandPool
 {
     const info_command_pool: vk.CommandPoolCreateInfo = .{
         .flags = .{
@@ -24,7 +26,7 @@ pub fn create_command_pool(vkc: *vkcontext.VkContext, queue_family_index: u32) !
 }
 
 /// Uses an available command pool to create a single vk.CommandBuffer object to be executed once.
-pub fn begin_single_time_command_buffer(context: *vkcontext.VkContext, command_pool: vk.CommandPool) !vk.CommandBuffer
+pub fn begin_single_time_command_buffer(context: *VkInterface, command_pool: vk.CommandPool) !vk.CommandBuffer
 {
     const info_alloc: vk.CommandBufferAllocateInfo = .{
         .level = .primary,
@@ -47,7 +49,7 @@ pub fn begin_single_time_command_buffer(context: *vkcontext.VkContext, command_p
 }
 
 /// Finishes recording and submits a single-time command buffer.
-pub fn end_and_submit_single_time_command_buffer(context: *vkcontext.VkContext, command_pool: vk.CommandPool, command_buffer: vk.CommandBuffer, queue: vk.Queue) !void
+pub fn end_and_submit_single_time_command_buffer(context: *VkInterface, command_pool: vk.CommandPool, command_buffer: vk.CommandBuffer, queue: vk.Queue) !void
 {
     try context.device.endCommandBuffer(command_buffer);
 
@@ -67,7 +69,7 @@ pub fn end_and_submit_single_time_command_buffer(context: *vkcontext.VkContext, 
 pub const CommandBuffer = struct
 {
     /// Vulkan context.
-    vkc: *vkcontext.VkContext,
+    vkc: *VkInterface,
 
     /// vk.CommandBuffer handle.
     handle: vk.CommandBuffer = undefined,
@@ -224,7 +226,7 @@ pub const CommandBuffer = struct
     }
 
     /// Initializes a CommandBuffer object.
-    pub fn init(vkc: *vkcontext.VkContext, command_pool: vk.CommandPool) !CommandBuffer
+    pub fn init(vkc: *VkInterface, command_pool: vk.CommandPool) !CommandBuffer
     {
         var command_buffer: CommandBuffer = .{
             .vkc = vkc

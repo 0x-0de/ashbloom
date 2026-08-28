@@ -550,12 +550,6 @@ pub const VkContext = struct
 
         return vk_context;
     }
-
-    /// Returns the queue at the queue index with the queue family.
-    pub fn get_queue(self: *VkContext, queue_family_index: usize, queue_index: usize) vk.Queue
-    {
-        return self.device.getDeviceQueue(@truncate(queue_family_index), @truncate(queue_index));
-    }
 };
 
 /// Represents an output point for the Vulkan context. This structure contains a Vulkan logical device and surface.
@@ -837,6 +831,12 @@ const VkInterface = struct
         interface.device.* = vk.DeviceProxy.init(hndl_device, interface.vkd);
 
         return interface;
+    }
+
+    /// Returns the queue at the queue index with the queue family.
+    pub fn get_queue(self: *VkInterface, queue_family_index: usize, queue_index: usize) vk.Queue
+    {
+        return self.device.getDeviceQueue(@truncate(queue_family_index), @truncate(queue_index));
     }
 };
 
