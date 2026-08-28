@@ -50,6 +50,7 @@ pub const RenderPass = @import("rendering/renderpass.zig").RenderPass;
 pub const Swapchain = @import("rendering/swapchain.zig").Swapchain;
 
 pub const VkContext = vk_context.VkContext;
+pub const VkInterface = vk_context.VkInterface;
 
 pub const Mesh = mesh.Mesh;
 
