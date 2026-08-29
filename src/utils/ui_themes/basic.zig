@@ -18,7 +18,7 @@ const Element = vkui.Element;
 const Placement = vkui.Placement;
 const ContainerInputData = vkui.ContainerInputData;
 
-const VkContext = @import("../../rendering/vkcontext.zig").VkContext;
+const VkInterface = @import("../../rendering/vkcontext.zig").VkInterface;
 const Swapchain = @import("../../rendering/swapchain.zig").Swapchain;
 const RenderPass = @import("../../rendering/renderpass.zig").RenderPass;
 
@@ -2338,7 +2338,7 @@ pub fn get_textfield_text(e: *Element) []u32
     return textfield_data.text;
 }
 
-pub fn init_basic_render_pass(context: *VkContext, swapchain: Swapchain) !*RenderPass
+pub fn init_basic_render_pass(interface: *VkInterface, swapchain: Swapchain) !*RenderPass
 {
     const color_subpass: RenderPass.Subpass = .{
         .color_attachment_index = 0,
@@ -2360,8 +2360,8 @@ pub fn init_basic_render_pass(context: *VkContext, swapchain: Swapchain) !*Rende
         }
     };
 
-    var ui_render_pass = try context.allocator.create(RenderPass);
-    ui_render_pass.* = try .init(context);
+    var ui_render_pass = try interface.allocator.create(RenderPass);
+    ui_render_pass.* = try .init(interface);
 
     try ui_render_pass.add_attachment_description_no_stencil_multisample
     (swapchain.format.format, .clear, .store, .undefined, .present_src_khr);
@@ -2371,10 +2371,10 @@ pub fn init_basic_render_pass(context: *VkContext, swapchain: Swapchain) !*Rende
     return ui_render_pass;
 }
 
-fn init_basic_pipeline_descriptor_set(context: *VkContext, vk_allocator: *VulkanAllocator, swapchain: Swapchain, container: Container) !*PipelineDescriptorSet
+fn init_basic_pipeline_descriptor_set(interface: *VkInterface, vk_allocator: *VulkanAllocator, swapchain: Swapchain, container: Container) !*PipelineDescriptorSet
 {
-    var ui_descriptor_set = try context.allocator.create(PipelineDescriptorSet);
-    ui_descriptor_set.* = try .init(context, vk_allocator, @truncate(swapchain.image_count));
+    var ui_descriptor_set = try interface.allocator.create(PipelineDescriptorSet);
+    ui_descriptor_set.* = try .init(interface, vk_allocator, @truncate(swapchain.image_count));
 
     try ui_descriptor_set.add_binding(.{
         .binding_index = 0,
@@ -2405,12 +2405,12 @@ fn init_basic_pipeline_descriptor_set(context: *VkContext, vk_allocator: *Vulkan
     return ui_descriptor_set;
 }
 
-fn init_basic_pipeline(context: *VkContext, descriptor_set: PipelineDescriptorSet, render_pass: *RenderPass) !*Pipeline
+fn init_basic_pipeline(interface: *VkInterface, descriptor_set: PipelineDescriptorSet, render_pass: *RenderPass) !*Pipeline
 {
-    var ui_pipeline = try context.allocator.create(Pipeline);
-    ui_pipeline.* = try .init(context);
+    var ui_pipeline = try interface.allocator.create(Pipeline);
+    ui_pipeline.* = try .init(interface);
 
-    var pvi = try pipeline.PipelineVertexInput.init(context.allocator);
+    var pvi = try pipeline.PipelineVertexInput.init(interface.allocator);
     defer pvi.deinit();
 
     try pvi.add_attribute(0, 0, vk.Format.r32_sfloat, 0);
@@ -2442,7 +2442,7 @@ fn update_ui_basic_uniforms(container: Container, set_index: u16) !void
     const width = container.bounds.scl_x;
     const height = container.bounds.scl_y;
 
-    var projection = try math.mat_projection_orthographic(container.context.allocator, 0, width, 0, height, -1, 1);
+    var projection = try math.mat_projection_orthographic(container.interface.allocator, 0, width, 0, height, -1, 1);
 
     const projection_data = try math.mat_slice_data(f32, projection);
 
@@ -2450,16 +2450,16 @@ fn update_ui_basic_uniforms(container: Container, set_index: u16) !void
 
     try container.ui_rendering.descriptor_set.place_data(set_index, 0, f32, projection_data, 0);
 
-    container.context.allocator.free(projection_data);
+    container.interface.allocator.free(projection_data);
 }
 
 /// Creates a ContainerRendering struct compatible with the basic UI element factories provided in this module.
-pub fn init_render_instance(context: *VkContext, vulkan_allocator: *VulkanAllocator, swapchain: Swapchain, container: Container, render_pass: ?*RenderPass, render_queue: vk.Queue) !vkui.ContainerRendering
+pub fn init_render_instance(interface: *VkInterface, vulkan_allocator: *VulkanAllocator, swapchain: Swapchain, container: Container, render_pass: ?*RenderPass, render_queue: vk.Queue) !vkui.ContainerRendering
 {
-    const rp = render_pass orelse try init_basic_render_pass(context, swapchain);
+    const rp = render_pass orelse try init_basic_render_pass(interface, swapchain);
 
-    const ui_descriptor_set = try init_basic_pipeline_descriptor_set(context, vulkan_allocator, swapchain, container);
-    const ui_pipeline = try init_basic_pipeline(context, ui_descriptor_set.*, rp);
+    const ui_descriptor_set = try init_basic_pipeline_descriptor_set(interface, vulkan_allocator, swapchain, container);
+    const ui_pipeline = try init_basic_pipeline(interface, ui_descriptor_set.*, rp);
 
     return .{
         .render_pass = rp,
@@ -3200,7 +3200,6 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
             .element_start =>
             {
                 const element_name = reader.elementNameNs().local;
-                ash.print_stdout("New tag: {s}\n", .{element_name});
 
                 var attributes = try allocator.alloc(XMLAttribute, reader.attributeCount());
                 defer allocator.free(attributes);
@@ -3209,8 +3208,6 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
                 {
                     const attribute_name = reader.attributeNameNs(i);
                     const attribute_value = try reader.attributeValue(i);
-
-                    ash.print_stdout("\tAttribute: {s} = {s}\n", .{attribute_name.local, attribute_value});
 
                     attributes[i] = .{
                         .name = attribute_name.local,
@@ -3291,8 +3288,6 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
             },
             .element_end => {
                 const element_name = reader.elementNameNs().local;
-                ash.print_stdout("End tag: {s}\n", .{element_name});
-                ash.print_stdout("\tCurrent stack length: {d}\n", .{element_stack.items.len});
 
                 if(std.mem.eql(u8, element_name, "quad"))
                 {
@@ -3340,10 +3335,7 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
                         const text = try reader.text();
                         const index = element_stack.items.len - 1;
 
-                        ash.print_stdout("Text tag: {s}\n", .{text});
-
                         const flattened_text = trim_string(u8, text);
-                        ash.print_stdout("\t(trim string): {s}\n", .{flattened_text});
 
                         var text_data: TextData = undefined;
                         memcpy_anonymous(&text_data, element_stack.items[index].data.?.ptr, @sizeOf(TextData));

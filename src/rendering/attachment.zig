@@ -27,7 +27,7 @@ pub const AttachmentBundle = struct
 {
     allocator: *const std.mem.Allocator,
 
-    vk_context: *ash.VkContext,
+    interface: *ash.VkInterface,
     vk_allocator: *vk_memory.VulkanAllocator,
 
     /// ArrayList of all attachments.
@@ -41,7 +41,7 @@ pub const AttachmentBundle = struct
             if(att.image != null)
             {
                 self.vk_allocator.free_image(att.image.?);
-                self.vk_context.device.destroyImageView(att.image_view.?, null);
+                self.interface.device.destroyImageView(att.image_view.?, null);
             }
         }
 
@@ -49,11 +49,11 @@ pub const AttachmentBundle = struct
     }
 
     /// Initializes an empty attachment bundle.
-    pub fn init(allocator: *const std.mem.Allocator, vk_context: *ash.VkContext, vk_allocator: *vk_memory.VulkanAllocator) !AttachmentBundle
+    pub fn init(allocator: *const std.mem.Allocator, interface: *ash.VkContext, vk_allocator: *vk_memory.VulkanAllocator) !AttachmentBundle
     {
         return .{
             .allocator = allocator,
-            .vk_context = vk_context,
+            .interface = interface,
             .vk_allocator = vk_allocator,
             .attachments = try .initCapacity(allocator.*, 0)
         };
@@ -73,7 +73,7 @@ pub const AttachmentBundle = struct
             if(att.image != null)
             {
                 self.vk_allocator.free_image(att.image.?);
-                self.vk_context.device.destroyImageView(att.image_view.?, null);
+                self.interface.device.destroyImageView(att.image_view.?, null);
             }
             
             att.info_image.extent = .{
@@ -85,7 +85,7 @@ pub const AttachmentBundle = struct
             att.image = try self.vk_allocator.alloc_image_empty(att.info_image, att.image_usage);
 
             att.info_image_view.image = att.image.?.image;
-            att.image_view = try self.vk_context.device.createImageView(&att.info_image_view, null);
+            att.image_view = try self.interface.device.createImageView(&att.info_image_view, null);
         }
     }
 };

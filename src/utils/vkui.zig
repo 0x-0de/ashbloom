@@ -8,7 +8,7 @@ const images = @import("image_utils.zig");
 const pipelines = @import("../rendering/pipeline.zig");
 const misc = @import("misc.zig");
 
-const VkContext = @import("../rendering/vkcontext.zig").VkContext;
+const VkInterface = @import("../rendering/vkcontext.zig").VkInterface;
 const VulkanAllocator = vk_memory.VulkanAllocator;
 
 const CommandBuffer = @import("../rendering/commands.zig").CommandBuffer;
@@ -86,7 +86,7 @@ pub const Alignment = struct
 pub const Placement = struct
 {
     /// Position of the object relative to the draw bounds of its parent. A value of 0.5 for example corresponds to either the center of the object
-    /// or half of it's scale on an axis, depending on context.
+    /// or half of it's scale on an axis, depending on interface.
     relative_pos: Bounds,
     /// An additional pixel value can be added onto each element of relative_pos to determine a final value.
     absolute_offset: Bounds,
@@ -749,7 +749,7 @@ pub const ContainerRendering = struct
     uniform_callback: *const fn(Container, u16) anyerror!void,
     render_pass_is_reference: bool,
 
-    pub fn deinit(self: *ContainerRendering, vk_context: VkContext) void
+    pub fn deinit(self: *ContainerRendering, vk_context: VkInterface) void
     {
         self.pipeline.deinit();
         vk_context.allocator.destroy(self.pipeline);
@@ -769,8 +769,8 @@ pub const ContainerRendering = struct
 /// be added to.
 pub const Container = struct
 {
-    /// Vulkan context.
-    context: *VkContext,
+    /// Vulkan interface.
+    interface: *VkInterface,
     /// Vulkan allocator.
     vk_allocator: *VulkanAllocator,
 
@@ -814,7 +814,7 @@ pub const Container = struct
         const total_elements = self.origin.get_element_draw_count() + 1;
         self.element_draw_count = total_elements;
 
-        var data_list = try std.ArrayList(f32).initCapacity(self.context.allocator.*, total_elements * 13);
+        var data_list = try std.ArrayList(f32).initCapacity(self.interface.allocator.*, total_elements * 13);
 
         const erb: Element.RuntimeBounds = .{
             .draw_bounds = self.bounds,
@@ -835,7 +835,7 @@ pub const Container = struct
         {
             if(element.enabled and element.draw_mode != .None)
             {
-                try list.append(self.context.allocator.*, element);
+                try list.append(self.interface.allocator.*, element);
             }
             element.should_refresh = false;
         }
@@ -882,7 +882,7 @@ pub const Container = struct
     {
         for(callbacks) |cb|
         {
-            try self.callback_queue.append(self.context.allocator.*, cb);
+            try self.callback_queue.append(self.interface.allocator.*, cb);
         }
     }
 
@@ -891,7 +891,7 @@ pub const Container = struct
     {
         try self.add(element);
         try element.deinit();
-        self.context.allocator.destroy(element);
+        self.interface.allocator.destroy(element);
     }
 
     /// Adds a texture to the texture atlas.
@@ -906,18 +906,18 @@ pub const Container = struct
     {
         if(self.instance_buffer != null)
         {
-            try self.context.device.queueWaitIdle(self.ui_rendering.render_queue);
+            try self.interface.device.queueWaitIdle(self.ui_rendering.render_queue);
 
             try self.perform_rebuild_callbacks(&self.origin);
             self.vk_allocator.free_buffer(self.instance_buffer.?);
         }
 
-        var lineage_list: std.ArrayList(usize) = try .initCapacity(self.context.allocator.*, 0);
+        var lineage_list: std.ArrayList(usize) = try .initCapacity(self.interface.allocator.*, 0);
         try self.origin.build_lineage(&lineage_list);
-        lineage_list.deinit(self.context.allocator.*);
+        lineage_list.deinit(self.interface.allocator.*);
 
         var data_list = try self.get_all_element_data();
-        defer data_list.deinit(self.context.allocator.*);
+        defer data_list.deinit(self.interface.allocator.*);
 
         self.instance_buffer = if(data_list.items.len == 0) null else try self.vk_allocator.alloc_buffer(f32, data_list.items, .exclusive, .VertexBuffer);
     }
@@ -927,7 +927,7 @@ pub const Container = struct
     {
         try self.origin.deinit();
         self.texture_atlas.deinit();
-        self.callback_queue.deinit(self.context.allocator.*);
+        self.callback_queue.deinit(self.interface.allocator.*);
         if(self.instance_buffer != null) self.vk_allocator.free_buffer(self.instance_buffer.?);
     }
 
@@ -1029,15 +1029,15 @@ pub const Container = struct
     }
 
     /// Creates a new Container object.
-    pub fn init(context: *VkContext, vulkan_allocator: *VulkanAllocator) !Container
+    pub fn init(interface: *VkInterface, vulkan_allocator: *VulkanAllocator) !Container
     {
         if(!initialized) return AshbloomUIError.UIisUninitialized;
 
         const container: Container = .{
-            .context = context,
+            .interface = interface,
             .vk_allocator = vulkan_allocator,
 
-            .origin = try Element.init(context.allocator, .None, .{
+            .origin = try Element.init(interface.allocator, .None, .{
                 .relative_pos = .{
                     .pos_x = 0,
                     .pos_y = 0,
@@ -1053,11 +1053,11 @@ pub const Container = struct
 
             .bounds = .get_default(),
             .ui_rendering = undefined,
-            .texture_atlas = try images.TextureAtlas2D.init(context, vulkan_allocator, 1024, 1024),
+            .texture_atlas = try images.TextureAtlas2D.init(interface, vulkan_allocator, 1024, 1024),
             .tick_rate = 60,
             .tick_timer = 0,
             .prev_time = glfw.getTime(),
-            .callback_queue = try std.ArrayList(CallbackEvent).initCapacity(context.allocator.*, 0)
+            .callback_queue = try std.ArrayList(CallbackEvent).initCapacity(interface.allocator.*, 0)
         };
 
         return container;
@@ -1067,7 +1067,7 @@ pub const Container = struct
     pub fn refresh_all(self: *Container) !void
     {
         var data_list = try self.get_all_element_data();
-        defer data_list.deinit(self.context.allocator.*);
+        defer data_list.deinit(self.interface.allocator.*);
 
         try self.vk_allocator.overwrite_buffer(self.instance_buffer.?, f32, data_list.items, 0);
     }
@@ -1156,15 +1156,15 @@ pub const Container = struct
             {
                 // Get a list of every element which needs to be refreshed.
 
-                var element_refresh_list = try std.ArrayList(*Element).initCapacity(self.context.allocator.*, 0);
-                defer element_refresh_list.deinit(self.context.allocator.*);
+                var element_refresh_list = try std.ArrayList(*Element).initCapacity(self.interface.allocator.*, 0);
+                defer element_refresh_list.deinit(self.interface.allocator.*);
 
                 try self.get_elements_refresh_list(&self.origin, &element_refresh_list);
 
                 // Now get the ranges of all these elements in the instance data array.
 
-                var condensed_list = try std.ArrayList(u64).initCapacity(self.context.allocator.*, 0);
-                defer condensed_list.deinit(self.context.allocator.*);
+                var condensed_list = try std.ArrayList(u64).initCapacity(self.interface.allocator.*, 0);
+                defer condensed_list.deinit(self.interface.allocator.*);
 
                 var previous_offset: u64 = 0;
                 var current_length: u64 = 0;
@@ -1177,10 +1177,10 @@ pub const Container = struct
                     {
                         if(condensed_list.items.len != 0)
                         {
-                            try condensed_list.append(self.context.allocator.*, current_length);
+                            try condensed_list.append(self.interface.allocator.*, current_length);
                         }
 
-                        try condensed_list.append(self.context.allocator.*, @truncate(i));
+                        try condensed_list.append(self.interface.allocator.*, @truncate(i));
                         current_length = 0;
                     }
 
@@ -1188,7 +1188,7 @@ pub const Container = struct
                     previous_offset = offset;
                 }
 
-                try condensed_list.append(self.context.allocator.*, current_length);
+                try condensed_list.append(self.interface.allocator.*, current_length);
 
                 // Now run through the list, and refresh each batch of elements.
 
@@ -1199,8 +1199,8 @@ pub const Container = struct
 
                     std.debug.assert(start_element.draw_mode != .None);
 
-                    var data = try self.context.allocator.alloc(f32, condensed_list.items[i * 2 + 1]);
-                    defer self.context.allocator.free(data);
+                    var data = try self.interface.allocator.alloc(f32, condensed_list.items[i * 2 + 1]);
+                    defer self.interface.allocator.free(data);
 
                     const num_elements = condensed_list.items[i * 2 + 1] / 13;
 

@@ -25,6 +25,7 @@ var allocator: std.mem.Allocator = undefined;
 var window: Window = undefined;
 
 var vk_context: ash.VkContext = undefined;
+var vk_interface: ash.VkInterface = undefined;
 var vk_allocator: ash.VulkanAllocator = undefined;
 
 var vk_command_pool: vk.CommandPool = undefined;
@@ -38,27 +39,33 @@ const AppQueues = enum(u8)
 var vk_queues: std.EnumArray(AppQueues, vk.Queue) = .initUndefined();
 
 /// Initializes the Vulkan context.
-fn init_vk_context() !void
+fn init_vk_interfaces() !void
 {
     const vk_context_options: ash.VkContext.InitOptions = .{
         .instance_extensions = @ptrCast(&debug_required_instance_extensions),
         .instance_layers = @ptrCast(&debug_required_validation_layers),
+    };
+
+    const vk_interface_options: ash.VkInterface.InitOptions = .{
+        .device_layers = @ptrCast(&debug_required_validation_layers),
         .required_device_extensions = @ptrCast(&required_device_extensions),
         .required_device_features = .{
             .logic_op = .true
         }
+
     };
 
-    vk_context = try ash.VkContext.init(&allocator, &window, vk_context_options);
+    vk_context = try ash.VkContext.init(&allocator, vk_context_options);
+    vk_interface = try ash.VkInterface.init_window(&vk_context, &window, vk_interface_options);
 
-    const queue_families = vk_context.physical_device_queue_families.?;
+    const queue_families = vk_interface.physical_device_queue_families.?;
 
-    vk_queues.set(.Graphics, vk_context.get_queue(@truncate(queue_families.graphics_family_index.?), 0));
-    vk_queues.set(.Presentation, vk_context.get_queue(@truncate(queue_families.present_family_index.?), 0));
+    vk_queues.set(.Graphics, vk_interface.get_queue(@truncate(queue_families.graphics_family_index.?), 0));
+    vk_queues.set(.Presentation, vk_interface.get_queue(@truncate(queue_families.present_family_index.?), 0));
 
-    vk_command_pool = try ash.commands.create_command_pool(&vk_context, @truncate(queue_families.graphics_family_index.?));
+    vk_command_pool = try ash.commands.create_command_pool(&vk_interface, @truncate(queue_families.graphics_family_index.?));
 
-    vk_allocator = try ash.VulkanAllocator.init(&vk_context, &allocator, .{
+    vk_allocator = try ash.VulkanAllocator.init(&vk_interface, &allocator, .{
         .transfer_command_pool = &vk_command_pool,
         .transfer_queue = vk_queues.getPtr(.Graphics),
         .page_size = 128 << 20, // 128 MB.
@@ -67,11 +74,13 @@ fn init_vk_context() !void
 }
 
 /// Deinitializes the Vulkan context.
-fn deinit_vk_context() void
+fn deinit_vk_interfaces() void
 {
     vk_allocator.deinit();
 
-    vk_context.device.destroyCommandPool(vk_command_pool, null);
+    vk_interface.device.destroyCommandPool(vk_command_pool, null);
+    vk_interface.deinit();
+
     vk_context.deinit();
 }
 
@@ -139,18 +148,18 @@ pub fn main() !void
 
     const font_entry = try ash.misc.search_font_entries(system_fonts, names_slc);
 
-    try init_vk_context();
-    defer deinit_vk_context();
+    try init_vk_interfaces();
+    defer deinit_vk_interfaces();
 
-    var swapchain = try ash.Swapchain.init(&window, &vk_context, &vk_allocator, vk_command_pool, 1);
+    var swapchain = try ash.Swapchain.init(&window, &vk_interface, &vk_allocator, vk_command_pool, 1);
     defer swapchain.deinit(true);
 
     try ui.init();
     defer ui.deinit();
 
-    app_ui_container = try ui.Container.init(&vk_context, &vk_allocator);
+    app_ui_container = try ui.Container.init(&vk_interface, &vk_allocator);
 
-    app_font = try ash.Font.init(&vk_context, &vk_allocator, font_entry.path, 36, &app_ui_container.texture_atlas);
+    app_font = try ash.Font.init(&vk_interface, &vk_allocator, font_entry.path, 36, &app_ui_container.texture_atlas);
     defer app_font.deinit();
 
     for(system_fonts, 0..) |_, i|
@@ -159,8 +168,8 @@ pub fn main() !void
     }
     allocator.free(system_fonts);
 
-    var container_resources = try ash.ui_theme_basic.init_render_instance(&vk_context, &vk_allocator, swapchain, app_ui_container, null, vk_queues.get(.Graphics));
-    defer container_resources.deinit(vk_context);
+    var container_resources = try ash.ui_theme_basic.init_render_instance(&vk_interface, &vk_allocator, swapchain, app_ui_container, null, vk_queues.get(.Graphics));
+    defer container_resources.deinit(vk_interface);
     app_ui_container.set_render_instance(container_resources);
 
     var framebuffers_ui = try swapchain.create_framebuffers(container_resources.render_pass, &.{});
@@ -214,6 +223,6 @@ pub fn main() !void
         try swapchain.present(vk_queues.get(.Presentation));
     }
 
-    try vk_context.device.deviceWaitIdle();
+    try vk_interface.device.deviceWaitIdle();
     try app_ui_container.deinit();
 }

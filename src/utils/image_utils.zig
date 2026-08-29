@@ -2,7 +2,7 @@ const std = @import("std");
 
 const vk = @import("vulkan");
 
-const VkContext = @import("../rendering//vkcontext.zig").VkContext;
+const VkInterface = @import("../rendering//vkcontext.zig").VkInterface;
 
 const vk_memory = @import("vkmemory.zig");
 const VulkanAllocator = vk_memory.VulkanAllocator;
@@ -79,7 +79,7 @@ pub fn load_bmp_image(allocator: *const std.mem.Allocator, path: [*:0]const u8, 
 }
 
 /// Creates an image view using a 2D image.
-pub fn create_image_view_2d(context: *VkContext, image: vk.Image, format: vk.Format) !vk.ImageView
+pub fn create_image_view_2d(interface: *VkInterface, image: vk.Image, format: vk.Format) !vk.ImageView
 {
     const info_image_view: vk.ImageViewCreateInfo = .{
         .image = image,
@@ -102,12 +102,12 @@ pub fn create_image_view_2d(context: *VkContext, image: vk.Image, format: vk.For
         }
     };
 
-    const image_view = try context.device.createImageView(&info_image_view, null);
+    const image_view = try interface.device.createImageView(&info_image_view, null);
 
     return image_view;
 }
 
-pub fn create_sampler_2d_linear_repeat_no_mipmap(context: *VkContext) !vk.Sampler
+pub fn create_sampler_2d_linear_repeat_no_mipmap(interface: *VkInterface) !vk.Sampler
 {
     const info_sampler: vk.SamplerCreateInfo = .{
         .mag_filter = .linear,
@@ -127,18 +127,18 @@ pub fn create_sampler_2d_linear_repeat_no_mipmap(context: *VkContext) !vk.Sample
         .max_lod = 0,
     };
 
-    const sampler = try context.device.createSampler(&info_sampler, null);
+    const sampler = try interface.device.createSampler(&info_sampler, null);
     return sampler;
 }
 
 /// Handles transitioning image layouts, used during image transitions in memory.
-pub fn transition_vulkan_image_layout(context: *VkContext, image: vk.Image, image_format: vk.Format, old_layout: vk.ImageLayout, new_layout: vk.ImageLayout,
+pub fn transition_vulkan_image_layout(interface: *VkInterface, image: vk.Image, image_format: vk.Format, old_layout: vk.ImageLayout, new_layout: vk.ImageLayout,
 command_pool: vk.CommandPool, transfer_queue: vk.Queue) !void
 {
     // Tutorial specified this should be a part of the function... but we're not currently using it.
     _ = image_format;
 
-    const command_buffer = try commands.begin_single_time_command_buffer(context, command_pool);
+    const command_buffer = try commands.begin_single_time_command_buffer(interface, command_pool);
 
     var pipeline_barrier: vk.ImageMemoryBarrier = .{
         .old_layout = old_layout,
@@ -219,15 +219,15 @@ command_pool: vk.CommandPool, transfer_queue: vk.Queue) !void
         }
     }
 
-    context.device.cmdPipelineBarrier(command_buffer, src_stage, dst_stage, .{}, null, null, &.{ pipeline_barrier });
+    interface.device.cmdPipelineBarrier(command_buffer, src_stage, dst_stage, .{}, null, null, &.{ pipeline_barrier });
 
-    try commands.end_and_submit_single_time_command_buffer(context, command_pool, command_buffer, transfer_queue);
+    try commands.end_and_submit_single_time_command_buffer(interface, command_pool, command_buffer, transfer_queue);
 }
 
 /// This struct holds a VulkanImageAllocation, ImageView, and Sampler, to be used for rendering textures.
 pub const Texture2D = struct
 {
-    context: *VkContext,
+    interface: *VkInterface,
     vk_allocator: *VulkanAllocator,
 
     image: VulkanAllocator.VulkanImageAllocation = undefined,
@@ -240,12 +240,12 @@ pub const Texture2D = struct
 
     pub fn deinit(self: *Texture2D) void
     {
-        if(self.sampler != null) self.context.device.destroySampler(self.sampler.?, null);
-        if(self.image_view != null) self.context.device.destroyImageView(self.image_view.?, null);
+        if(self.sampler != null) self.interface.device.destroySampler(self.sampler.?, null);
+        if(self.image_view != null) self.interface.device.destroyImageView(self.image_view.?, null);
         self.vk_allocator.free_image(self.image);
     }
 
-    pub fn init_buffer(context: *VkContext, vk_allocator: *VulkanAllocator, comptime T: type, buffer: []T, width: u32, height: u32, format: vk.Format,
+    pub fn init_buffer(interface: *VkInterface, vk_allocator: *VulkanAllocator, comptime T: type, buffer: []T, width: u32, height: u32, format: vk.Format,
     usage: vk_memory.VulkanAllocatorUsage) !Texture2D
     {
         var image_data: []u8 = undefined;
@@ -266,12 +266,12 @@ pub const Texture2D = struct
 
         if(usage == .Texture)
         {
-            image_view = try create_image_view_2d(context, image.image, format);
-            sampler = try create_sampler_2d_linear_repeat_no_mipmap(context);
+            image_view = try create_image_view_2d(interface, image.image, format);
+            sampler = try create_sampler_2d_linear_repeat_no_mipmap(interface);
         }
 
         return .{
-            .context = context,
+            .interface = interface,
             .vk_allocator = vk_allocator,
             .width = width,
             .height = height,
@@ -281,16 +281,16 @@ pub const Texture2D = struct
         };
     }
 
-    pub fn init(context: *VkContext, vk_allocator: *VulkanAllocator, path: [*:0]const u8, usage: vk_memory.VulkanAllocatorUsage) !Texture2D
+    pub fn init(interface: *VkInterface, vk_allocator: *VulkanAllocator, path: [*:0]const u8, usage: vk_memory.VulkanAllocatorUsage) !Texture2D
     {
         var image_width: u32 = undefined;
         var image_height: u32 = undefined;
 
-        const image_data = try load_bmp_image(context.allocator, path, &image_width, &image_height);
-        const texture = try Texture2D.init_buffer(context, vk_allocator, u8, image_data, image_width, image_height,
+        const image_data = try load_bmp_image(interface.allocator, path, &image_width, &image_height);
+        const texture = try Texture2D.init_buffer(interface, vk_allocator, u8, image_data, image_width, image_height,
         .a8b8g8r8_srgb_pack32, usage);
 
-        context.allocator.free(image_data);
+        interface.allocator.free(image_data);
 
         return texture;
     }
@@ -304,7 +304,7 @@ pub const TextureAtlasError = error
 /// A TextureAltas is a "dynamic" texture sheet, which can store and discard smaller textures.
 pub const TextureAtlas2D = struct
 {
-    context: *VkContext,
+    interface: *VkInterface,
     vk_allocator: *VulkanAllocator,
 
     image: VulkanAllocator.VulkanImageAllocation,
@@ -394,15 +394,15 @@ pub const TextureAtlas2D = struct
             }
         }
 
-        try transition_vulkan_image_layout(self.context, self.image.image, .a8b8g8r8_uint_pack32, .undefined, 
+        try transition_vulkan_image_layout(self.interface, self.image.image, .a8b8g8r8_uint_pack32, .undefined, 
         .transfer_dst_optimal, self.vk_allocator.staging_command_pool.*, self.vk_allocator.staging_queue.*);
 
-        try vk_memory.copy_image(self.context, texture.image.image, self.image.image, .transfer_src_optimal, 
+        try vk_memory.copy_image(self.interface, texture.image.image, self.image.image, .transfer_src_optimal, 
         .transfer_dst_optimal, self.vk_allocator.staging_command_pool.*, self.vk_allocator.staging_queue.*, 
         .{.x = 0, .y = 0, .z = 0}, .{.x = @bitCast(tex_offset_x), .y = @bitCast(tex_offset_y), .z = 0},
         .{.width = texture.width, .height = texture.height, .depth = 1}, image_subresource, image_subresource);
 
-        try transition_vulkan_image_layout(self.context, self.image.image, .a8b8g8r8_uint_pack32, .transfer_dst_optimal, 
+        try transition_vulkan_image_layout(self.interface, self.image.image, .a8b8g8r8_uint_pack32, .transfer_dst_optimal, 
         .shader_read_only_optimal, self.vk_allocator.staging_command_pool.*, self.vk_allocator.staging_queue.*);
 
         const f_width = @as(f32, @floatFromInt(self.width));
@@ -418,28 +418,28 @@ pub const TextureAtlas2D = struct
     
     pub fn deinit(self: *TextureAtlas2D) void
     {
-        self.context.device.destroySampler(self.sampler, null);
-        self.context.device.destroyImageView(self.image_view, null);
+        self.interface.device.destroySampler(self.sampler, null);
+        self.interface.device.destroyImageView(self.image_view, null);
         self.vk_allocator.free_image(self.image);
 
         for(0..self.map_texels_used.len) |i|
         {
-            self.context.allocator.free(self.map_texels_used[i]);
+            self.interface.allocator.free(self.map_texels_used[i]);
         }
-        self.context.allocator.free(self.map_texels_used);
+        self.interface.allocator.free(self.map_texels_used);
     }
 
-    pub fn init(context: *VkContext, vk_allocator: *VulkanAllocator, width: u32, height: u32) !TextureAtlas2D
+    pub fn init(interface: *VkInterface, vk_allocator: *VulkanAllocator, width: u32, height: u32) !TextureAtlas2D
     {
         const image = try vk_allocator.alloc_image_2d_empty(width, height, .a8b8g8r8_srgb_pack32, .Texture);
 
-        const image_view = try create_image_view_2d(context, image.image, .a8b8g8r8_srgb_pack32);
-        const sampler = try create_sampler_2d_linear_repeat_no_mipmap(context);
+        const image_view = try create_image_view_2d(interface, image.image, .a8b8g8r8_srgb_pack32);
+        const sampler = try create_sampler_2d_linear_repeat_no_mipmap(interface);
 
-        const texels_used = try context.allocator.alloc([]bool, width);
+        const texels_used = try interface.allocator.alloc([]bool, width);
         for(0..texels_used.len) |i|
         {
-            texels_used[i] = try context.allocator.alloc(bool, height);
+            texels_used[i] = try interface.allocator.alloc(bool, height);
         }
 
         for(0..texels_used.len) |i|
@@ -451,7 +451,7 @@ pub const TextureAtlas2D = struct
         }
 
         return .{
-            .context = context,
+            .interface = interface,
             .vk_allocator = vk_allocator,
             .width = width,
             .height = height,

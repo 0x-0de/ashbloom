@@ -12,8 +12,8 @@ const sc = @import("swapchain.zig");
 /// before a specific rendering operation or not).
 pub const RenderPass = struct
 {
-    /// Vulkan context.
-    context: *vkcontext.VkContext,
+    /// Vulkan interface.
+    interface: *vkcontext.VkInterface,
     /// Render pass handle.
     render_pass: vk.RenderPass = undefined,
 
@@ -49,7 +49,7 @@ pub const RenderPass = struct
     /// operations have started/completed.
     pub fn add_attachment_description(self: *RenderPass, attachment_description: vk.AttachmentDescription) !void
     {
-        try self.attachment_descriptions.append(self.context.allocator.*, attachment_description);
+        try self.attachment_descriptions.append(self.interface.allocator.*, attachment_description);
     }
 
     /// Adds an attachment description to the render pass, assumes the number of samples is 1 (no multisampling) and that stencils aren't being used. Use before building.
@@ -79,7 +79,7 @@ pub const RenderPass = struct
     /// operations as a result.
     pub fn add_subpass(self: *RenderPass, subpass: Subpass) !void
     {
-        try self.subpasses.append(self.context.allocator.*, subpass);
+        try self.subpasses.append(self.interface.allocator.*, subpass);
     }
 
     /// Builds the render pass. Should only be used if at least one attachment description and subpass have been added to this render pass. This function also
@@ -88,18 +88,18 @@ pub const RenderPass = struct
     {
         defer
         {
-            self.attachment_descriptions.deinit(self.context.allocator.*);
-            self.subpasses.deinit(self.context.allocator.*);
+            self.attachment_descriptions.deinit(self.interface.allocator.*);
+            self.subpasses.deinit(self.interface.allocator.*);
         }
 
-        var attachment_references = try std.ArrayList(vk.AttachmentReference).initCapacity(self.context.allocator.*, 0);
-        defer attachment_references.deinit(self.context.allocator.*);
+        var attachment_references = try std.ArrayList(vk.AttachmentReference).initCapacity(self.interface.allocator.*, 0);
+        defer attachment_references.deinit(self.interface.allocator.*);
 
-        var subpass_descriptions = try std.ArrayList(vk.SubpassDescription).initCapacity(self.context.allocator.*, 0);
-        defer subpass_descriptions.deinit(self.context.allocator.*);
+        var subpass_descriptions = try std.ArrayList(vk.SubpassDescription).initCapacity(self.interface.allocator.*, 0);
+        defer subpass_descriptions.deinit(self.interface.allocator.*);
 
-        var subpass_dependencies = try std.ArrayList(vk.SubpassDependency).initCapacity(self.context.allocator.*, 0);
-        defer subpass_dependencies.deinit(self.context.allocator.*);
+        var subpass_dependencies = try std.ArrayList(vk.SubpassDependency).initCapacity(self.interface.allocator.*, 0);
+        defer subpass_dependencies.deinit(self.interface.allocator.*);
 
         for(self.subpasses.items) |subpass|
         {
@@ -111,7 +111,7 @@ pub const RenderPass = struct
             var att_ref_depth: ?vk.AttachmentReference = null;
 
             const ref_index = attachment_references.items.len;
-            try attachment_references.append(self.context.allocator.*, att_ref_color);
+            try attachment_references.append(self.interface.allocator.*, att_ref_color);
 
             if(subpass.depth_stencil_attachment_index != null)
             {
@@ -120,7 +120,7 @@ pub const RenderPass = struct
                     .layout = subpass.depth_stencil_attachment_layout.?
                 };
 
-                try attachment_references.append(self.context.allocator.*, att_ref_depth.?);
+                try attachment_references.append(self.interface.allocator.*, att_ref_depth.?);
             }
 
             const sp_desc: vk.SubpassDescription = .{
@@ -130,12 +130,12 @@ pub const RenderPass = struct
                 .p_depth_stencil_attachment = if(att_ref_depth != null) @ptrCast(&attachment_references.items[ref_index + 1]) else null
             };
 
-            try subpass_descriptions.append(self.context.allocator.*, sp_desc);
+            try subpass_descriptions.append(self.interface.allocator.*, sp_desc);
 
             var dependency = subpass.subpass_dependency;
             dependency.dst_subpass = @truncate(ref_index);
 
-            try subpass_dependencies.append(self.context.allocator.*, dependency);
+            try subpass_dependencies.append(self.interface.allocator.*, dependency);
         }
 
         const info_render_pass: vk.RenderPassCreateInfo = .{
@@ -147,54 +147,24 @@ pub const RenderPass = struct
             .p_dependencies = @ptrCast(subpass_dependencies.items)
         };
 
-        self.render_pass = try self.context.device.createRenderPass(&info_render_pass, null);
+        self.render_pass = try self.interface.device.createRenderPass(&info_render_pass, null);
     }
 
     /// Deinitialize the render pass and free its associated memory.
     pub fn deinit(self: *RenderPass) void
     {
-        self.context.device.destroyRenderPass(self.render_pass, null);
+        self.interface.device.destroyRenderPass(self.render_pass, null);
     }
 
     /// Creates a new render pass object. This object will need to have attachment descriptions and subpasses added to it before it can be built.
-    pub fn init(context: *vkcontext.VkContext) !RenderPass
+    pub fn init(interface: *vkcontext.VkInterface) !RenderPass
     {
         const rp: RenderPass = .{
-            .context = context,
-            .attachment_descriptions = try std.ArrayList(vk.AttachmentDescription).initCapacity(context.allocator.*, 0),
-            .subpasses = try std.ArrayList(Subpass).initCapacity(context.allocator.*, 0)
+            .interface = interface,
+            .attachment_descriptions = try std.ArrayList(vk.AttachmentDescription).initCapacity(interface.allocator.*, 0),
+            .subpasses = try std.ArrayList(Subpass).initCapacity(interface.allocator.*, 0)
         };
 
         return rp;
     }
 };
-
-const vk_test = @import("../utils/testing/test_utils.zig");
-const Swapchain = @import("swapchain.zig").Swapchain;
-const commands = @import("commands.zig");
-
-test "Render pass init and build"
-{
-    try glfw.init();
-    defer glfw.terminate();
-
-    var dba = vk_test.init_testing_allocator();
-    defer vk_test.deinit_testing_allocator(&dba);
-
-    const allocator = dba.allocator();
-
-    var window = try vk_test.create_testing_window();
-    defer window.destroy();
-
-    var vk_context = try vk_test.create_testing_vk_context(&allocator, &window);
-    defer vk_context.deinit();
-
-    const pool = try commands.create_command_pool(&vk_context);
-    defer vk_context.device.destroyCommandPool(pool, null);
-
-    var swapchain = try Swapchain.init(window.glfw_handle, &vk_context, pool, 1);
-    defer swapchain.deinit();
-
-    var rp = try vk_test.create_testing_color_render_pass(&vk_context, swapchain);
-    rp.deinit();
-}

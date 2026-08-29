@@ -7,7 +7,7 @@ const ui = @import("vkui.zig");
 
 const freetype = ui.freetype;
 
-const VkContext = @import("../rendering/vkcontext.zig").VkContext;
+const VkInterface = @import("../rendering/vkcontext.zig").VkInterface;
 const VulkanAllocator = @import("vkmemory.zig").VulkanAllocator;
 
 const Texture2D = images.Texture2D;
@@ -45,8 +45,8 @@ pub const FontCharacter = struct
 /// Stores and performs font loading operations.
 pub const Font = struct
 {
-    /// Vulkan context.
-    context: *VkContext,
+    /// Vulkan interface.
+    interface: *VkInterface,
     /// Vulkan allocator.
     vk_allocator: *VulkanAllocator,
 
@@ -78,7 +78,7 @@ pub const Font = struct
         const width = bitmap.width;
         const height = bitmap.rows;
 
-        const buffer = try self.context.allocator.alloc(u8, (width + 1) * (height + 1) * 4);
+        const buffer = try self.interface.allocator.alloc(u8, (width + 1) * (height + 1) * 4);
         for(0..height + 1) |y|
         {
             const row = (height + 1) - y - 1;
@@ -94,7 +94,7 @@ pub const Font = struct
             }
         }
 
-        var texture = try Texture2D.init_buffer(self.context, self.vk_allocator, u8, buffer, width + 1, height + 1,
+        var texture = try Texture2D.init_buffer(self.interface, self.vk_allocator, u8, buffer, width + 1, height + 1,
         .a8b8g8r8_uint_pack32, .Subtexture);
         
         var suballocation = try self.atlas.?.add_texture(&texture);
@@ -104,7 +104,7 @@ pub const Font = struct
         suballocation.scl_x -= 1.0 / @as(f32, @floatFromInt(self.atlas.?.width));
         suballocation.scl_y -= 1.0 / @as(f32, @floatFromInt(self.atlas.?.height));
 
-        self.context.allocator.free(buffer);
+        self.interface.allocator.free(buffer);
         texture.deinit();
 
         const character: FontCharacter = .{
@@ -122,26 +122,26 @@ pub const Font = struct
     /// Deinitializes the font class and releases all resources.
     pub fn deinit(self: *Font) void
     {
-        self.characters.deinit(self.context.allocator.*);
+        self.characters.deinit(self.interface.allocator.*);
         _ = freetype.FT_Done_Face(self.typeface);
     }
 
     /// Initializes the font class. If `atlas` is null, it will need to be set before `request` is called.
-    pub fn init(context: *VkContext, vk_allocator: *VulkanAllocator, path: []const u8, size: c_uint, atlas: ?*TextureAtlas2D) !Font
+    pub fn init(interface: *VkInterface, vk_allocator: *VulkanAllocator, path: []const u8, size: c_uint, atlas: ?*TextureAtlas2D) !Font
     {
         if(!ui.initialized) return FontError.UIisUninitialized;
 
         var font: Font = .{
-            .context = context,
+            .interface = interface,
             .vk_allocator = vk_allocator,
             .typeface = undefined,
             .typesize = size,
             .atlas = atlas, 
-            .characters = try std.ArrayList(FontCharacter).initCapacity(context.allocator.*, 0)
+            .characters = try std.ArrayList(FontCharacter).initCapacity(interface.allocator.*, 0)
         };
 
-        const c_path_slc = try context.allocator.alloc(u8, path.len + 1);
-        defer context.allocator.free(c_path_slc);
+        const c_path_slc = try interface.allocator.alloc(u8, path.len + 1);
+        defer interface.allocator.free(c_path_slc);
 
         for(0..path.len) |i|
         {
@@ -173,7 +173,7 @@ pub const Font = struct
         }
 
         const ch = try self.add_unicode_glyph(unicode);
-        try self.characters.append(self.context.allocator.*, ch);
+        try self.characters.append(self.interface.allocator.*, ch);
 
         return ch;
     }

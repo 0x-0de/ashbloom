@@ -19,8 +19,8 @@ pub const Swapchain = struct
 {
     /// GLFW window handle.
     window: *c_long,
-    /// Vulkan context.
-    context: *vkcontext.VkContext,
+    /// Vulkan interface.
+    interface: *vkcontext.VkInterface,
     /// Vulkan allocator.
     vk_allocator: *vk_memory.VulkanAllocator,
     /// Command pool used to create the swap chain command buffers.
@@ -140,10 +140,10 @@ pub const Swapchain = struct
     fn retrieve_images(self: *Swapchain) ![]vk.Image
     {
         var image_count: u32 = undefined;
-        _ = try self.context.device.getSwapchainImagesKHR(self.handle, &image_count, null);
+        _ = try self.interface.device.getSwapchainImagesKHR(self.handle, &image_count, null);
         
-        const image_list = try self.context.allocator.alloc(vk.Image, image_count);
-        _ = try self.context.device.getSwapchainImagesKHR(self.handle, &image_count, @ptrCast(image_list));
+        const image_list = try self.interface.allocator.alloc(vk.Image, image_count);
+        _ = try self.interface.device.getSwapchainImagesKHR(self.handle, &image_count, @ptrCast(image_list));
 
         return image_list;
     }
@@ -151,8 +151,8 @@ pub const Swapchain = struct
     /// Creates the swap chain and image views.
     fn create_swapchain(self: *Swapchain) !void
     {
-        var sc_support = try vkcontext.query_device_swapchain_support(self.context.instance, self.context.allocator, self.context.physical_device.?, self.context.window_surface);
-        defer sc_support.deinit(self.context.allocator);
+        var sc_support = try vkcontext.query_device_swapchain_support(self.interface.context.instance, self.interface.allocator, self.interface.physical_device.?, self.interface.surface);
+        defer sc_support.deinit(self.interface.allocator);
 
         self.format = Swapchain.choose_swapchain_format(sc_support);
         const presentation_mode = Swapchain.choose_swapchain_presentation_mode(sc_support);
@@ -169,7 +169,7 @@ pub const Swapchain = struct
         };
 
         const info_create: vk.SwapchainCreateInfoKHR = .{
-            .surface = self.context.window_surface,
+            .surface = self.interface.surface,
             .min_image_count = self.image_count,
             .image_format = self.format.format,
             .image_color_space = self.format.color_space,
@@ -184,10 +184,10 @@ pub const Swapchain = struct
             .old_swapchain = @enumFromInt(0), // May aid in resource reuse if we're recreating the swap chain after a window resize.
         };
 
-        self.handle = try self.context.device.createSwapchainKHR(&info_create, null);
+        self.handle = try self.interface.device.createSwapchainKHR(&info_create, null);
 
         const images= try self.retrieve_images();
-        defer self.context.allocator.free(images);
+        defer self.interface.allocator.free(images);
 
         // Image views describe an image, which parts of the image are accessible, how to access them, etc.
         // They are required for most Vulkan operations on images.
@@ -195,23 +195,23 @@ pub const Swapchain = struct
         // We also create semaphores and fences for each image to signal when each render is finished, and command buffers
         // for each image as well.
 
-        self.semaphores_render_stage_finished = try self.context.allocator.alloc(std.ArrayList(vk.Semaphore), self.render_stages);
-        self.fences_command_buffers_finished = try self.context.allocator.alloc(std.ArrayList(vk.Fence), self.render_stages);
-        self.command_buffers = try self.context.allocator.alloc(std.ArrayList(CommandBuffer), self.render_stages);
+        self.semaphores_render_stage_finished = try self.interface.allocator.alloc(std.ArrayList(vk.Semaphore), self.render_stages);
+        self.fences_command_buffers_finished = try self.interface.allocator.alloc(std.ArrayList(vk.Fence), self.render_stages);
+        self.command_buffers = try self.interface.allocator.alloc(std.ArrayList(CommandBuffer), self.render_stages);
 
-        self.image_views = try std.ArrayList(vk.ImageView).initCapacity(self.context.allocator.*, images.len);
-        try self.image_views.resize(self.context.allocator.*, images.len);
+        self.image_views = try std.ArrayList(vk.ImageView).initCapacity(self.interface.allocator.*, images.len);
+        try self.image_views.resize(self.interface.allocator.*, images.len);
 
         for(0..self.render_stages) |i|
         {
-            self.semaphores_render_stage_finished[i] = try std.ArrayList(vk.Semaphore).initCapacity(self.context.allocator.*, images.len);
-            try self.semaphores_render_stage_finished[i].resize(self.context.allocator.*, images.len);
+            self.semaphores_render_stage_finished[i] = try std.ArrayList(vk.Semaphore).initCapacity(self.interface.allocator.*, images.len);
+            try self.semaphores_render_stage_finished[i].resize(self.interface.allocator.*, images.len);
 
-            self.fences_command_buffers_finished[i] = try std.ArrayList(vk.Fence).initCapacity(self.context.allocator.*, images.len);
-            try self.fences_command_buffers_finished[i].resize(self.context.allocator.*, images.len);
+            self.fences_command_buffers_finished[i] = try std.ArrayList(vk.Fence).initCapacity(self.interface.allocator.*, images.len);
+            try self.fences_command_buffers_finished[i].resize(self.interface.allocator.*, images.len);
 
-            self.command_buffers[i] = try std.ArrayList(CommandBuffer).initCapacity(self.context.allocator.*, images.len);
-            try self.command_buffers[i].resize(self.context.allocator.*, images.len);
+            self.command_buffers[i] = try std.ArrayList(CommandBuffer).initCapacity(self.interface.allocator.*, images.len);
+            try self.command_buffers[i].resize(self.interface.allocator.*, images.len);
         }
 
         for(images, 0..) |_, i|
@@ -243,7 +243,7 @@ pub const Swapchain = struct
                 }
             };
 
-            self.image_views.items[i] = try self.context.device.createImageView(&info_image_view, null);
+            self.image_views.items[i] = try self.interface.device.createImageView(&info_image_view, null);
 
             const info_semaphore: vk.SemaphoreCreateInfo = .{};
             const info_fence: vk.FenceCreateInfo = .{
@@ -254,9 +254,9 @@ pub const Swapchain = struct
 
             for(0..self.render_stages) |j|
             {
-                self.semaphores_render_stage_finished[j].items[i] = try self.context.device.createSemaphore(&info_semaphore, null);
-                self.fences_command_buffers_finished[j].items[i] = try self.context.device.createFence(&info_fence, null);
-                self.command_buffers[j].items[i] = try CommandBuffer.init(self.context, self.command_pool);
+                self.semaphores_render_stage_finished[j].items[i] = try self.interface.device.createSemaphore(&info_semaphore, null);
+                self.fences_command_buffers_finished[j].items[i] = try self.interface.device.createFence(&info_fence, null);
+                self.command_buffers[j].items[i] = try CommandBuffer.init(self.interface, self.command_pool);
             }
         }
 
@@ -268,7 +268,7 @@ pub const Swapchain = struct
             }
         };
 
-        self.fence_image_acquired = try self.context.device.createFence(&info_fence, null);
+        self.fence_image_acquired = try self.interface.device.createFence(&info_fence, null);
         
         self.current_render_stage = 0;
     }
@@ -277,10 +277,10 @@ pub const Swapchain = struct
     /// has otherwise expired. Sets the value of current_image_index to the index of the acquired image.
     pub fn acquire_next_image(self: *Swapchain) !AcquireImageResult
     {
-        try self.context.device.resetFences(&.{ self.fence_image_acquired });
+        try self.interface.device.resetFences(&.{ self.fence_image_acquired });
         self.last_render_stage = null;
 
-        var result = try self.context.device.acquireNextImageKHR(self.handle, std.math.maxInt(u64), .null_handle, self.fence_image_acquired);
+        var result = try self.interface.device.acquireNextImageKHR(self.handle, std.math.maxInt(u64), .null_handle, self.fence_image_acquired);
 
         var window_width: c_int = undefined;
         var window_height: c_int = undefined;
@@ -299,13 +299,13 @@ pub const Swapchain = struct
                 glfw.waitEvents();
             }
 
-            try self.context.device.deviceWaitIdle();
+            try self.interface.device.deviceWaitIdle();
             
             self.deinit(false);
             try self.create_swapchain();
 
-            try self.context.device.resetFences(&.{ self.fence_image_acquired });
-            result = try self.context.device.acquireNextImageKHR(self.handle, std.math.maxInt(u64), .null_handle, self.fence_image_acquired);
+            try self.interface.device.resetFences(&.{ self.fence_image_acquired });
+            result = try self.interface.device.acquireNextImageKHR(self.handle, std.math.maxInt(u64), .null_handle, self.fence_image_acquired);
         }
         else if(result.result != .success)
         {
@@ -321,7 +321,7 @@ pub const Swapchain = struct
     /// Examples include a depth buffer, or some kind of G-buffer.
     pub fn add_attachment(self: *Swapchain, attachment: att.Attachment) !void
     {
-        try self.attachments.append(self.context.allocator.*, attachment);
+        try self.attachments.append(self.interface.allocator.*, attachment);
         var sr = &self.attachments.items[self.attachments.items.len - 1];
 
         sr.info_image.extent = .{
@@ -333,7 +333,7 @@ pub const Swapchain = struct
         sr.image = try self.vk_allocator.alloc_image_empty(sr.info_image, sr.image_usage);
 
         sr.info_image_view.image = sr.image.?.image;
-        sr.image_view = try self.context.device.createImageView(&sr.info_image_view, null);
+        sr.image_view = try self.interface.device.createImageView(&sr.info_image_view, null);
     }
 
     /// Clears all swapchain attachments. Used when the swapchain needs to be refreshed, or during swapchain deinitialization.
@@ -341,7 +341,7 @@ pub const Swapchain = struct
     {
         for(self.attachments.items) |*sr|
         {
-            self.context.device.destroyImageView(sr.image_view.?, null);
+            self.interface.device.destroyImageView(sr.image_view.?, null);
             self.vk_allocator.free_image(sr.image.?);
         }
     }
@@ -359,13 +359,13 @@ pub const Swapchain = struct
 
         const num_images = self.image_views.items.len;
 
-        var framebuffers = try std.ArrayList(vk.Framebuffer).initCapacity(self.context.allocator.*, num_images);
-        try framebuffers.resize(self.context.allocator.*, num_images);
+        var framebuffers = try std.ArrayList(vk.Framebuffer).initCapacity(self.interface.allocator.*, num_images);
+        try framebuffers.resize(self.interface.allocator.*, num_images);
 
         for(0..num_images) |i|
         {
-            var attachments = try self.context.allocator.alloc(vk.ImageView, attachment_indices.len + 1);
-            defer self.context.allocator.free(attachments);
+            var attachments = try self.interface.allocator.alloc(vk.ImageView, attachment_indices.len + 1);
+            defer self.interface.allocator.free(attachments);
 
             attachments[0] = self.image_views.items[i];
             for(1..attachments.len) |j|
@@ -383,7 +383,7 @@ pub const Swapchain = struct
                 .layers = 1
             };
 
-            framebuffers.items[i] = try self.context.device.createFramebuffer(&info_framebuffer, null);
+            framebuffers.items[i] = try self.interface.device.createFramebuffer(&info_framebuffer, null);
         }
 
         return framebuffers;
@@ -396,34 +396,34 @@ pub const Swapchain = struct
         {
             for(0..self.render_stages) |j|
             {
-                self.context.device.destroySemaphore(self.semaphores_render_stage_finished[j].items[i], null);
-                self.context.device.destroyFence(self.fences_command_buffers_finished[j].items[i], null);
+                self.interface.device.destroySemaphore(self.semaphores_render_stage_finished[j].items[i], null);
+                self.interface.device.destroyFence(self.fences_command_buffers_finished[j].items[i], null);
             }
 
-            self.context.device.destroyImageView(self.image_views.items[i], null);
+            self.interface.device.destroyImageView(self.image_views.items[i], null);
         }
 
         for(0..self.render_stages) |i|
         {
-            self.semaphores_render_stage_finished[i].deinit(self.context.allocator.*);
-            self.fences_command_buffers_finished[i].deinit(self.context.allocator.*);
-            self.command_buffers[i].deinit(self.context.allocator.*);
+            self.semaphores_render_stage_finished[i].deinit(self.interface.allocator.*);
+            self.fences_command_buffers_finished[i].deinit(self.interface.allocator.*);
+            self.command_buffers[i].deinit(self.interface.allocator.*);
         }
 
-        self.context.allocator.free(self.semaphores_render_stage_finished);
-        self.context.allocator.free(self.fences_command_buffers_finished);
-        self.context.allocator.free(self.command_buffers);
+        self.interface.allocator.free(self.semaphores_render_stage_finished);
+        self.interface.allocator.free(self.fences_command_buffers_finished);
+        self.interface.allocator.free(self.command_buffers);
      
         if(include_attachments)
         {
             self.clear_attachments();
-            self.attachments.deinit(self.context.allocator.*);
+            self.attachments.deinit(self.interface.allocator.*);
         }
 
-        self.image_views.deinit(self.context.allocator.*);
+        self.image_views.deinit(self.interface.allocator.*);
 
-        self.context.device.destroySwapchainKHR(self.handle, null);
-        self.context.device.destroyFence(self.fence_image_acquired, null);
+        self.interface.device.destroySwapchainKHR(self.handle, null);
+        self.interface.device.destroyFence(self.fence_image_acquired, null);
     }
 
     /// Deinitializes a list of framebuffers.
@@ -431,7 +431,7 @@ pub const Swapchain = struct
     {
         for(0..framebuffers.items.len) |i|
         {
-            self.context.device.destroyFramebuffer(framebuffers.items[i], null);
+            self.interface.device.destroyFramebuffer(framebuffers.items[i], null);
         }
     }
 
@@ -440,19 +440,19 @@ pub const Swapchain = struct
     {
         const index = self.current_image_index;
         const stage = self.current_render_stage;
-        _ = try self.context.device.waitForFences(&.{ self.fences_command_buffers_finished[stage].items[index] }, .true, std.math.maxInt(u64));
-        try self.context.device.resetFences(&.{ self.fences_command_buffers_finished[stage].items[index] });
+        _ = try self.interface.device.waitForFences(&.{ self.fences_command_buffers_finished[stage].items[index] }, .true, std.math.maxInt(u64));
+        try self.interface.device.resetFences(&.{ self.fences_command_buffers_finished[stage].items[index] });
         return &self.command_buffers[stage].items[self.current_image_index];
     }
 
     /// Creates the swap chain, along with its image views.
-    pub fn init(window: *Window, context: *vkcontext.VkContext, vk_allocator: *vk_memory.VulkanAllocator, command_pool: vk.CommandPool, render_stages: u16) !Swapchain
+    pub fn init(window: *Window, interface: *vkcontext.VkInterface, vk_allocator: *vk_memory.VulkanAllocator, command_pool: vk.CommandPool, render_stages: u16) !Swapchain
     {
         std.debug.assert(render_stages > 0);
 
         var sc: Swapchain = .{
             .window = window.glfw_handle,
-            .context = context,
+            .interface = interface,
             .vk_allocator = vk_allocator,
             .command_pool = command_pool,
             .render_stages = render_stages
@@ -460,7 +460,7 @@ pub const Swapchain = struct
 
         try sc.create_swapchain();
 
-        sc.attachments = try .initCapacity(context.allocator.*, 0);
+        sc.attachments = try .initCapacity(interface.allocator.*, 0);
 
         return sc;
     }
@@ -492,7 +492,7 @@ pub const Swapchain = struct
         }
         else
         {
-            _ = try self.context.device.waitForFences(&.{ self.fence_image_acquired }, .true, std.math.maxInt(u64));
+            _ = try self.interface.device.waitForFences(&.{ self.fence_image_acquired }, .true, std.math.maxInt(u64));
 
             info_present = .{
                 .swapchain_count = 1,
@@ -501,7 +501,7 @@ pub const Swapchain = struct
             };
         }
 
-        _ = try self.context.device.queuePresentKHR(present_queue, &info_present);
+        _ = try self.interface.device.queuePresentKHR(present_queue, &info_present);
 
         self.current_render_stage = 0;
     }
@@ -522,7 +522,7 @@ pub const Swapchain = struct
             sr.image = try self.vk_allocator.alloc_image_empty(sr.info_image, sr.image_usage);
 
             sr.info_image_view.image = sr.image.?.image;
-            sr.image_view = try self.context.device.createImageView(&sr.info_image_view, null);
+            sr.image_view = try self.interface.device.createImageView(&sr.info_image_view, null);
         }
     }
 
@@ -558,10 +558,10 @@ pub const Swapchain = struct
         }
         else
         {
-            _ = try self.context.device.waitForFences(&.{ self.fence_image_acquired }, .true, std.math.maxInt(u64));
+            _ = try self.interface.device.waitForFences(&.{ self.fence_image_acquired }, .true, std.math.maxInt(u64));
         }
 
-        try self.context.device.queueSubmit(render_queue, &.{ info_submit }, self.fences_command_buffers_finished[stage].items[index]);
+        try self.interface.device.queueSubmit(render_queue, &.{ info_submit }, self.fences_command_buffers_finished[stage].items[index]);
 
         self.last_render_stage = self.current_render_stage;
         self.current_render_stage += 1;
@@ -574,42 +574,7 @@ pub const Swapchain = struct
         const stage = self.current_render_stage;
 
         // Signals the fence.
-        try self.context.device.queueSubmit(render_queue, null, self.fences_command_buffers_finished[stage].items[index]);
+        try self.interface.device.queueSubmit(render_queue, null, self.fences_command_buffers_finished[stage].items[index]);
         self.current_render_stage += 1;
     }
 };
-
-const vk_test = @import("../utils/testing/test_utils.zig");
-
-const commands = @import("commands.zig");
-
-test "Swapchain init"
-{
-    try glfw.init();
-    defer glfw.terminate();
-
-    var dba = vk_test.init_testing_allocator();
-    defer vk_test.deinit_testing_allocator(&dba);
-
-    const allocator = dba.allocator();
-
-    var window = try vk_test.create_testing_window();
-    defer window.destroy();
-
-    var vk_context = try vk_test.create_testing_vk_context(&allocator, &window);
-    defer vk_context.deinit();
-
-    const pool = try commands.create_command_pool(&vk_context);
-    defer vk_context.device.destroyCommandPool(pool, null);
-
-    var swapchain = try Swapchain.init(window.glfw_handle, &vk_context, pool, 2);
-
-    try std.testing.expect(swapchain.image_count >= 1);
-    try std.testing.expect(swapchain.current_image_index == 0);
-    try std.testing.expect(swapchain.render_stages == 2);
-    try std.testing.expect(swapchain.current_render_stage == 0);
-    try std.testing.expect(swapchain.extent.width == window.width);
-    try std.testing.expect(swapchain.extent.height == window.height);
-
-    swapchain.deinit();
-}

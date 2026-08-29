@@ -5,7 +5,6 @@ const vk = @import("vulkan");
 
 const vk_context = @import("../rendering/vkcontext.zig");
 
-const VkContext = vk_context.VkContext;
 const VkInterface = vk_context.VkInterface;
 
 const commands = @import("../rendering/commands.zig");
@@ -19,11 +18,11 @@ pub const VulkanMemoryError = error
 };
 
 /// Helper function to find the correct memory type in the selected physical device, if one exists.
-pub fn find_physical_device_memory_type(context: *VkContext, interface: *VkInterface, type_filter: u32, requested_properties: vk.MemoryPropertyFlags) VulkanMemoryError!u32
+pub fn find_physical_device_memory_type(interface: *VkInterface, type_filter: u32, requested_properties: vk.MemoryPropertyFlags) VulkanMemoryError!u32
 {
     const prop_code: u32 = @bitCast(requested_properties);
 
-    const device_memory_properties = context.instance.getPhysicalDeviceMemoryProperties(interface.physical_device.?);
+    const device_memory_properties = interface.context.instance.getPhysicalDeviceMemoryProperties(interface.physical_device.?);
     
     for(0..device_memory_properties.memory_type_count) |i|
     {
@@ -52,18 +51,18 @@ pub fn create_buffer(interface: *VkInterface, buffer_size: vk.DeviceSize, share_
 }
 
 /// Helper function to allocate memory directly from Vulkan, and then bind the memory to the buffer. Should never be used outside of the allocator.
-pub fn allocate_vulkan_memory_from_buffer(context: *VkContext, interface: *VkInterface, buffer: vk.Buffer, requested_properties: vk.MemoryPropertyFlags) !vk.DeviceMemory
+pub fn allocate_vulkan_memory_from_buffer(interface: *VkInterface, buffer: vk.Buffer, requested_properties: vk.MemoryPropertyFlags) !vk.DeviceMemory
 {
     const memory_requirements = interface.device.getBufferMemoryRequirements(buffer);
-    const memory_type_index = try find_physical_device_memory_type(context, interface, memory_requirements.memory_type_bits, requested_properties);
+    const memory_type_index = try find_physical_device_memory_type(interface, memory_requirements.memory_type_bits, requested_properties);
 
     const info_memory_allocate: vk.MemoryAllocateInfo = .{
         .allocation_size = memory_requirements.size,
         .memory_type_index = memory_type_index
     };
 
-    const memory = try context.device.allocateMemory(&info_memory_allocate, null);
-    try context.device.bindBufferMemory(buffer, memory, 0);
+    const memory = try interface.device.allocateMemory(&info_memory_allocate, null);
+    try interface.device.bindBufferMemory(buffer, memory, 0);
 
     return memory;
 }
@@ -301,8 +300,6 @@ pub const VulkanAllocator = struct
         staging_size: vk.DeviceSize
     };
 
-    /// Vulkan context handle.
-    context: *VkContext,
     /// Vulkan interface handle.
     interface: *VkInterface,
 
@@ -679,7 +676,7 @@ pub const VulkanAllocator = struct
         };
 
         const memory_requirements = self.interface.device.getImageMemoryRequirements(image);
-        const memory_type_index = try find_physical_device_memory_type(self.context, self.interface, memory_requirements.memory_type_bits, memory_properties);
+        const memory_type_index = try find_physical_device_memory_type(self.interface, memory_requirements.memory_type_bits, memory_properties);
 
         var free_location = self.find_memory_space(memory_requirements.size, memory_requirements.alignment, 
         memory_type_index, memory_properties);
@@ -889,10 +886,9 @@ pub const VulkanAllocator = struct
     }
 
     /// Create an instance of VulkanAllocator.
-    pub fn init(context: *VkContext, interface: *VkInterface, allocator: *const std.mem.Allocator, options: VulkanAllocatorOptions) !VulkanAllocator
+    pub fn init(interface: *VkInterface, allocator: *const std.mem.Allocator, options: VulkanAllocatorOptions) !VulkanAllocator
     {
         var alloc: VulkanAllocator = .{
-            .context = context,
             .interface = interface,
             .cpu_allocator = allocator,
             .memory_pages = try std.ArrayList(VulkanMemoryPage).initCapacity(allocator.*, 0),
@@ -901,11 +897,11 @@ pub const VulkanAllocator = struct
             .options = options
         };
 
-        alloc.staging_buffer = try create_buffer(context, options.staging_size, .exclusive, .{
+        alloc.staging_buffer = try create_buffer(interface, options.staging_size, .exclusive, .{
             .transfer_src_bit = true,
         });
 
-        alloc.staging_buffer_memory = try allocate_vulkan_memory_from_buffer(context, alloc.staging_buffer, .{
+        alloc.staging_buffer_memory = try allocate_vulkan_memory_from_buffer(interface, alloc.staging_buffer, .{
             .host_visible_bit = true,
             .host_coherent_bit = true
         });

@@ -170,7 +170,7 @@ pub fn create_pipeline_descriptor_set_layout_binding(binding: u32, descriptor_ty
 /// Specifies a set of pipeline resource descriptors, which are how shaders access global (uniform) variables such as textures or projection matrices.
 pub const PipelineDescriptorSet = struct
 {
-    context: *vkcontext.VkContext,
+    interface: *vkcontext.VkInterface,
     vk_allocator: *VulkanAllocator,
 
     set_count: u16,
@@ -221,8 +221,8 @@ pub const PipelineDescriptorSet = struct
 
     fn create_descriptor_pool(self: *PipelineDescriptorSet) !void
     {
-        var pool_sizes = try self.context.allocator.alloc(vk.DescriptorPoolSize, self.bindings.items.len);
-        defer self.context.allocator.free(pool_sizes);
+        var pool_sizes = try self.interface.allocator.alloc(vk.DescriptorPoolSize, self.bindings.items.len);
+        defer self.interface.allocator.free(pool_sizes);
 
         for(0..pool_sizes.len) |i|
         {
@@ -236,14 +236,14 @@ pub const PipelineDescriptorSet = struct
             .max_sets = self.set_count
         };
 
-        self.pool = try self.context.device.createDescriptorPool(&info_pool, null);
+        self.pool = try self.interface.device.createDescriptorPool(&info_pool, null);
     }
 
     /// Adds a descriptor binding to the container.
     pub fn add_binding(self: *PipelineDescriptorSet, binding: DescriptorBinding) !void
     {
         const index = self.bindings.items.len;
-        try self.bindings.append(self.context.allocator.*, binding);
+        try self.bindings.append(self.interface.allocator.*, binding);
 
         self.bindings.items[index].binding =
             create_pipeline_descriptor_set_layout_binding(binding.binding_index, binding.type, binding.shader_stage);
@@ -252,7 +252,7 @@ pub const PipelineDescriptorSet = struct
     /// Creates the descriptor set resources in Vulkan.
     pub fn build(self: *PipelineDescriptorSet) !void
     {
-        const descriptor_set_bindings = try self.context.allocator.alloc(vk.DescriptorSetLayoutBinding, self.bindings.items.len);
+        const descriptor_set_bindings = try self.interface.allocator.alloc(vk.DescriptorSetLayoutBinding, self.bindings.items.len);
         for(0..descriptor_set_bindings.len) |i|
         {
             descriptor_set_bindings[i] = self.bindings.items[i].binding;
@@ -263,13 +263,13 @@ pub const PipelineDescriptorSet = struct
             .p_bindings = @ptrCast(descriptor_set_bindings)
         };
 
-        self.layout = try self.context.device.createDescriptorSetLayout(&info_create, null);
-        self.context.allocator.free(descriptor_set_bindings);
+        self.layout = try self.interface.device.createDescriptorSetLayout(&info_create, null);
+        self.interface.allocator.free(descriptor_set_bindings);
 
         try self.create_descriptor_pool();
 
-        const descriptor_layouts = try self.context.allocator.alloc(vk.DescriptorSetLayout, self.set_count);
-        defer self.context.allocator.free(descriptor_layouts);
+        const descriptor_layouts = try self.interface.allocator.alloc(vk.DescriptorSetLayout, self.set_count);
+        defer self.interface.allocator.free(descriptor_layouts);
 
         for(0..descriptor_layouts.len) |i|
         {
@@ -282,9 +282,9 @@ pub const PipelineDescriptorSet = struct
             .p_set_layouts = @ptrCast(descriptor_layouts)
         };
 
-        self.sets = try self.context.allocator.alloc(vk.DescriptorSet, self.set_count);
+        self.sets = try self.interface.allocator.alloc(vk.DescriptorSet, self.set_count);
 
-        try self.context.device.allocateDescriptorSets(&info_alloc, @ptrCast(self.sets));
+        try self.interface.device.allocateDescriptorSets(&info_alloc, @ptrCast(self.sets));
 
         // Allocating memory resources (like uniform buffers) for each binding.
         for(0..self.bindings.items.len) |i|
@@ -292,7 +292,7 @@ pub const PipelineDescriptorSet = struct
             if(self.bindings.items[i].type == .uniform_buffer)
             {
 
-                self.bindings.items[i].info.buffer.buffers = try self.context.allocator.alloc(VulkanAllocator.VulkanBufferAllocation, self.set_count);
+                self.bindings.items[i].info.buffer.buffers = try self.interface.allocator.alloc(VulkanAllocator.VulkanBufferAllocation, self.set_count);
                 for(0..self.set_count) |j|
                 {
                     self.bindings.items[i].info.buffer.buffers.?[j] = try self.vk_allocator.alloc_buffer_empty(
@@ -325,14 +325,14 @@ pub const PipelineDescriptorSet = struct
         // Updating descriptor sets.
         for(0..self.set_count) |i|
         {
-            var info_buffers = try std.ArrayList(vk.DescriptorBufferInfo).initCapacity(self.context.allocator.*, 0);
-            defer info_buffers.deinit(self.context.allocator.*);
+            var info_buffers = try std.ArrayList(vk.DescriptorBufferInfo).initCapacity(self.interface.allocator.*, 0);
+            defer info_buffers.deinit(self.interface.allocator.*);
 
-            var info_images = try std.ArrayList(vk.DescriptorImageInfo).initCapacity(self.context.allocator.*, 0);
-            defer info_images.deinit(self.context.allocator.*);
+            var info_images = try std.ArrayList(vk.DescriptorImageInfo).initCapacity(self.interface.allocator.*, 0);
+            defer info_images.deinit(self.interface.allocator.*);
 
-            var descriptor_writes = try self.context.allocator.alloc(vk.WriteDescriptorSet, self.bindings.items.len);
-            defer self.context.allocator.free(descriptor_writes);
+            var descriptor_writes = try self.interface.allocator.alloc(vk.WriteDescriptorSet, self.bindings.items.len);
+            defer self.interface.allocator.free(descriptor_writes);
 
             for(0..descriptor_writes.len) |j|
             {
@@ -355,7 +355,7 @@ pub const PipelineDescriptorSet = struct
                     };
 
                     const index = info_buffers.items.len;
-                    try info_buffers.append(self.context.allocator.*, info_buffer);
+                    try info_buffers.append(self.interface.allocator.*, info_buffer);
 
                     descriptor_writes[j].p_buffer_info = @ptrCast(&info_buffers.items[index]);
                     descriptor_writes[j].p_image_info = @ptrCast(&no_image);
@@ -370,7 +370,7 @@ pub const PipelineDescriptorSet = struct
                     };
 
                     const index = info_images.items.len;
-                    try info_images.append(self.context.allocator.*, info_image);
+                    try info_images.append(self.interface.allocator.*, info_image);
 
                     descriptor_writes[j].p_buffer_info = @ptrCast(&no_buffer);
                     descriptor_writes[j].p_image_info = @ptrCast(&info_images.items[index]);
@@ -378,7 +378,7 @@ pub const PipelineDescriptorSet = struct
                 }
             }
 
-            self.context.device.updateDescriptorSets(descriptor_writes, null);
+            self.interface.device.updateDescriptorSets(descriptor_writes, null);
         }
     }
 
@@ -393,24 +393,24 @@ pub const PipelineDescriptorSet = struct
                 {
                     self.vk_allocator.free_buffer(self.bindings.items[i].info.buffer.buffers.?[j]);
                 }
-                self.context.allocator.free(self.bindings.items[i].info.buffer.buffers.?);
+                self.interface.allocator.free(self.bindings.items[i].info.buffer.buffers.?);
             }
         }
 
-        self.context.allocator.free(self.sets);
-        self.context.device.destroyDescriptorPool(self.pool, null);
-        self.context.device.destroyDescriptorSetLayout(self.layout, null);
-        self.bindings.deinit(self.context.allocator.*);
+        self.interface.allocator.free(self.sets);
+        self.interface.device.destroyDescriptorPool(self.pool, null);
+        self.interface.device.destroyDescriptorSetLayout(self.layout, null);
+        self.bindings.deinit(self.interface.allocator.*);
     }
 
     /// Initializes an empty descriptor set container.
-    pub fn init(context: *vkcontext.VkContext, vk_allocator: *VulkanAllocator, set_count: u16) !PipelineDescriptorSet
+    pub fn init(interface: *vkcontext.VkInterface, vk_allocator: *VulkanAllocator, set_count: u16) !PipelineDescriptorSet
     {
         return .{
-            .context = context,
+            .interface = interface,
             .vk_allocator = vk_allocator,
             .set_count = set_count,
-            .bindings = try std.ArrayList(DescriptorBinding).initCapacity(context.allocator.*, 0)
+            .bindings = try std.ArrayList(DescriptorBinding).initCapacity(interface.allocator.*, 0)
         };
     }
 
@@ -552,8 +552,8 @@ pub fn pipeline_depth_stencil_state_default() vk.PipelineDepthStencilStateCreate
 /// configurable fixed functions, and a pipeline layout which describes the shader's uniforms (push constants and descriptor sets).
 pub const Pipeline = struct
 {
-    /// Vulkan context.
-    vkc: *vkcontext.VkContext,
+    /// Vulkan interface.
+    interface: *vkcontext.VkInterface,
 
     /// List of shader modules used in the pipeline, appended with add_shader_module. These modules should be null after the pipeline has been built.
     shader_modules: std.ArrayList(PipelineShaderModule),
@@ -599,27 +599,27 @@ pub const Pipeline = struct
     /// Adds a color blend attachment state to the pipeline. At least one is needed before building.
     pub fn add_color_blend_attachment(self: *Pipeline, state: vk.PipelineColorBlendAttachmentState) !void
     {
-        const p_ds = try self.color_blend_attachments.addOne(self.vkc.allocator.*);
+        const p_ds = try self.color_blend_attachments.addOne(self.interface.allocator.*);
         p_ds.* = state;
     }
 
     /// Adds a created descriptor set to the pipeline.
     pub fn add_descriptor_set(self: *Pipeline, descriptor_set: PipelineDescriptorSet) !void
     {
-        try self.descriptor_sets.append(self.vkc.allocator.*, descriptor_set);
+        try self.descriptor_sets.append(self.interface.allocator.*, descriptor_set);
     }
 
     /// Tells Vulkan that one aspect of the pipeline will be dynamic (such as it's viewport, which may change if the window gets resized).
     pub fn add_dynamic_state(self: *Pipeline, state: vk.DynamicState) !void
     {
-        const p_ds = try self.dynamic_states.addOne(self.vkc.allocator.*);
+        const p_ds = try self.dynamic_states.addOne(self.interface.allocator.*);
         p_ds.* = state;
     }
 
     /// Adds a push constant range to the pipeline.
     pub fn add_push_constant_range(self: *Pipeline, offset: u32, size: u32, shader_stage: vk.ShaderStageFlags) !void
     {
-        const p_pc = try self.push_constant_ranges.addOne(self.vkc.allocator.*);
+        const p_pc = try self.push_constant_ranges.addOne(self.interface.allocator.*);
         p_pc.* = .{
             .offset = offset,
             .size = size,
@@ -630,15 +630,15 @@ pub const Pipeline = struct
     /// Creates and adds a shader module to the pipeline. 'path' must be a valid path to a pre-compiled shader .spv bytecode file.
     pub fn add_shader_module(self: *Pipeline, path: [*:0]const u8, shader_stage: vk.ShaderStageFlags) !void
     {
-        const p_psm = try self.shader_modules.addOne(self.vkc.allocator.*);
-        p_psm.* = try PipelineShaderModule.init(self.vkc.device, self.vkc.allocator, path, shader_stage);
+        const p_psm = try self.shader_modules.addOne(self.interface.allocator.*);
+        p_psm.* = try PipelineShaderModule.init(self.interface.device, self.interface.allocator, path, shader_stage);
     }
 
     /// Builds the pipeline. Assembles all shader modules and structs and attempts to create a pipeline using their information.
     pub fn build(self: *Pipeline, render_pass: *RenderPass) !void
     {
         const num_shaders = self.shader_modules.items.len;
-        var shader_stage_list = try std.ArrayList(vk.PipelineShaderStageCreateInfo).initCapacity(self.vkc.allocator.*, num_shaders);
+        var shader_stage_list = try std.ArrayList(vk.PipelineShaderStageCreateInfo).initCapacity(self.interface.allocator.*, num_shaders);
 
         const shader_entrypoint = "main";
 
@@ -650,7 +650,7 @@ pub const Pipeline = struct
                 .p_name = shader_entrypoint
             };
 
-            try shader_stage_list.append(self.vkc.allocator.*, info_shader_stage);
+            try shader_stage_list.append(self.interface.allocator.*, info_shader_stage);
         }
 
         const info_dynamic_state: vk.PipelineDynamicStateCreateInfo = .{
@@ -666,10 +666,10 @@ pub const Pipeline = struct
             .blend_constants = .{0, 0, 0, 0}
         };
 
-        var set_layouts = try std.ArrayList(vk.DescriptorSetLayout).initCapacity(self.vkc.allocator.*, self.descriptor_sets.items.len);
-        defer set_layouts.deinit(self.vkc.allocator.*);
+        var set_layouts = try std.ArrayList(vk.DescriptorSetLayout).initCapacity(self.interface.allocator.*, self.descriptor_sets.items.len);
+        defer set_layouts.deinit(self.interface.allocator.*);
 
-        try set_layouts.resize(self.vkc.allocator.*, self.descriptor_sets.items.len);
+        try set_layouts.resize(self.interface.allocator.*, self.descriptor_sets.items.len);
         for(0..self.descriptor_sets.items.len) |i|
         {
             set_layouts.items[i] = self.descriptor_sets.items[i].layout;
@@ -682,7 +682,7 @@ pub const Pipeline = struct
             .p_push_constant_ranges = @ptrCast(self.push_constant_ranges.items)
         };
 
-        self.pipeline_layout = try self.vkc.device.createPipelineLayout(&info_pipeline_layout, null);
+        self.pipeline_layout = try self.interface.device.createPipelineLayout(&info_pipeline_layout, null);
 
         const info_pipeline: vk.GraphicsPipelineCreateInfo = .{
             .stage_count = 2,
@@ -701,35 +701,35 @@ pub const Pipeline = struct
             .base_pipeline_index = -1
         };
 
-        _ = try self.vkc.device.createGraphicsPipelines(.null_handle, &.{ info_pipeline }, null, @ptrCast(&self.pipeline));
+        _ = try self.interface.device.createGraphicsPipelines(.null_handle, &.{ info_pipeline }, null, @ptrCast(&self.pipeline));
 
-        shader_stage_list.deinit(self.vkc.allocator.*);
+        shader_stage_list.deinit(self.interface.allocator.*);
 
         for(self.shader_modules.items, 0..) |_, i|
         {
-            self.shader_modules.items[i].deinit(self.vkc.device);
+            self.shader_modules.items[i].deinit(self.interface.device);
         }
     }
 
     /// Deinitializes the pipeline.
     pub fn deinit(self: *Pipeline) void
     {
-        self.vkc.device.destroyPipeline(self.pipeline, null);
+        self.interface.device.destroyPipeline(self.pipeline, null);
         if(self.pipeline_layout != null)
         {
-            self.vkc.device.destroyPipelineLayout(self.pipeline_layout.?, null);
+            self.interface.device.destroyPipelineLayout(self.pipeline_layout.?, null);
         }
-        self.dynamic_states.deinit(self.vkc.allocator.*);
-        self.shader_modules.deinit(self.vkc.allocator.*);
-        self.descriptor_sets.deinit(self.vkc.allocator.*);
-        self.push_constant_ranges.deinit(self.vkc.allocator.*);
-        self.color_blend_attachments.deinit(self.vkc.allocator.*);
+        self.dynamic_states.deinit(self.interface.allocator.*);
+        self.shader_modules.deinit(self.interface.allocator.*);
+        self.descriptor_sets.deinit(self.interface.allocator.*);
+        self.push_constant_ranges.deinit(self.interface.allocator.*);
+        self.color_blend_attachments.deinit(self.interface.allocator.*);
     }
 
     /// Returns a list of shader modules. These may be Vulkan null handles if the pipeline has already been built.
     pub fn get_pipeline_shader_modules(self: *Pipeline) !std.ArrayList(vk.ShaderModule)
     {
-        var list = try std.ArrayList(vk.ShaderModule).initCapacity(self.vkc.allocator, self.shader_modules.items.len);
+        var list = try std.ArrayList(vk.ShaderModule).initCapacity(self.interface.allocator, self.shader_modules.items.len);
         for(self.shader_modules.items.len) |module|
         {
             try list.append(module);
@@ -739,15 +739,15 @@ pub const Pipeline = struct
     }
 
     /// Initializes a Pipeline object.
-    pub fn init(vkc: *vkcontext.VkContext) !Pipeline
+    pub fn init(interface: *vkcontext.VkInterface) !Pipeline
     {
         const p: Pipeline = .{
-            .vkc = vkc,
-            .shader_modules = try std.ArrayList(PipelineShaderModule).initCapacity(vkc.allocator.*, 0),
-            .dynamic_states = try std.ArrayList(vk.DynamicState).initCapacity(vkc.allocator.*, 0),
-            .descriptor_sets = try std.ArrayList(PipelineDescriptorSet).initCapacity(vkc.allocator.*, 0),
-            .color_blend_attachments = try std.ArrayList(vk.PipelineColorBlendAttachmentState).initCapacity(vkc.allocator.*, 0),
-            .push_constant_ranges = try std.ArrayList(vk.PushConstantRange).initCapacity(vkc.allocator.*, 0),
+            .interface = interface,
+            .shader_modules = try std.ArrayList(PipelineShaderModule).initCapacity(interface.allocator.*, 0),
+            .dynamic_states = try std.ArrayList(vk.DynamicState).initCapacity(interface.allocator.*, 0),
+            .descriptor_sets = try std.ArrayList(PipelineDescriptorSet).initCapacity(interface.allocator.*, 0),
+            .color_blend_attachments = try std.ArrayList(vk.PipelineColorBlendAttachmentState).initCapacity(interface.allocator.*, 0),
+            .push_constant_ranges = try std.ArrayList(vk.PushConstantRange).initCapacity(interface.allocator.*, 0),
             .pipeline_layout = null,
 
             .info_vertex_input = pipeline_vertex_input_no_input(),

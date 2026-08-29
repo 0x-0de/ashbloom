@@ -176,14 +176,6 @@ pub fn query_device_swapchain_support(instance: *vk.InstanceProxy, allocator: *c
     return sc_support;
 }
 
-/// Calls query_device_swapchain_support and returns true if no errors were returned.
-fn check_device_swapchain_support(context: VkContext, physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR) !bool
-{
-    var sc_support = query_device_swapchain_support(context.instance, context.allocator, physical_device, surface) catch return false;
-    sc_support.deinit(context.allocator);
-    return true;
-}
-
 fn compare_device_features_lists(allocator: *const std.mem.Allocator, desired_features: vk.PhysicalDeviceFeatures, available_features: vk.PhysicalDeviceFeatures,
     total_features: *usize, features_supported: ?*vk.PhysicalDeviceFeatures) !usize
 {
@@ -487,15 +479,23 @@ pub const VkContext = struct
         const available_features = self.vki.getPhysicalDeviceFeatures(physical_device);
 
         var total_required_features: usize = undefined;
-        const required_score = try compare_device_features_lists(required_features, available_features, &total_required_features, null);
+        const required_score = try compare_device_features_lists(self.allocator, required_features, available_features, &total_required_features, null);
         if(required_score != total_required_features) return false;
 
-        const preferred_score = try compare_device_features_lists(preferred_features, available_features, num_preferred_features_supported, preferred_features_supported);
+        const preferred_score = try compare_device_features_lists(self.allocator, preferred_features, available_features, num_preferred_features_supported, preferred_features_supported);
         num_preferred_features_supported.* = preferred_score;
 
         return true;
     }
-    
+
+    /// Calls vkcontext.query_device_swapchain_support and returns true if no errors were returned.
+    pub fn check_device_swapchain_support(context: VkContext, physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR) !bool
+    {
+        var sc_support = query_device_swapchain_support(context.instance, context.allocator, physical_device, surface) catch return false;
+        sc_support.deinit(context.allocator);
+        return true;
+    }
+
     /// Creates a SurfaceKHR object for the GLFW window. Required to display images onto the window.
     pub fn create_glfw_window_surface(self: *VkContext, window: *c_long) !vk.SurfaceKHR
     {
@@ -553,20 +553,25 @@ pub const VkContext = struct
 };
 
 /// Represents an output point for the Vulkan context. This structure contains a Vulkan logical device and surface.
-const VkInterface = struct
+pub const VkInterface = struct
 {
     allocator: *const std.mem.Allocator,
+    context: *const VkContext,
 
     vkd: *vk.DeviceWrapper = undefined,
     device: *vk.DeviceProxy = undefined,
 
     physical_device: ?vk.PhysicalDevice = null,
     physical_device_features: ?vk.PhysicalDeviceFeatures = null,
+    physical_device_queue_families: ?PhysicalDeviceQueueFamilies = null,
 
     surface: vk.SurfaceKHR = undefined,
 
     pub const InitOptions = struct
     {
+        /// List of layers to add to the Vulkan logical device.
+        device_layers: [][*:0]const u8 = &.{},
+
         /// List of required extensions to add to the Vulkan device interface. Includes VkSwapchainKHR by default (required by Ashbloom's swapchain).
         required_device_extensions: [][*:0]const u8 = &default_device_extensions,
         /// List of required device features to enable.
@@ -635,19 +640,19 @@ const VkInterface = struct
             .p_enabled_features = &enabled_features,
             .enabled_extension_count = @truncate(options.required_device_extensions.len),
             .pp_enabled_extension_names = @ptrCast(options.required_device_extensions),
-            .enabled_layer_count = @truncate(options.instance_layers.len),
-            .pp_enabled_layer_names = @ptrCast(options.instance_layers)
+            .enabled_layer_count = @truncate(options.device_layers.len),
+            .pp_enabled_layer_names = @ptrCast(options.device_layers)
         };
 
-        return try self.instance.createDevice(self.physical_device.?, &info_device_create, null);
+        return try self.context.instance.createDevice(self.physical_device.?, &info_device_create, null);
     }
 
     /// Gets a PhysicalDeviceQueueFamilies struct containing the indices of all queue families housed with the physical_device.
     /// Prefers queue families that support graphics and presentation commands at the same time.
-    fn get_physical_device_queue_families(self: VkContext, physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR) !PhysicalDeviceQueueFamilies
+    fn get_physical_device_queue_families(self: VkInterface, physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR) !PhysicalDeviceQueueFamilies
     {
         var queue_family_count: u32 = undefined;
-        self.instance.getPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, null);
+        self.context.instance.getPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, null);
 
         if(queue_family_count == 0) return .{};
 
@@ -657,13 +662,13 @@ const VkInterface = struct
         try queue_families.resize(self.allocator.*, queue_family_count);
         defer queue_families.deinit(self.allocator.*);
 
-        self.instance.getPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, @ptrCast(queue_families.items));
+        self.context.instance.getPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, @ptrCast(queue_families.items));
 
         for(queue_families.items, 0..) |family, i|
         {
             if(family.queue_flags.graphics_bit) qf.graphics_family_index = i;
 
-            if(try self.vki.getPhysicalDeviceSurfaceSupportKHR(physical_device, @truncate(i), surface) == .true)
+            if(try self.context.vki.getPhysicalDeviceSurfaceSupportKHR(physical_device, @truncate(i), surface) == .true)
             {
                 qf.present_family_index = i;
                 if(family.queue_flags.graphics_bit) qf.graphics_family_index = i;
@@ -675,12 +680,12 @@ const VkInterface = struct
 
     /// Gives a vk.PhysicalDevice a score depending on how usable it is for the current program. Used by select_physical_device.
     /// A score of -1 indicates that the device isn't usable.
-    fn rate_physical_device(self: VkInterface, physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR, required_extensions: [][*:0]const u8, preferred_extensions: [][*:0]const u8,
+    fn rate_physical_device(self: VkInterface, physical_device: vk.PhysicalDevice, required_extensions: [][*:0]const u8, preferred_extensions: [][*:0]const u8,
         required_features: vk.PhysicalDeviceFeatures, preferred_features: vk.PhysicalDeviceFeatures, preferred_features_supported: *vk.PhysicalDeviceFeatures) !i32
     {
         var score: i32 = -1;
 
-        const device_properties = self.instance.getPhysicalDeviceProperties(physical_device);
+        const device_properties = self.context.instance.getPhysicalDeviceProperties(physical_device);
 
         // Should prefer discrete GPUs to integrated ones.
 
@@ -691,18 +696,18 @@ const VkInterface = struct
             else => {}
         }
 
-        const queue_families = try self.get_physical_device_queue_families(physical_device, surface);
+        const queue_families = try self.get_physical_device_queue_families(physical_device, self.surface);
 
         // If the GPU doesn't have a valid graphics queue family, it's unusable in this case.
         if(queue_families.graphics_family_index == null) score = -1;
 
         // Checking if the GPU supports the required extensions.
         var num_preferred_extensions_supported: usize = undefined;
-        if(!(try self.check_device_extension_support(physical_device, required_extensions, preferred_extensions, &num_preferred_extensions_supported))) score = -1;
-        if(!(try self.check_device_swapchain_support(physical_device))) score = -1;
+        if(!(try self.context.check_device_extension_support(physical_device, required_extensions, preferred_extensions, &num_preferred_extensions_supported))) score = -1;
+        if(!(try self.context.check_device_swapchain_support(physical_device, self.surface))) score = -1;
 
         var num_preferred_features_supported: usize = undefined;
-        if(!(try self.check_device_feature_support(physical_device, required_features, preferred_features, &num_preferred_features_supported, preferred_features_supported))) score = -1;
+        if(!(try self.context.check_device_feature_support(physical_device, required_features, preferred_features, &num_preferred_features_supported, preferred_features_supported))) score = -1;
 
         if(score != -1)
         {
@@ -714,13 +719,13 @@ const VkInterface = struct
     }
 
     /// Selects a physical device for Vulkan to send commands to.
-    fn select_physical_device(self: *VkContext, options: InitOptions) !vk.PhysicalDevice
+    fn select_physical_device(self: *VkInterface, options: InitOptions) !vk.PhysicalDevice
     {
         // Much like getting the available extensions and layers, we need to poll the available physical devices (GPUs and other hardware that Vulkan can run on)
         // and find the best fit for our program.
 
         var physical_device_count: u32 = undefined;
-        _ = try self.instance.enumeratePhysicalDevices(&physical_device_count, null);
+        _ = try self.context.instance.enumeratePhysicalDevices(&physical_device_count, null);
 
         if(physical_device_count == 0) return VulkanInitError.NoPhysicalDeviceSupportsVulkan;
 
@@ -728,7 +733,7 @@ const VkInterface = struct
         try available_physical_devices.resize(self.allocator.*, physical_device_count);
         defer available_physical_devices.deinit(self.allocator.*);
 
-        _ = try self.instance.enumeratePhysicalDevices(&physical_device_count, @ptrCast(available_physical_devices.items));
+        _ = try self.context.instance.enumeratePhysicalDevices(&physical_device_count, @ptrCast(available_physical_devices.items));
 
         // My preferred method of selecting a GPU is to give each device a score, and then pick the highest scoring one.
 
@@ -760,7 +765,7 @@ const VkInterface = struct
             for(available_physical_devices.items, 0..) |pd, i|
             {
                 err_print("Device {d}: ", .{i + 1});
-                const properties = self.instance.getPhysicalDeviceProperties(pd);
+                const properties = self.context.instance.getPhysicalDeviceProperties(pd);
                 debug_print_physical_device_properties(properties);
             }
 
@@ -796,19 +801,20 @@ const VkInterface = struct
         return selected_device;
     }
 
-    pub fn deinit(self: *VkInterface, context: VkContext) void
+    pub fn deinit(self: *VkInterface) void
     {
         self.device.destroyDevice(null);
         self.allocator.destroy(self.device);
         self.allocator.destroy(self.vkd);
-        context.instance.destroySurfaceKHR(self.surface, null);
+        self.context.instance.destroySurfaceKHR(self.surface, null);
     }
 
     /// Initializes a VkInterface using a provided window object (required for creating the vk.SurfaceKHR).
-    pub fn init_window(context: VkContext, window: *Window, options: InitOptions) !VkInterface
+    pub fn init_window(context: *VkContext, window: *Window, options: InitOptions) !VkInterface
     {
         var interface: VkInterface = .{
-            .allocator = context.allocator
+            .allocator = context.allocator,
+            .context = context
         };
 
         // Creating the window surface.
@@ -818,7 +824,7 @@ const VkInterface = struct
         // Selecting a GPU to use for the application, and then creating the Vulkan logical device handle.
 
         interface.physical_device = try interface.select_physical_device(options);
-        interface.physical_device_queue_families = try interface.get_physical_device_queue_families(interface.physical_device.?);
+        interface.physical_device_queue_families = try interface.get_physical_device_queue_families(interface.physical_device.?, interface.surface);
 
         const hndl_device = try interface.create_vulkan_logical_device(options);
 
