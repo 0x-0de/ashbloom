@@ -7,6 +7,7 @@ const vk = ash.vk;
 const Window = ash.ABWindow;
 
 const VkContext = ash.VkContext;
+const VkInterface = ash.VkInterface;
 const VulkanAllocator = ash.VulkanAllocator;
 
 const Swapchain = ash.Swapchain;
@@ -31,6 +32,7 @@ var required_device_extensions: [1][*:0]const u8 = .{
 var window: Window = undefined;
 
 var vk_context: VkContext = undefined;
+var vk_interface: VkInterface = undefined;
 var vk_allocator: VulkanAllocator = undefined;
 
 const AppQueues = enum(u8)
@@ -43,47 +45,49 @@ var vk_queues: std.EnumArray(AppQueues, vk.Queue) = .initUndefined();
 
 var vk_command_pool: vk.CommandPool = undefined;
 
-/// Initializes the Vulkan context, allocator, and queues.
-fn init_vk_context() !void
+/// Initializes the Vulkan context.
+fn init_vk_interfaces() !void
 {
-    // Initializing the VkContext object.
-    // Requires a list of instance & device extensions, as well as validation layers (if applicable).
-    const vk_context_options: VkContext.InitOptions = .{
+    const vk_context_options: ash.VkContext.InitOptions = .{
         .instance_extensions = @ptrCast(&debug_required_instance_extensions),
         .instance_layers = @ptrCast(&debug_required_validation_layers),
-        .required_device_extensions = @ptrCast(&required_device_extensions),
-        .required_device_features = .{
-            .logic_op = .true // Used for color blending.
-        }
     };
 
-    vk_context = try .init(&allocator, &window, vk_context_options);
+    const vk_interface_options: ash.VkInterface.InitOptions = .{
+        .device_layers = @ptrCast(&debug_required_validation_layers),
+        .required_device_extensions = @ptrCast(&required_device_extensions),
+        .required_device_features = .{
+            .logic_op = .true
+        }
 
-    // Getting the necessary Vulkan queues.
-    const queue_families = vk_context.physical_device_queue_families.?;
+    };
 
-    vk_queues.set(.Graphics, vk_context.get_queue(queue_families.graphics_family_index.?, 0));
-    vk_queues.set(.Presentation, vk_context.get_queue(queue_families.present_family_index.?, 0));
+    vk_context = try ash.VkContext.init(&allocator, vk_context_options);
+    vk_interface = try ash.VkInterface.init_window(&vk_context, &window, vk_interface_options);
 
-    // Creating a command pool for graphics commands.
-    vk_command_pool = try ash.commands.create_command_pool(&vk_context, @truncate(queue_families.graphics_family_index.?));
+    const queue_families = vk_interface.physical_device_queue_families.?;
 
-    // Initialing a VulkanAllocator to allocate GPU memory.
-    // You'll notice I'm using a graphics command pool and queue for the transfer commands (which are the category of commands that allocate, free, and manage memory).
-    // This is because all graphics queues in Vulkan inherently support transfer commands.
-    vk_allocator = try .init(&vk_context, &allocator, .{
-        .transfer_command_pool = &vk_command_pool, // Command pool used for allocation commands (needs to support transfer operations)
-        .transfer_queue = vk_queues.getPtr(.Graphics), // Queue used for allocation commands (needs to support transfer commands).
-        .page_size = 128 << 20, // 128 MB - every memory page holds 128 MB.
-        .staging_size = 32 << 20 // 32 MB - can stage up to 32 MB at a time.
+    vk_queues.set(.Graphics, vk_interface.get_queue(@truncate(queue_families.graphics_family_index.?), 0));
+    vk_queues.set(.Presentation, vk_interface.get_queue(@truncate(queue_families.present_family_index.?), 0));
+
+    vk_command_pool = try ash.commands.create_command_pool(&vk_interface, @truncate(queue_families.graphics_family_index.?));
+
+    vk_allocator = try ash.VulkanAllocator.init(&vk_interface, &allocator, .{
+        .transfer_command_pool = &vk_command_pool,
+        .transfer_queue = vk_queues.getPtr(.Graphics),
+        .page_size = 128 << 20, // 128 MB.
+        .staging_size =  32 << 20 // 32 MB.
     });
 }
 
-fn deinit_vk_context() void
+/// Deinitializes the Vulkan context.
+fn deinit_vk_interfaces() void
 {
     vk_allocator.deinit();
 
-    vk_context.device.destroyCommandPool(vk_command_pool, null);
+    vk_interface.device.destroyCommandPool(vk_command_pool, null);
+    vk_interface.deinit();
+
     vk_context.deinit();
 }
 
@@ -95,7 +99,7 @@ fn init_swapchain() !void
     // Requires the aforementioned graphics command pool. This is because the swapchain is set up to handle rendering and presentation with command buffers.
     // The vk_allocator is there to allocate any additional attachments added to the framebuffer (see below).
     // This swapchain only needs 1 render stage, used to render the main pipeline.
-    swapchain = try .init(&window, &vk_context, &vk_allocator, vk_command_pool, 1);
+    swapchain = try .init(&window, &vk_interface, &vk_allocator, vk_command_pool, 1);
 
     // This swapchain requires an additional attachment: one depth buffer for each swapchain image.
     // Since the depth buffer needs to be updated for every single frame drawn to the screen, it's best to implement this depth buffer as an attachment to the main graphics pipeline's render pass.
@@ -108,7 +112,7 @@ fn init_swapchain() !void
         .extent = undefined,
         .mip_levels = 1,
         .array_layers = 1,
-        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
+        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_interface),
         .tiling = .optimal,
         .initial_layout = .undefined,
         .usage = .{ .depth_stencil_attachment_bit = true },
@@ -118,7 +122,7 @@ fn init_swapchain() !void
 
     const info_depth_image_view: vk.ImageViewCreateInfo = .{
         .image = undefined,
-        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
+        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_interface),
         .components = .{
             .r = .identity,
             .g = .identity,
@@ -168,7 +172,7 @@ fn init_attachments() !void
     // which is why the initialization process is the same) are a wrapper around a group of image attachments which can more easily handle creation, deletion, and recreation (for when the window resizes,
     // in this case).
     const att_selection_buffer = attachments.getPtr(.SelectionBuffer);
-    att_selection_buffer.* = try .init(&allocator, &vk_context, &vk_allocator);
+    att_selection_buffer.* = try .init(&allocator, &vk_interface, &vk_allocator);
 
     // Like the swapchain attachments, `extent` and `image` need not be set.
 
@@ -220,7 +224,7 @@ fn init_attachments() !void
         .extent = undefined,
         .mip_levels = 1,
         .array_layers = 1,
-        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
+        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_interface),
         .tiling = .optimal,
         .initial_layout = .undefined,
         .usage = .{ .depth_stencil_attachment_bit = true },
@@ -230,7 +234,7 @@ fn init_attachments() !void
 
     const info_depth_image_view: vk.ImageViewCreateInfo = .{
         .image = undefined,
-        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context),
+        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_interface),
         .components = .{
             .r = .identity,
             .g = .identity,
@@ -283,7 +287,7 @@ fn init_render_passes() !void
     // Both of these render passes ended up being virtually the same, other than the difference between the swapchain format and the selection buffer format.
     // This should be familiar to you if you're familiar with Vulkan render passes.
 
-    const depth_format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_context);
+    const depth_format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_interface);
 
     const sp_color_depth: ash.RenderPass.Subpass = .{
         .color_attachment_index = 0,
@@ -319,7 +323,7 @@ fn init_render_passes() !void
 
     const p_debug_geometry = render_passes.getPtr(.DebugGeometry);
 
-    p_debug_geometry.* = try .init(&vk_context);
+    p_debug_geometry.* = try .init(&vk_interface);
 
     // Color attachment.
     try p_debug_geometry.add_attachment_description_no_stencil_multisample(swapchain.format.format, .clear, .store, .undefined, .present_src_khr);
@@ -331,7 +335,7 @@ fn init_render_passes() !void
 
     const p_selection = render_passes.getPtr(.Selection);
 
-    p_selection.* = try .init(&vk_context);
+    p_selection.* = try .init(&vk_interface);
 
     try p_selection.add_attachment_description_no_stencil_multisample(.r32g32b32a32_uint, .clear, .store, .undefined, .transfer_src_optimal);
     try p_selection.add_attachment_description_no_stencil_multisample(depth_format, .clear, .dont_care, .undefined, .depth_stencil_attachment_optimal);
@@ -410,7 +414,7 @@ fn init_graphics_pipeline_descriptor_sets() !void
     // Debug geometry model view.
     const pds_debug_geometry = pipeline_descriptor_sets.getPtr(.DebugGeometryModelView);
 
-    pds_debug_geometry.* = try .init(&vk_context, &vk_allocator, @truncate(swapchain.image_count));
+    pds_debug_geometry.* = try .init(&vk_interface, &vk_allocator, @truncate(swapchain.image_count));
 
     try pds_debug_geometry.add_binding(.{
         .binding_index = 0,
@@ -426,7 +430,7 @@ fn init_graphics_pipeline_descriptor_sets() !void
     // Model view.
     const pds_main = pipeline_descriptor_sets.getPtr(.ModelView);
 
-    pds_main.* = try .init(&vk_context, &vk_allocator, @truncate(swapchain.image_count));
+    pds_main.* = try .init(&vk_interface, &vk_allocator, @truncate(swapchain.image_count));
 
     try pds_main.add_binding(.{
         .binding_index = 0,
@@ -449,7 +453,7 @@ fn init_graphics_pipelines() !void
     // Debug geometry.
     const p_debug_geometry = pipelines.getPtr(.DebugGeometry);
 
-    p_debug_geometry.* = try .init(&vk_context);
+    p_debug_geometry.* = try .init(&vk_interface);
 
     try p_debug_geometry.add_dynamic_state(.viewport);
     try p_debug_geometry.add_dynamic_state(.scissor);
@@ -470,7 +474,7 @@ fn init_graphics_pipelines() !void
     // Main.
     const p_main = pipelines.getPtr(.Main);
 
-    p_main.* = try .init(&vk_context);
+    p_main.* = try .init(&vk_interface);
 
     try p_main.add_dynamic_state(.viewport);
     try p_main.add_dynamic_state(.scissor);
@@ -491,7 +495,7 @@ fn init_graphics_pipelines() !void
     // Selection display.
     const p_selection_display = pipelines.getPtr(.SelectionDisplay);
 
-    p_selection_display.* = try .init(&vk_context);
+    p_selection_display.* = try .init(&vk_interface);
 
     try p_selection_display.add_dynamic_state(.viewport);
     try p_selection_display.add_dynamic_state(.scissor);
@@ -512,7 +516,7 @@ fn init_graphics_pipelines() !void
     // Selection.
     const p_selection = pipelines.getPtr(.Selection);
 
-    p_selection.* = try .init(&vk_context);
+    p_selection.* = try .init(&vk_interface);
 
     try p_selection.add_dynamic_state(.viewport);
     try p_selection.add_dynamic_state(.scissor);
@@ -688,8 +692,8 @@ pub fn main() !void
 
     // Initializing Vulkan and various rendering resources.
 
-    try init_vk_context();
-    defer deinit_vk_context();
+    try init_vk_interfaces();
+    defer deinit_vk_interfaces();
 
     try init_swapchain();
     defer deinit_swapchain();
@@ -724,8 +728,8 @@ pub fn main() !void
         .layers = 1
     };
 
-    var selection_framebuffer = try vk_context.device.createFramebuffer(&selection_framebuffer_info, null);
-    defer vk_context.device.destroyFramebuffer(selection_framebuffer, null);
+    var selection_framebuffer = try vk_interface.device.createFramebuffer(&selection_framebuffer_info, null);
+    defer vk_interface.device.destroyFramebuffer(selection_framebuffer, null);
 
     // Other miscellaneous resources.
 
@@ -771,7 +775,7 @@ pub fn main() !void
 
     var draw_pipeline: Pipelines = .Main;
 
-    var selection_command_buffer: ash.CommandBuffer = try .init(&vk_context, vk_command_pool);
+    var selection_command_buffer: ash.CommandBuffer = try .init(&vk_interface, vk_command_pool);
 
     const selection_fence_info: vk.FenceCreateInfo = .{
         .flags = .{
@@ -779,8 +783,8 @@ pub fn main() !void
         }
     };
 
-    const selection_fence = try vk_context.device.createFence(&selection_fence_info, null);
-    defer vk_context.device.destroyFence(selection_fence, null);
+    const selection_fence = try vk_interface.device.createFence(&selection_fence_info, null);
+    defer vk_interface.device.destroyFence(selection_fence, null);
 
     const selection_data = try vk_allocator.alloc_buffer_empty(4 * @sizeOf(f32), .exclusive, .CPUTransferDst) orelse unreachable;
     defer vk_allocator.free_buffer(selection_data);
@@ -811,12 +815,12 @@ pub fn main() !void
             .NoIssue => {},
             .Failure => { @panic("Failed to acquire next swapchain image."); },
             .NewSwapchain => {
-                try vk_context.device.deviceWaitIdle();
+                try vk_interface.device.deviceWaitIdle();
 
                 swapchain.deinit_framebuffers(framebuffers);
                 framebuffers.deinit(allocator);
 
-                vk_context.device.destroyFramebuffer(selection_framebuffer, null);
+                vk_interface.device.destroyFramebuffer(selection_framebuffer, null);
 
                 try swapchain.refresh_attachments();
 
@@ -834,7 +838,7 @@ pub fn main() !void
                 selection_framebuffer_info.width = swapchain.extent.width;
                 selection_framebuffer_info.height = swapchain.extent.height;
 
-                selection_framebuffer = try vk_context.device.createFramebuffer(&selection_framebuffer_info, null);
+                selection_framebuffer = try vk_interface.device.createFramebuffer(&selection_framebuffer_info, null);
 
                 first_frame = true;
             }
@@ -881,15 +885,15 @@ pub fn main() !void
         if(cursor_pos.x >= 0 and cursor_pos.y >= 0 and cursor_pos.x < swapchain.extent.width and cursor_pos.y < swapchain.extent.height)
         {
             // Waits for the previous selection buffer rendering operation to finish before beginning a new one.
-            _ = try vk_context.device.waitForFences(&.{selection_fence}, .true, std.math.maxInt(u64));
-            _ = try vk_context.device.resetFences(&.{selection_fence});
+            _ = try vk_interface.device.waitForFences(&.{selection_fence}, .true, std.math.maxInt(u64));
+            _ = try vk_interface.device.resetFences(&.{selection_fence});
 
             // If this is the first frame, then the selection buffer hasn't been drawn yet, and we need to wait for the first selection buffer draw to finish before
             // I can do any input with it.
             if(!first_frame)
             {
                 // Take the selection buffer image and copy its data to a readable VkBuffer.
-                try ash.vk_memory.copy_image_to_buffer(&vk_context, selection_buffer.attachments.items[0].image.?.image, selection_data.buffer, .{ .x = cursor_pos.x, .y = cursor_pos.y, .z = 0 },
+                try ash.vk_memory.copy_image_to_buffer(&vk_interface, selection_buffer.attachments.items[0].image.?.image, selection_data.buffer, .{ .x = cursor_pos.x, .y = cursor_pos.y, .z = 0 },
                     .{ .width = 1, .height = 1, .depth = 1 }, vk_command_pool, vk_queues.get(.Graphics));
 
                 // Pull said buffer data out into a readable slice.
@@ -1010,7 +1014,7 @@ pub fn main() !void
                 .p_command_buffers = @ptrCast(&selection_command_buffer.handle)
             };
 
-            try vk_context.device.queueSubmit(vk_queues.get(.Graphics), &.{info_selection_cmd_submit}, selection_fence);
+            try vk_interface.device.queueSubmit(vk_queues.get(.Graphics), &.{info_selection_cmd_submit}, selection_fence);
 
             first_frame = false;
         }
@@ -1033,5 +1037,5 @@ pub fn main() !void
         frames += 1;
     }
 
-    try vk_context.device.deviceWaitIdle();
+    try vk_interface.device.deviceWaitIdle();
 }

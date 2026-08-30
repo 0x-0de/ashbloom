@@ -49,7 +49,7 @@ pub const AttachmentBundle = struct
     }
 
     /// Initializes an empty attachment bundle.
-    pub fn init(allocator: *const std.mem.Allocator, interface: *ash.VkContext, vk_allocator: *vk_memory.VulkanAllocator) !AttachmentBundle
+    pub fn init(allocator: *const std.mem.Allocator, interface: *ash.VkInterface, vk_allocator: *vk_memory.VulkanAllocator) !AttachmentBundle
     {
         return .{
             .allocator = allocator,

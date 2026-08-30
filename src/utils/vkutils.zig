@@ -65,12 +65,12 @@ pub fn get_vulkan_format_size(format: vk.Format) VulkanFormatError!u32
 }
 
 /// Picks the most well-suited from a list of image formats based on preferred image tiling and features.
-pub fn choose_image_format(vk_context: *ash.VkContext, preferred_tiling: vk.ImageTiling, preferred_features: vk.FormatFeatureFlags, formats: []const vk.Format) VulkanFormatError!vk.Format
+pub fn choose_image_format(vk_interface: *ash.VkInterface, preferred_tiling: vk.ImageTiling, preferred_features: vk.FormatFeatureFlags, formats: []const vk.Format) VulkanFormatError!vk.Format
 {
     for(formats) |f|
     {
         const pf: vk.Flags = @bitCast(preferred_features);
-        const properties = vk_context.instance.getPhysicalDeviceFormatProperties(vk_context.physical_device.?, f);
+        const properties = vk_interface.context.instance.getPhysicalDeviceFormatProperties(vk_interface.physical_device.?, f);
      
         const ltf: vk.Flags = @bitCast(properties.linear_tiling_features);
         const otf: vk.Flags = @bitCast(properties.optimal_tiling_features);
@@ -83,7 +83,7 @@ pub fn choose_image_format(vk_context: *ash.VkContext, preferred_tiling: vk.Imag
 }
 
 /// Calls choose_image_format for a list of depth buffer attachments with optimal tiling and the depth-stencil feature.
-pub fn choose_best_depth_buffer_format(vk_context: *ash.VkContext) VulkanFormatError!vk.Format
+pub fn choose_best_depth_buffer_format(vk_interface: *ash.VkInterface) VulkanFormatError!vk.Format
 {
-    return choose_image_format(vk_context, .optimal, .{ .depth_stencil_attachment_bit = true }, &.{ .d32_sfloat, .d32_sfloat_s8_uint, .d24_unorm_s8_uint });
+    return choose_image_format(vk_interface, .optimal, .{ .depth_stencil_attachment_bit = true }, &.{ .d32_sfloat, .d32_sfloat_s8_uint, .d24_unorm_s8_uint });
 }
