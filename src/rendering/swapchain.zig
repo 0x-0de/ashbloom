@@ -435,6 +435,18 @@ pub const Swapchain = struct
         }
     }
 
+    /// Returns a pointer to the attachment at the `attachment_index`.
+    pub fn get_attachment(self: Swapchain, attachment_index: usize) *att.Attachment
+    {
+        return &self.attachments.items[attachment_index];
+    }
+
+    /// Returns a pointer to the currently active image view.
+    pub fn get_current_image_view(self: Swapchain) *vk.ImageView
+    {
+        return &self.image_views.items[self.current_image_index];
+    }
+
     /// Waits for the command buffer associated with the current image and render stage to return to a pending state, then returns it.
     pub fn get_next_command_buffer(self: *Swapchain) !*CommandBuffer
     {

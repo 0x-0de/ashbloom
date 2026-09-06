@@ -943,14 +943,13 @@ pub const Container = struct
         };
 
         try command_buffer.begin_recording();
-        command_buffer.cmd_begin_render_pass(self.ui_rendering.render_pass, framebuffer, swapchain.extent, &.{clear_value});
+        command_buffer.begin_render_pass(self.ui_rendering.render_pass, framebuffer, swapchain.extent, &.{clear_value});
         if(self.instance_buffer != null)
         {
-            command_buffer.cmd_bind_pipeline(self.ui_rendering.pipeline);
-            command_buffer.cmd_bind_descriptor_set(self.ui_rendering.pipeline, 
-            &self.ui_rendering.descriptor_set.sets[swapchain.current_image_index]);
-            command_buffer.cmd_set_viewport_full(swapchain.extent);
-            command_buffer.cmd_set_scissor(.{
+            command_buffer.bind_pipeline(.graphics, self.ui_rendering.pipeline);
+            command_buffer.bind_descriptor_set(.graphics, self.ui_rendering.pipeline, &self.ui_rendering.descriptor_set.sets[swapchain.current_image_index]);
+            command_buffer.set_viewport_full(swapchain.extent);
+            command_buffer.set_scissor(.{
                 .offset = .{
                     .x = @intFromFloat(self.bounds.pos_x),
                     .y = @intFromFloat(self.bounds.pos_y)
@@ -960,10 +959,10 @@ pub const Container = struct
                     .height = @intFromFloat(self.bounds.scl_y)
                 }
             });
-            command_buffer.cmd_bind_vertex_buffer(0, self.instance_buffer.?.buffer, @as(vk.DeviceSize, 0));
-            command_buffer.cmd_draw(6, @truncate(self.element_draw_count));
+            command_buffer.bind_vertex_buffer(0, self.instance_buffer.?.buffer, @as(vk.DeviceSize, 0));
+            command_buffer.draw(6, @truncate(self.element_draw_count));
         }
-        command_buffer.cmd_end_render_pass();
+        command_buffer.end_render_pass();
         try command_buffer.end_recording();
 
         try swapchain.render(self.ui_rendering.render_queue);

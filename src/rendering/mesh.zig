@@ -170,7 +170,7 @@ pub const Mesh = struct
     pub fn bind(self: *Mesh, command_buffer: *ash.CommandBuffer) MeshError!void
     {
         if(self.buffer == null) return MeshError.MeshIsEmpty;
-        command_buffer.cmd_bind_vertex_buffer(self.vertex_binding, self.buffer.?.buffer, 0);
+        command_buffer.bind_vertex_buffer(self.vertex_binding, self.buffer.?.buffer, 0);
     }
 
     /// Binds, then draws, the Mesh as vertices (records those commands onto the `command_buffer`).
@@ -212,14 +212,14 @@ pub const Mesh = struct
     pub fn draw_instances(self: *Mesh, command_buffer: *ash.CommandBuffer, vertex_count: u32) void
     {
         if(self.num_vertices == 0) return;
-        command_buffer.cmd_draw(vertex_count, self.num_vertices);
+        command_buffer.draw(vertex_count, self.num_vertices);
     }
 
     /// Uses the `command_buffer` to draw the Mesh as vertices.
     pub fn draw_vertices(self: *Mesh, command_buffer: *ash.CommandBuffer) void
     {
         if(self.num_vertices == 0) return;
-        command_buffer.cmd_draw(self.num_vertices, 1);
+        command_buffer.draw(self.num_vertices, 1);
     }
 
     /// After finishing and finalizing a set of vertices for the mesh, it's recommended to call this function to "release" the memory associated with those vertices

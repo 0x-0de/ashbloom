@@ -469,7 +469,7 @@ fn init_graphics_pipelines() !void
 
     p_debug_geometry.info_depth_stencil_testing = ash.pipeline.pipeline_depth_stencil_state_default();
 
-    try p_debug_geometry.build(render_passes.getPtr(.DebugGeometry));
+    try p_debug_geometry.build(.{ .FixedRenderPass = render_passes.getPtr(.DebugGeometry) });
 
     // Main.
     const p_main = pipelines.getPtr(.Main);
@@ -490,7 +490,7 @@ fn init_graphics_pipelines() !void
 
     p_main.info_depth_stencil_testing = ash.pipeline.pipeline_depth_stencil_state_default();
 
-    try p_main.build(render_passes.getPtr(.DebugGeometry));
+    try p_main.build(.{ .FixedRenderPass = render_passes.getPtr(.DebugGeometry) });
 
     // Selection display.
     const p_selection_display = pipelines.getPtr(.SelectionDisplay);
@@ -511,7 +511,7 @@ fn init_graphics_pipelines() !void
 
     p_selection_display.info_depth_stencil_testing = ash.pipeline.pipeline_depth_stencil_state_default();
 
-    try p_selection_display.build(render_passes.getPtr(.DebugGeometry));
+    try p_selection_display.build(.{ .FixedRenderPass = render_passes.getPtr(.DebugGeometry) });
 
     // Selection.
     const p_selection = pipelines.getPtr(.Selection);
@@ -532,7 +532,7 @@ fn init_graphics_pipelines() !void
 
     p_selection.info_depth_stencil_testing = ash.pipeline.pipeline_depth_stencil_state_default();
 
-    try p_selection.build(render_passes.getPtr(.Selection));
+    try p_selection.build(.{ .FixedRenderPass = render_passes.getPtr(.Selection) });
 }
 
 fn deinit_graphics_pipelines() void
@@ -1000,13 +1000,13 @@ pub fn main() !void
             // If you're familiar with Vulkan draw commands this should look decently simple.
             try selection_command_buffer.reset();
             try selection_command_buffer.begin_recording();
-            selection_command_buffer.cmd_begin_render_pass(render_passes.getPtr(.Selection), selection_framebuffer, swapchain.extent, &.{cv_selection_color, cv_depth});
-            selection_command_buffer.cmd_set_viewport_full(swapchain.extent);
-            selection_command_buffer.cmd_set_scissor(.{ .offset = .{ .x = cursor_pos.x, .y = cursor_pos.y }, .extent = .{ .width = 1, .height = 1 } });
-            selection_command_buffer.cmd_bind_pipeline(pipelines.getPtr(.Selection));
-            selection_command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(.Selection), &pipeline_descriptor_sets.getPtr(.ModelView).sets[swapchain.current_image_index]);
+            selection_command_buffer.begin_render_pass(render_passes.getPtr(.Selection), selection_framebuffer, swapchain.extent, &.{cv_selection_color, cv_depth});
+            selection_command_buffer.set_viewport_full(swapchain.extent);
+            selection_command_buffer.set_scissor(.{ .offset = .{ .x = cursor_pos.x, .y = cursor_pos.y }, .extent = .{ .width = 1, .height = 1 } });
+            selection_command_buffer.bind_pipeline(.graphics, pipelines.getPtr(.Selection));
+            selection_command_buffer.bind_descriptor_set(.graphics, pipelines.getPtr(.Selection), &pipeline_descriptor_sets.getPtr(.ModelView).sets[swapchain.current_image_index]);
             try chunk.draw(.Selection, &selection_command_buffer);
-            selection_command_buffer.cmd_end_render_pass();
+            selection_command_buffer.end_render_pass();
             try selection_command_buffer.end_recording();
 
             const info_selection_cmd_submit: vk.SubmitInfo = .{
@@ -1022,12 +1022,12 @@ pub fn main() !void
         // Main drawing loop.
         try command_buffer.reset();
         try command_buffer.begin_recording();
-        command_buffer.cmd_begin_render_pass(render_passes.getPtr(.DebugGeometry), framebuffers.items[swapchain.current_image_index], swapchain.extent, &.{cv_color, cv_depth});
-        command_buffer.cmd_set_viewport_scissor_full(swapchain.extent);
-        command_buffer.cmd_bind_pipeline(pipelines.getPtr(draw_pipeline));
-        command_buffer.cmd_bind_descriptor_set(pipelines.getPtr(draw_pipeline), &pipeline_descriptor_sets.getPtr(descriptor_set).sets[swapchain.current_image_index]);
+        command_buffer.begin_render_pass(render_passes.getPtr(.DebugGeometry), framebuffers.items[swapchain.current_image_index], swapchain.extent, &.{cv_color, cv_depth});
+        command_buffer.set_viewport_scissor_full(swapchain.extent);
+        command_buffer.bind_pipeline(.graphics, pipelines.getPtr(draw_pipeline));
+        command_buffer.bind_descriptor_set(.graphics, pipelines.getPtr(draw_pipeline), &pipeline_descriptor_sets.getPtr(descriptor_set).sets[swapchain.current_image_index]);
         try chunk.draw(chunk_mesh_mode, command_buffer);
-        command_buffer.cmd_end_render_pass();
+        command_buffer.end_render_pass();
         try command_buffer.end_recording();
 
         try swapchain.render(vk_queues.get(.Graphics));

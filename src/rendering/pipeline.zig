@@ -596,6 +596,18 @@ pub const Pipeline = struct
     /// One of the only optional structures, this struct contains information about the pipeline's depth buffering operations, if they are using one.
     info_depth_stencil_testing: ?vk.PipelineDepthStencilStateCreateInfo = null,
 
+    pub const BuildModes = enum
+    {
+        FixedRenderPass,
+        Dynamic
+    };
+
+    pub const BuildInfo = union(BuildModes)
+    {
+        FixedRenderPass: *RenderPass,
+        Dynamic: vk.PipelineRenderingCreateInfo
+    };
+
     /// Adds a color blend attachment state to the pipeline. At least one is needed before building.
     pub fn add_color_blend_attachment(self: *Pipeline, state: vk.PipelineColorBlendAttachmentState) !void
     {
@@ -635,7 +647,8 @@ pub const Pipeline = struct
     }
 
     /// Builds the pipeline. Assembles all shader modules and structs and attempts to create a pipeline using their information.
-    pub fn build(self: *Pipeline, render_pass: *RenderPass) !void
+    /// Can either build using a fixed render pass or build into a dynamic rendering pipeline.
+    pub fn build(self: *Pipeline, build_info: BuildInfo) !void
     {
         const num_shaders = self.shader_modules.items.len;
         var shader_stage_list = try std.ArrayList(vk.PipelineShaderStageCreateInfo).initCapacity(self.interface.allocator.*, num_shaders);
@@ -684,7 +697,7 @@ pub const Pipeline = struct
 
         self.pipeline_layout = try self.interface.device.createPipelineLayout(&info_pipeline_layout, null);
 
-        const info_pipeline: vk.GraphicsPipelineCreateInfo = .{
+        var info_pipeline: vk.GraphicsPipelineCreateInfo = .{
             .stage_count = 2,
             .p_stages = @ptrCast(shader_stage_list.items),
             .p_vertex_input_state = &self.info_vertex_input,
@@ -696,10 +709,21 @@ pub const Pipeline = struct
             .p_depth_stencil_state = if(self.info_depth_stencil_testing != null) &self.info_depth_stencil_testing.? else null,
             .p_dynamic_state = &info_dynamic_state,
             .layout = self.pipeline_layout.?,
-            .render_pass = render_pass.render_pass,
             .subpass = 0,
             .base_pipeline_index = -1
         };
+
+        switch(build_info)
+        {
+            .FixedRenderPass => |rp|
+            {
+                info_pipeline.render_pass = rp.render_pass;
+            },
+            .Dynamic => |*info|
+            {
+                info_pipeline.p_next = info;
+            }
+        }
 
         _ = try self.interface.device.createGraphicsPipelines(.null_handle, &.{ info_pipeline }, null, @ptrCast(&self.pipeline));
 
