@@ -4,7 +4,7 @@ const ash = @import("ashbloom");
 const glfw = ash.glfw;
 const vk = ash.vk;
 
-const Vec = ash.linalg.Vec;
+const Vec = ash.math.linalg.Vec;
 
 const CAMERA_SPEED = 0.05;
 
@@ -41,15 +41,15 @@ pub const Camera = struct
     }
 
     /// Handles tick-based update events (such as camera movement).
-    pub fn tick(self: *Camera, window: ash.ABWindow) void
+    pub fn tick(self: *Camera, window: ash.rendering.Window) void
     {
         var forward = self.rot;
         
         var forward_compressed = forward;
         forward_compressed.data[1] = 0;
-        forward_compressed = ash.linalg.normalize(f32, 3, forward_compressed);
+        forward_compressed = ash.math.linalg.normalize(f32, 3, forward_compressed);
 
-        var side = ash.linalg.cross(f32, Vec(f32, 3).init(.{0, 1, 0}), forward_compressed);
+        var side = ash.math.linalg.cross(f32, Vec(f32, 3).init(.{0, 1, 0}), forward_compressed);
 
         const speed: f32 = CAMERA_SPEED;
 
@@ -81,7 +81,7 @@ pub const Camera = struct
     }
 
     /// Handles non-tick-based update events (such as camera rotation via mouse).
-    pub fn update_input(self: *Camera, window: ash.ABWindow, mouse_sensitivity: f64, input_mode: u8) void
+    pub fn update_input(self: *Camera, window: ash.rendering.Window, mouse_sensitivity: f64, input_mode: u8) void
     {
         const cursor_pos = window.get_cursor_pos(true);
 

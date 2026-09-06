@@ -67,7 +67,7 @@ pub const Mesh = struct
     /// Allocator.
     allocator: *const std.mem.Allocator,
     /// Vulkan allocator.
-    vk_allocator: *ash.VulkanAllocator,
+    vk_allocator: *ash.utils.VulkanAllocator,
 
     /// Vertex binding this mesh belongs to.
     vertex_binding: u32,
@@ -83,7 +83,7 @@ pub const Mesh = struct
     /// List of all vertex data **to be allocated** to GPU memory when this mesh is built.
     vertex_data: std.ArrayList(u8),
     /// Vulkan buffer (allocated upon calling `self.build(...)`).
-    buffer: ?ash.VulkanAllocator.VulkanBufferAllocation,
+    buffer: ?ash.utils.VulkanAllocator.VulkanBufferAllocation,
 
     /// Deinitializes the Mesh object.
     pub fn deinit(self: *Mesh) void
@@ -102,7 +102,7 @@ pub const Mesh = struct
     /// Initializes the Mesh object. Uses a PipelineVertexInput to determine the sizes, formats, and total number of vertex attributes this mesh will use.
     /// The `input_binding` parameter specifies what binding in the PipelineVertexInput this mesh should use.
     /// The `verts_reserve` variable determines how many vertices should be pre-allocated in the `data` list.
-    pub fn init(allocator: *const std.mem.Allocator, vk_allocator: *ash.VulkanAllocator, layout: ash.PipelineVertexInput, vertex_binding: u32, verts_reserve: usize) !Mesh
+    pub fn init(allocator: *const std.mem.Allocator, vk_allocator: *ash.utils.VulkanAllocator, layout: ash.rendering.PipelineVertexInput, vertex_binding: u32, verts_reserve: usize) !Mesh
     {
         var num_att: usize = 0;
         for(layout.attribute_descriptions.items) |att|
@@ -133,7 +133,7 @@ pub const Mesh = struct
         {
             if(att.binding == vertex_binding)
             {
-                const format_size = try ash.vk_utils.get_vulkan_format_size(att.format);
+                const format_size = try ash.utils.vk_utils.get_vulkan_format_size(att.format);
                 mesh.attribute_sizes[cur_att] = @truncate(format_size);
                 mesh.vertex_size += @truncate(format_size);
 
@@ -167,14 +167,14 @@ pub const Mesh = struct
     }
 
     /// Use the `command_buffer` to bind the Mesh's vertex buffer.
-    pub fn bind(self: *Mesh, command_buffer: *ash.CommandBuffer) MeshError!void
+    pub fn bind(self: *Mesh, command_buffer: *ash.rendering.CommandBuffer) MeshError!void
     {
         if(self.buffer == null) return MeshError.MeshIsEmpty;
         command_buffer.bind_vertex_buffer(self.vertex_binding, self.buffer.?.buffer, 0);
     }
 
     /// Binds, then draws, the Mesh as vertices (records those commands onto the `command_buffer`).
-    pub fn bind_and_draw_vertices(self: *Mesh, command_buffer: *ash.CommandBuffer) MeshError!void
+    pub fn bind_and_draw_vertices(self: *Mesh, command_buffer: *ash.rendering.CommandBuffer) MeshError!void
     {
         try self.bind(command_buffer);
         self.draw_vertices(command_buffer);
@@ -209,14 +209,14 @@ pub const Mesh = struct
     }
 
     /// Uses the `command_buffer` to draw the Mesh as instances.
-    pub fn draw_instances(self: *Mesh, command_buffer: *ash.CommandBuffer, vertex_count: u32) void
+    pub fn draw_instances(self: *Mesh, command_buffer: *ash.rendering.CommandBuffer, vertex_count: u32) void
     {
         if(self.num_vertices == 0) return;
         command_buffer.draw(vertex_count, self.num_vertices);
     }
 
     /// Uses the `command_buffer` to draw the Mesh as vertices.
-    pub fn draw_vertices(self: *Mesh, command_buffer: *ash.CommandBuffer) void
+    pub fn draw_vertices(self: *Mesh, command_buffer: *ash.rendering.CommandBuffer) void
     {
         if(self.num_vertices == 0) return;
         command_buffer.draw(self.num_vertices, 1);

@@ -43,9 +43,6 @@ pub const rendering = struct
     pub const vk_core = @import("rendering/vkcontext.zig");
     pub const window = @import("rendering/window.zig");
 
-    /// Named "ABWindow" because vulkan-zig will try to interface with it if it's just named "Window".
-    pub const ABWindow = window.Window;
-
     pub const Attachment = attachment.Attachment;
     pub const AttachmentBundle = attachment.AttachmentBundle;
 
@@ -63,6 +60,8 @@ pub const rendering = struct
 
     pub const VkContext = vk_core.VkContext;
     pub const VkInterface = vk_core.VkInterface;
+
+    pub const Window = window.Window;
 };
 
 pub const utils = struct
@@ -139,8 +138,64 @@ comptime
     _ = utils;
     _ = ui;
 
-    _ = RenderPass;
-    _ = Swapchain;
+    _ = gen.polygonizers;
+    _ = gen.random;
+
+    _ = gen.MarchingCubes;
+    _ = gen.MarchingTetrahedra;
+    _ = gen.SurfaceNets;
+
+    _ = math.interp;
+    _ = math.linalg;
+
+    _ = math.Mat;
+    _ = math.Vec;
+
+    _ = rendering.attachment;
+    _ = rendering.commands;
+    _ = rendering.mesh;
+    _ = rendering.pipeline;
+    _ = rendering.vk_core;
+    _ = rendering.window;
+
+    _ = rendering.Attachment;
+    _ = rendering.AttachmentBundle;
+    _ = rendering.CommandBuffer;
+    _ = rendering.Mesh;
+    _ = rendering.Pipeline;
+    _ = rendering.PipelineDescriptorSet;
+    _ = rendering.PipelineVertexInput;
+    _ = rendering.RenderPass;
+    _ = rendering.Swapchain;
+    _ = rendering.VkContext;
+    _ = rendering.VkInterface;
+    _ = rendering.Window;
+
+    _ = utils.image_utils;
+    _ = utils.misc;
+    _ = utils.vk_memory;
+    _ = utils.vk_utils;
+
+    _ = utils.FontEntry;
+    _ = utils.FontFamily;
+    _ = utils.Texture2D;
+    _ = utils.TextureAtlas2D;
+    _ = utils.VulkanAllocator;
+
+    _ = ui.core;
+    _ = ui.font;
+    _ = ui.layouts;
+    _ = ui.theme_basic;
+
+    _ = ui.Alignment;
+    _ = ui.Bounds;
+    _ = ui.Container;
+    _ = ui.ContainerInputData;
+    _ = ui.ContainerRendering;
+    _ = ui.Element;
+    _ = ui.ElementCallback;
+    _ = ui.Font;
+    _ = ui.FontCharacter;
 
     _ = deinit_graphics;
     _ = init_graphics;

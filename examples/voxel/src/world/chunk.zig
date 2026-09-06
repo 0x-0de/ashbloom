@@ -1,19 +1,21 @@
 const std = @import("std");
 const ash = @import("ashbloom");
 
-const CommandBuffer = ash.commands.CommandBuffer;
+const Mesh = ash.rendering.Mesh;
+
+const CommandBuffer = ash.rendering.commands.CommandBuffer;
 
 /// Size of each chunk, in voxels.
-pub const CHUNK_SIZE: ash.Vec(usize, 3) = .init(.{64, 64, 64});
+pub const CHUNK_SIZE: ash.math.Vec(usize, 3) = .init(.{64, 64, 64});
 
 /// Pipeline layout used for all chunk meshes.
-var chunk_pl: ?ash.PipelineVertexInput = null;
+var chunk_pl: ?ash.rendering.PipelineVertexInput = null;
 
 /// Pipeline layout used for all chunk selection meshes.
-var chunk_pl_selection: ?ash.PipelineVertexInput = null;
+var chunk_pl_selection: ?ash.rendering.PipelineVertexInput = null;
 
 /// Adds a left-facing quad to the chunk at x,y,z.
-fn add_left_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
+fn add_left_face(mesh: *Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
     _ = mode;
     var verts = try mesh.add_vertices(6);
@@ -36,7 +38,7 @@ fn add_left_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) 
 }
 
 /// Adds a right-facing quad to the chunk at x,y,z.
-fn add_right_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
+fn add_right_face(mesh: *Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
     _ = mode;
     var verts = try mesh.add_vertices(6);
@@ -59,7 +61,7 @@ fn add_right_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode)
 }
 
 /// Adds a bottom-facing quad to the chunk at x,y,z.
-fn add_bottom_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
+fn add_bottom_face(mesh: *Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
     _ = mode;
     var verts = try mesh.add_vertices(6);
@@ -82,7 +84,7 @@ fn add_bottom_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode
 }
 
 /// Adds a top-facing quad to the chunk at x,y,z.
-fn add_top_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
+fn add_top_face(mesh: *Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
     _ = mode;
     var verts = try mesh.add_vertices(6);
@@ -105,7 +107,7 @@ fn add_top_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !
 }
 
 /// Adds a front-facing quad to the chunk at x,y,z.
-fn add_front_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
+fn add_front_face(mesh: *Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
     _ = mode;
     var verts = try mesh.add_vertices(6);
@@ -128,7 +130,7 @@ fn add_front_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode)
 }
 
 /// Adds a back-facing quad to the chunk at x,y,z.
-fn add_back_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
+fn add_back_face(mesh: *Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) !void
 {
     _ = mode;
     var verts = try mesh.add_vertices(6);
@@ -154,19 +156,19 @@ fn add_back_face(mesh: *ash.Mesh, x: f32, y: f32, z: f32, mode: Chunk.MeshMode) 
 pub const Chunk = struct
 {
     /// Chunk position. Multiplied by CHUNK_SIZE to get the world position of each chunk and voxel.
-    position: ash.Vec(isize, 3),
+    position: ash.math.Vec(isize, 3),
     /// Scale of the chunk. If 0, each block corresponds to each voxel. If >0, this chunk is a non-interactable LOD chunk.
     scale: u32,
 
     /// Allocator.
     allocator: *const std.mem.Allocator,
     /// Vulkan allocator.
-    vk_allocator: *ash.VulkanAllocator,
+    vk_allocator: *ash.utils.VulkanAllocator,
 
     /// Chunk mesh (main drawing).
-    mesh: *ash.Mesh,
+    mesh: *ash.rendering.Mesh,
     /// Chunk mesh (selection buffer).
-    mesh_selection: *ash.Mesh,
+    mesh_selection: *ash.rendering.Mesh,
     /// Voxels.
     voxels: [][][]u32,
 
@@ -177,7 +179,7 @@ pub const Chunk = struct
     };
 
     /// Loads and compiles the chunk mesh.
-    fn build_mesh(self: *Chunk, fill_borders: bool, mesh: *ash.Mesh, mode: MeshMode) !void
+    fn build_mesh(self: *Chunk, fill_borders: bool, mesh: *ash.rendering.Mesh, mode: MeshMode) !void
     {
         // I only want to add the visible, outer-facing faces to the mesh, since those are presumably all that the player would see (even though this demo uses a freeroam camera).
         for(0..CHUNK_SIZE.data[0]) |i| {
@@ -265,7 +267,7 @@ pub const Chunk = struct
     }
 
     /// Initializes a new Chunk.
-    pub fn init(allocator: *const std.mem.Allocator, vk_allocator: *ash.VulkanAllocator, position: ash.Vec(isize, 3), scale: u32) !Chunk
+    pub fn init(allocator: *const std.mem.Allocator, vk_allocator: *ash.utils.VulkanAllocator, position: ash.math.Vec(isize, 3), scale: u32) !Chunk
     {
         // Must call Chunk.init_context before creating a chunk.
         std.debug.assert(chunk_pl != null);
@@ -275,8 +277,8 @@ pub const Chunk = struct
             .scale = scale,
             .allocator = allocator,
             .vk_allocator = vk_allocator,
-            .mesh = try allocator.create(ash.Mesh),
-            .mesh_selection = try allocator.create(ash.Mesh),
+            .mesh = try allocator.create(ash.rendering.Mesh),
+            .mesh_selection = try allocator.create(ash.rendering.Mesh),
             .voxels = undefined,
         };
 
@@ -297,7 +299,7 @@ pub const Chunk = struct
     }
 
     /// Initializes all necessary rendering resources to allow chunks to be initialized and built.
-    pub fn init_context(pipeline_layout_main: ash.PipelineVertexInput, pipeline_layout_selection: ash.PipelineVertexInput) void
+    pub fn init_context(pipeline_layout_main: ash.rendering.PipelineVertexInput, pipeline_layout_selection: ash.rendering.PipelineVertexInput) void
     {
         chunk_pl = pipeline_layout_main;
         chunk_pl_selection = pipeline_layout_selection;
@@ -312,7 +314,7 @@ pub const Chunk = struct
             const x: f64 = @floatFromInt(i);
             const z: f64 = @floatFromInt(k);
 
-            const r = (ash.random.value_noise_2d(128124, x / 24, z / 24, .{
+            const r = (ash.gen.random.value_noise_2d(128124, x / 24, z / 24, .{
                 .octaves = 5,
                 .focus = 1.6,
                 .persistance = 0.45

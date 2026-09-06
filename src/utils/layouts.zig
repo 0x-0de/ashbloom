@@ -38,7 +38,7 @@ fn linear_layout_update(e: *Element, data: ContainerInputData) !void
     if(e.lineage == null) return;
 
     var properties: LinearLayoutProperties = undefined;
-    ash.misc.memcpy_anonymous(&properties, e.layout_data.?.ptr, @sizeOf(LinearLayoutProperties));
+    ash.utils.misc.memcpy_anonymous(&properties, e.layout_data.?.ptr, @sizeOf(LinearLayoutProperties));
 
     const container = data.container;
     const parent_bounds = (try container.get_element_bounds(e.lineage.?)).draw_bounds;
@@ -243,7 +243,7 @@ pub fn set_layout_linear(e: *Element, properties: LinearLayoutProperties) !void
     var properties_alias = properties;
 
     e.layout_data = try e.allocator.alloc(u8, @sizeOf(LinearLayoutProperties));
-    ash.misc.memcpy_anonymous(e.layout_data.?.ptr, &properties_alias, @sizeOf(LinearLayoutProperties));
+    ash.utils.misc.memcpy_anonymous(e.layout_data.?.ptr, &properties_alias, @sizeOf(LinearLayoutProperties));
 
     try e.add_callback(.AddChild, linear_layout_callback_add_or_remove_child);
     try e.add_callback(.RemoveChild, linear_layout_callback_add_or_remove_child);
@@ -255,7 +255,7 @@ fn split_layout_update(e: *Element, data: ContainerInputData) !void
     _ = data;
 
     var properties: SplitLayoutProperties = undefined;
-    ash.misc.memcpy_anonymous(&properties, e.layout_data.?.ptr, @sizeOf(SplitLayoutProperties));
+    ash.utils.misc.memcpy_anonymous(&properties, e.layout_data.?.ptr, @sizeOf(SplitLayoutProperties));
 
     const limit = properties.primary_limit;
     const primary_axis = properties.primary_axis;
@@ -323,7 +323,7 @@ pub fn set_layout_split(e: *Element, properties: SplitLayoutProperties) !void
     var properties_alias = properties;
 
     e.layout_data = try e.allocator.alloc(u8, @sizeOf(SplitLayoutProperties));
-    ash.misc.memcpy_anonymous(e.layout_data.?.ptr, &properties_alias, @sizeOf(SplitLayoutProperties));
+    ash.utils.misc.memcpy_anonymous(e.layout_data.?.ptr, &properties_alias, @sizeOf(SplitLayoutProperties));
 
     try e.add_callback(.AddChild, split_layout_update);
     try e.add_callback(.RemoveChild, split_layout_update);

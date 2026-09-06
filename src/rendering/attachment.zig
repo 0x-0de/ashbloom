@@ -3,7 +3,9 @@ const ash = @import("../root.zig");
 
 const vk = ash.vk;
 
-const vk_memory = ash.vk_memory;
+const vk_memory = ash.utils.vk_memory;
+
+const VkInterface = ash.rendering.VkInterface;
 
 /// Structure storing information about an image attachment to be used as part of an AttachmentBundle or Swapchain.
 pub const Attachment = struct
@@ -27,7 +29,7 @@ pub const AttachmentBundle = struct
 {
     allocator: *const std.mem.Allocator,
 
-    interface: *ash.VkInterface,
+    interface: *VkInterface,
     vk_allocator: *vk_memory.VulkanAllocator,
 
     /// ArrayList of all attachments.
@@ -49,7 +51,7 @@ pub const AttachmentBundle = struct
     }
 
     /// Initializes an empty attachment bundle.
-    pub fn init(allocator: *const std.mem.Allocator, interface: *ash.VkInterface, vk_allocator: *vk_memory.VulkanAllocator) !AttachmentBundle
+    pub fn init(allocator: *const std.mem.Allocator, interface: *VkInterface, vk_allocator: *vk_memory.VulkanAllocator) !AttachmentBundle
     {
         return .{
             .allocator = allocator,

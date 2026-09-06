@@ -4,7 +4,7 @@ const ash = @import("ashbloom");
 const glfw = ash.glfw;
 const vk = ash.vk;
 
-const ui = ash.ui;
+const ui = ash.ui.core;
 
 var debug_required_validation_layers: [1][*:0]const u8 = .{
     "VK_LAYER_KHRONOS_validation"
@@ -18,15 +18,15 @@ var required_device_extensions: [1][*:0]const u8 = .{
     vk.extensions.khr_swapchain.name
 };
 
-const Window = ash.ABWindow;
+const Window = ash.rendering.Window;
 
 var allocator: std.mem.Allocator = undefined;
 
 var window: Window = undefined;
 
-var vk_context: ash.VkContext = undefined;
-var vk_interface: ash.VkInterface = undefined;
-var vk_allocator: ash.VulkanAllocator = undefined;
+var vk_context: ash.rendering.VkContext = undefined;
+var vk_interface: ash.rendering.VkInterface = undefined;
+var vk_allocator: ash.utils.VulkanAllocator = undefined;
 
 var vk_command_pool: vk.CommandPool = undefined;
 
@@ -41,12 +41,12 @@ var vk_queues: std.EnumArray(AppQueues, vk.Queue) = .initUndefined();
 /// Initializes the Vulkan context.
 fn init_vk_interfaces() !void
 {
-    const vk_context_options: ash.VkContext.InitOptions = .{
+    const vk_context_options: ash.rendering.VkContext.InitOptions = .{
         .instance_extensions = @ptrCast(&debug_required_instance_extensions),
         .instance_layers = @ptrCast(&debug_required_validation_layers),
     };
 
-    const vk_interface_options: ash.VkInterface.InitOptions = .{
+    const vk_interface_options: ash.rendering.VkInterface.InitOptions = .{
         .device_layers = @ptrCast(&debug_required_validation_layers),
         .required_device_extensions = @ptrCast(&required_device_extensions),
         .required_device_features = .{
@@ -55,17 +55,17 @@ fn init_vk_interfaces() !void
 
     };
 
-    vk_context = try ash.VkContext.init(&allocator, vk_context_options);
-    vk_interface = try ash.VkInterface.init_window(&vk_context, &window, vk_interface_options);
+    vk_context = try .init(&allocator, vk_context_options);
+    vk_interface = try .init_window(&vk_context, &window, vk_interface_options);
 
     const queue_families = vk_interface.physical_device_queue_families.?;
 
     vk_queues.set(.Graphics, vk_interface.get_queue(@truncate(queue_families.graphics_family_index.?), 0));
     vk_queues.set(.Presentation, vk_interface.get_queue(@truncate(queue_families.present_family_index.?), 0));
 
-    vk_command_pool = try ash.commands.create_command_pool(&vk_interface, @truncate(queue_families.graphics_family_index.?));
+    vk_command_pool = try ash.rendering.commands.create_command_pool(&vk_interface, @truncate(queue_families.graphics_family_index.?));
 
-    vk_allocator = try ash.VulkanAllocator.init(&vk_interface, &allocator, .{
+    vk_allocator = try .init(&vk_interface, &allocator, .{
         .transfer_command_pool = &vk_command_pool,
         .transfer_queue = vk_queues.getPtr(.Graphics),
         .page_size = 128 << 20, // 128 MB.
@@ -87,11 +87,11 @@ fn deinit_vk_interfaces() void
 /// The application's main and only UI container.
 var app_ui_container: ui.Container = undefined;
 /// The application's chosen text font.
-var app_font: ash.Font = undefined;
+var app_font: ash.ui.Font = undefined;
 
 fn init_ui_elements() !void
 {
-    const background = try ash.ui_theme_basic.create_quad(&allocator, .{
+    const background = try ash.ui.theme_basic.create_quad(&allocator, .{
         .relative_pos = .{
             .pos_x = 0,
             .pos_y = 0,
@@ -105,7 +105,7 @@ fn init_ui_elements() !void
         }
     }, .{0.01, 0.01, 0.05, 1});
 
-    const linear_quad = try ash.ui_theme_basic.create_quad(&allocator, .{
+    const linear_quad = try ash.ui.theme_basic.create_quad(&allocator, .{
         .relative_pos = .{
             .pos_x = 0,
             .pos_y = 0,
@@ -124,7 +124,7 @@ fn init_ui_elements() !void
         }
     }, .{0.2, 0.2, 0.2, 1});
 
-    try ash.ui_layouts.set_layout_linear(linear_quad, .{
+    try ash.ui.layouts.set_layout_linear(linear_quad, .{
         .primary_direction = .{
             .margin = 5,
             .spacing = 5,
@@ -140,7 +140,7 @@ fn init_ui_elements() !void
         }
     });
 
-    const split_quad = try ash.ui_theme_basic.create_quad(&allocator, .{
+    const split_quad = try ash.ui.theme_basic.create_quad(&allocator, .{
         .relative_pos = .{
             .pos_x = 0.35,
             .pos_y = 0,
@@ -159,7 +159,7 @@ fn init_ui_elements() !void
         }
     }, .{0.2, 0.2, 0.2, 1});
 
-    try ash.ui_layouts.set_layout_split(split_quad, .{
+    try ash.ui.layouts.set_layout_split(split_quad, .{
         .primary_axis = .Horizontal,
         .primary_limit = 5
     });
@@ -179,7 +179,7 @@ fn init_ui_elements() !void
             else => .{0.6, 0.8, 0.15, 1},
         };
 
-        const linear_child = try ash.ui_theme_basic.create_quad(&allocator, .{
+        const linear_child = try ash.ui.theme_basic.create_quad(&allocator, .{
             .relative_pos = .{
                 .pos_x = 0,
                 .pos_y = 0,
@@ -211,7 +211,7 @@ fn init_ui_elements() !void
             else => .{0.6, 0.8, 0.15, 1},
         };
 
-        const split_child = try ash.ui_theme_basic.create_quad(&allocator, undefined, color);
+        const split_child = try ash.ui.theme_basic.create_quad(&allocator, undefined, color);
 
         try split_quad.add_and_dispose(split_child);
     }
@@ -243,17 +243,17 @@ pub fn main() !void
     window = try .init(1280, 720, "UI layouts test");
     defer window.destroy();
 
-    const system_fonts = try ash.misc.enumerate_system_fonts(&allocator);
+    const system_fonts = try ash.utils.misc.enumerate_system_fonts(&allocator);
 
     const names = [_][]const u8{"bahnschrift", "arial", "LiberationSans-Regular"};
     const names_slc: []const []const u8 = &names;
 
-    const font_entry = try ash.misc.search_font_entries(system_fonts, names_slc);
+    const font_entry = try ash.utils.misc.search_font_entries(system_fonts, names_slc);
 
     try init_vk_interfaces();
     defer deinit_vk_interfaces();
 
-    var swapchain = try ash.Swapchain.init(&window, &vk_interface, &vk_allocator, vk_command_pool, 1);
+    var swapchain = try ash.rendering.Swapchain.init(&window, &vk_interface, &vk_allocator, vk_command_pool, 1);
     defer swapchain.deinit(true);
 
     try ui.init();
@@ -261,7 +261,7 @@ pub fn main() !void
 
     app_ui_container = try ui.Container.init(&vk_interface, &vk_allocator);
 
-    app_font = try ash.Font.init(&vk_interface, &vk_allocator, font_entry.path, 36, &app_ui_container.texture_atlas);
+    app_font = try ash.ui.Font.init(&vk_interface, &vk_allocator, font_entry.path, 36, &app_ui_container.texture_atlas);
     defer app_font.deinit();
 
     for(system_fonts, 0..) |_, i|
@@ -270,7 +270,7 @@ pub fn main() !void
     }
     allocator.free(system_fonts);
 
-    var container_resources = try ash.ui_theme_basic.init_render_instance(&vk_interface, &vk_allocator, swapchain, app_ui_container, null, vk_queues.get(.Graphics));
+    var container_resources = try ash.ui.theme_basic.init_render_instance(&vk_interface, &vk_allocator, swapchain, app_ui_container, null, vk_queues.get(.Graphics));
     defer container_resources.deinit(vk_interface);
     app_ui_container.set_render_instance(container_resources);
 
@@ -315,7 +315,7 @@ pub fn main() !void
 
         if(app_ui_container.signal_reset_manual_input)
         {
-            ash.window.Window.reset_input_values();
+            ash.rendering.Window.reset_input_values();
             app_ui_container.signal_reset_manual_input = false;
         }
 

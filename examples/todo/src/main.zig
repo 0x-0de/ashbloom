@@ -6,24 +6,24 @@ const ash = @import("ashbloom");
 const vk = ash.vk;
 const glfw = ash.glfw;
 
-const ui = ash.ui;
-const ui_basic = ash.ui_theme_basic;
+const ui = ash.ui.core;
+const ui_basic = ash.ui.theme_basic;
 
-const misc = ash.misc;
+const misc = ash.utils.misc;
 
-const pipeline = ash.pipeline;
+const pipeline = ash.rendering.pipeline;
 
-const VkContext = ash.vk_context.VkContext;
-const VkInterface = ash.vk_context.VkInterface;
-const VulkanAllocator = ash.vk_memory.VulkanAllocator;
+const VkContext = ash.rendering.vk_core.VkContext;
+const VkInterface = ash.rendering.vk_core.VkInterface;
+const VulkanAllocator = ash.utils.vk_memory.VulkanAllocator;
 
-const Swapchain = ash.Swapchain;
-const RenderPass = ash.RenderPass;
+const Swapchain = ash.rendering.Swapchain;
+const RenderPass = ash.rendering.RenderPass;
 
-const Font = ash.font.Font;
+const Font = ash.ui.Font;
 
-const Texture2D = ash.image_utils.Texture2D;
-const TextureAtlas2D = ash.image_utils.TextureAtlas2D;
+const Texture2D = ash.utils.Texture2D;
+const TextureAtlas2D = ash.utils.TextureAtlas2D;
 
 var allocator: std.mem.Allocator = undefined;
 
@@ -39,7 +39,7 @@ var required_device_extensions: [1][*:0]const u8 = .{
     vk.extensions.khr_swapchain.name
 };
 
-var window: ash.ABWindow = undefined;
+var window: ash.rendering.Window = undefined;
 
 var vk_context: VkContext = undefined;
 var vk_interface: VkInterface = undefined;
@@ -58,12 +58,12 @@ var vk_queues: std.EnumArray(AppQueues, vk.Queue) = .initUndefined();
 /// Initializes the Vulkan context.
 fn init_vk_interfaces() !void
 {
-    const vk_context_options: ash.VkContext.InitOptions = .{
+    const vk_context_options: VkContext.InitOptions = .{
         .instance_extensions = @ptrCast(&debug_required_instance_extensions),
         .instance_layers = @ptrCast(&debug_required_validation_layers),
     };
 
-    const vk_interface_options: ash.VkInterface.InitOptions = .{
+    const vk_interface_options: VkInterface.InitOptions = .{
         .device_layers = @ptrCast(&debug_required_validation_layers),
         .required_device_extensions = @ptrCast(&required_device_extensions),
         .required_device_features = .{
@@ -72,17 +72,17 @@ fn init_vk_interfaces() !void
 
     };
 
-    vk_context = try ash.VkContext.init(&allocator, vk_context_options);
-    vk_interface = try ash.VkInterface.init_window(&vk_context, &window, vk_interface_options);
+    vk_context = try .init(&allocator, vk_context_options);
+    vk_interface = try .init_window(&vk_context, &window, vk_interface_options);
 
     const queue_families = vk_interface.physical_device_queue_families.?;
 
     vk_queues.set(.Graphics, vk_interface.get_queue(@truncate(queue_families.graphics_family_index.?), 0));
     vk_queues.set(.Presentation, vk_interface.get_queue(@truncate(queue_families.present_family_index.?), 0));
 
-    vk_command_pool = try ash.commands.create_command_pool(&vk_interface, @truncate(queue_families.graphics_family_index.?));
+    vk_command_pool = try ash.rendering.commands.create_command_pool(&vk_interface, @truncate(queue_families.graphics_family_index.?));
 
-    vk_allocator = try ash.VulkanAllocator.init(&vk_interface, &allocator, .{
+    vk_allocator = try .init(&vk_interface, &allocator, .{
         .transfer_command_pool = &vk_command_pool,
         .transfer_queue = vk_queues.getPtr(.Graphics),
         .page_size = 128 << 20, // 128 MB.
@@ -561,14 +561,14 @@ pub fn main() !void
 
     // Querying the host machine for available system fonts. This function is supported on both Windows and Linux (Ubuntu) devices.
     // For a more platform-agnostic solution, it's suggested to include a .ttf or .otf file in the project directory to load directly.
-    const system_fonts = try ash.misc.enumerate_system_fonts(&allocator);
+    const system_fonts = try ash.utils.misc.enumerate_system_fonts(&allocator);
 
     // Searching for some preferred fonts. Arial should be installed on all modern Windows devices, and Liberation Sans should be on all Ubuntu devices.
     const names = [_][]const u8{"bahnschrift", "arial", "LiberationSans-Regular"};
     const names_slc: []const []const u8 = &names;
 
     // Returns the path of the first available font in the list (or an error if no font is available).
-    const font_entry = try ash.misc.search_font_entries(system_fonts, names_slc);
+    const font_entry = try ash.utils.misc.search_font_entries(system_fonts, names_slc);
 
     // Initialize the Vulkan context and allocator objects.
     try init_vk_interfaces();
@@ -673,7 +673,7 @@ pub fn main() !void
         // Resets all input values if the need arises. Must happen because of the way GLFW handles certain input events like mouse scrolling.
         if(app_ui_container.signal_reset_manual_input)
         {
-            ash.window.Window.reset_input_values();
+            ash.rendering.Window.reset_input_values();
             app_ui_container.signal_reset_manual_input = false;
         }
 

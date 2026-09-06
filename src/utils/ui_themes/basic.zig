@@ -2432,7 +2432,7 @@ fn init_basic_pipeline(interface: *VkInterface, descriptor_set: PipelineDescript
 
     ui_pipeline.set_vertex_input(&pvi);
 
-    try ui_pipeline.build(render_pass);
+    try ui_pipeline.build(.{ .FixedRenderPass = render_pass });
 
     return ui_pipeline;
 }

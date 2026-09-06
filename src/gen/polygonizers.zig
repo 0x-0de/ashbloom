@@ -1,15 +1,7 @@
 const std = @import("std");
 const ash = @import("../root.zig");
 
-const assets = @import("../assets/root.zig");
-
-const Vec = ash.Vec;
-
-const Camera = @import("camera.zig").Camera;
-
-var test_mesh_nodes: ash.Mesh = undefined;
-var test_mesh_connections: ash.Mesh = undefined;
-var test_mesh_shell: ash.Mesh = undefined;
+const Vec = ash.math.Vec;
 
 /// Represents a cell in a signed-distance field. A cell is a cubic space where the points at the 8 corners of the cube have known distances from the isosurface.
 /// Ashbloom's polygonizers mandate that *negative* distance values mean that the point is **outside** the isosurface, while *positive* values indicate that the
@@ -30,41 +22,7 @@ fn midpoint_linear(a: f32, b: f32, t: f32) f32
     return (t - a) / (b - a);
 }
 
-pub fn deinit_tests() void
-{
-    test_mesh_nodes.deinit();
-    test_mesh_connections.deinit();
-    test_mesh_shell.deinit();
-}
-
-pub fn draw(swapchain: *ash.Swapchain, camera: *Camera, command_buffer: *ash.CommandBuffer) void
-{
-    const p_clump_nodes = assets.rendering.pipelines.getPtr(.ClumpNodes);
-    const p_clump_connections = assets.rendering.pipelines.getPtr(.ClumpConnections);
-    const p_clump_shells_debug = assets.rendering.pipelines.getPtr(.ClumpShellsDebug);
-
-    const draw_mode_full: i32 = 0;
-
-    const test_pos: Vec(f32, 3) = .init(.{-32, 0, 0});
-
-    command_buffer.cmd_bind_pipeline(p_clump_nodes);
-    command_buffer.cmd_bind_descriptor_set(p_clump_nodes, &assets.rendering.descriptor_sets.getPtr(.ModelView).sets[swapchain.current_image_index]);
-    command_buffer.cmd_push_constants(p_clump_nodes, .{ .offset = 0, .size = 3 * @sizeOf(f32), .stage_flags = .{ .vertex_bit = true, .fragment_bit = true } }, &camera.pos.data);
-    command_buffer.cmd_push_constants(p_clump_nodes, .{ .offset = 3 * @sizeOf(f32), .size = @sizeOf(i32), .stage_flags = .{ .vertex_bit = true, .fragment_bit = true } }, &draw_mode_full);
-    command_buffer.cmd_push_constants(p_clump_nodes, .{ .offset = 3 * @sizeOf(f32) + @sizeOf(i32), .size = 3 * @sizeOf(f32), .stage_flags = .{ .vertex_bit = true, .fragment_bit = true } }, &test_pos.data);
-    test_mesh_nodes.bind(command_buffer);
-    command_buffer.cmd_draw(6, test_mesh_nodes.num_vertices);
-    command_buffer.cmd_bind_pipeline(p_clump_connections);
-    command_buffer.cmd_bind_descriptor_set(p_clump_connections, &assets.rendering.descriptor_sets.getPtr(.ModelView).sets[swapchain.current_image_index]);
-    test_mesh_connections.bind(command_buffer);
-    command_buffer.cmd_draw(test_mesh_connections.num_vertices, 1);
-    command_buffer.cmd_bind_pipeline(p_clump_shells_debug);
-    command_buffer.cmd_bind_descriptor_set(p_clump_shells_debug, &assets.rendering.descriptor_sets.getPtr(.ModelView).sets[swapchain.current_image_index]);
-    test_mesh_shell.bind(command_buffer);
-    command_buffer.cmd_draw(test_mesh_shell.num_vertices, 1);
-}
-
-pub const PolygonizeCallback: type = *const fn(SDFCell, *ash.mesh.Vertex, [3]f32);
+pub const PolygonizeCallback: type = *const fn(SDFCell, *ash.mesh.Vertex, [3]f32) ash.rendering.mesh.VertexError!void;
 
 /// The default polygonizer callback, called if **null** is passed to any of the polygonizer algorithms contained in Ashbloom. Adds the position vertex to the mesh,
 /// and assumes the first and only attribute of the mesh is the vertex position.
@@ -814,17 +772,19 @@ pub const SurfaceNets = struct
         for(0..net_cells[0].len)    |j| {
         for(0..net_cells[0][0].len) |k|
         {
+            const cell = net_cells[i][j][k];
+
             const v1: [3]f32 = get_cell_surface_point(cells[i][j][k]);
             const v2: [3]f32 = get_cell_surface_point(cells[i + 1][j][k]);
             const v3: [3]f32 = get_cell_surface_point(cells[i][j + 1][k]);
             const v5: [3]f32 = get_cell_surface_point(cells[i][j][k + 1]);
 
-            if(net_cells[i][j][k].x)
+            if(cell.x)
             {
                 const v7: [3]f32 = get_cell_surface_point(cells[i][j + 1][k + 1]);
                 const vertices = try mesh.add_vertices(6);
 
-                if(net_cells[i][j][k].dir_x)
+                if(cell.dir_x)
                 {
                     try cb(cell, vertices.ptr, v1);
                     try cb(cell, vertices.ptr + 1, v7);
@@ -845,12 +805,12 @@ pub const SurfaceNets = struct
 
                 try mesh.finalize_vertices();
             }
-            if(net_cells[i][j][k].y)
+            if(cell.y)
             {
                 const v6: [3]f32 = get_cell_surface_point(cells[i + 1][j][k + 1]);
                 const vertices = try mesh.add_vertices(6);
 
-                if(net_cells[i][j][k].dir_y)
+                if(cell.dir_y)
                 {
                     try cb(cell, vertices.ptr, v1);
                     try cb(cell, vertices.ptr + 1, v2);
@@ -871,12 +831,12 @@ pub const SurfaceNets = struct
 
                 try mesh.finalize_vertices();
             }
-            if(net_cells[i][j][k].z)
+            if(cell.z)
             {
                 const v4: [3]f32 = get_cell_surface_point(cells[i + 1][j + 1][k]);
                 const vertices = try mesh.add_vertices(6);
 
-                if(net_cells[i][j][k].dir_z)
+                if(cell.dir_z)
                 {
                     try cb(cell, vertices.ptr, v1);
                     try cb(cell, vertices.ptr + 1, v3);
@@ -900,116 +860,3 @@ pub const SurfaceNets = struct
         }}}
     }
 };
-
-fn init_mesh_connections(allocator: *const std.mem.Allocator, vk_allocator: *ash.VulkanAllocator) !void
-{
-    test_mesh_connections = try .init(allocator, vk_allocator, assets.rendering.pvis.get(.ClumpConnections), 0, 0);
-
-    for(0..256) |i|
-    {
-        const vertices = try test_mesh_connections.add_vertices(24);
-
-        const x: f32 = @floatFromInt(i % 16);
-        const z: f32 = @floatFromInt(i / 16);
-
-        try vertices[0].add_attrib(@as([3]f32, .{x * 2, 0, z * 2}));
-        try vertices[1].add_attrib(@as([3]f32, .{x * 2 + 1, 0, z * 2}));
-        try vertices[2].add_attrib(@as([3]f32, .{x * 2, 1, z * 2}));
-        try vertices[3].add_attrib(@as([3]f32, .{x * 2 + 1, 1, z * 2}));
-        try vertices[4].add_attrib(@as([3]f32, .{x * 2, 0, z * 2 + 1}));
-        try vertices[5].add_attrib(@as([3]f32, .{x * 2 + 1, 0, z * 2 + 1}));
-        try vertices[6].add_attrib(@as([3]f32, .{x * 2, 1, z * 2 + 1}));
-        try vertices[7].add_attrib(@as([3]f32, .{x * 2 + 1, 1, z * 2 + 1}));
-
-        try vertices[8].add_attrib(@as([3]f32, .{x * 2, 0, z * 2}));
-        try vertices[9].add_attrib(@as([3]f32, .{x * 2, 1, z * 2}));
-        try vertices[10].add_attrib(@as([3]f32, .{x * 2 + 1, 0, z * 2}));
-        try vertices[11].add_attrib(@as([3]f32, .{x * 2 + 1, 1, z * 2}));
-        try vertices[12].add_attrib(@as([3]f32, .{x * 2, 0, z * 2 + 1}));
-        try vertices[13].add_attrib(@as([3]f32, .{x * 2, 1, z * 2 + 1}));
-        try vertices[14].add_attrib(@as([3]f32, .{x * 2 + 1, 0, z * 2 + 1}));
-        try vertices[15].add_attrib(@as([3]f32, .{x * 2 + 1, 1, z * 2 + 1}));
-
-        try vertices[16].add_attrib(@as([3]f32, .{x * 2, 0, z * 2}));
-        try vertices[17].add_attrib(@as([3]f32, .{x * 2, 0, z * 2 + 1}));
-        try vertices[18].add_attrib(@as([3]f32, .{x * 2, 1, z * 2}));
-        try vertices[19].add_attrib(@as([3]f32, .{x * 2, 1, z * 2 + 1}));
-        try vertices[20].add_attrib(@as([3]f32, .{x * 2 + 1, 0, z * 2}));
-        try vertices[21].add_attrib(@as([3]f32, .{x * 2 + 1, 0, z * 2 + 1}));
-        try vertices[22].add_attrib(@as([3]f32, .{x * 2 + 1, 1, z * 2}));
-        try vertices[23].add_attrib(@as([3]f32, .{x * 2 + 1, 1, z * 2 + 1}));
-
-        try test_mesh_connections.finalize_vertices();
-    }
-
-    try test_mesh_connections.build(true);
-}
-
-fn init_mesh_nodes(allocator: *const std.mem.Allocator, vk_allocator: *ash.VulkanAllocator) !void
-{
-    test_mesh_nodes = try .init(allocator, vk_allocator, assets.rendering.pvis.get(.ClumpNodes), 0, 0);
-
-    for(0..256) |i|
-    {
-        const vertices = try test_mesh_nodes.add_vertices(8);
-
-        const x: f32 = @floatFromInt(i % 16);
-        const z: f32 = @floatFromInt(i / 16);
-
-        try vertices[0].add_attrib(@as([3]f32, .{x * 2, 0, z * 2}));
-        try vertices[1].add_attrib(@as([3]f32, .{x * 2 + 1, 0, z * 2}));
-        try vertices[2].add_attrib(@as([3]f32, .{x * 2, 1, z * 2}));
-        try vertices[3].add_attrib(@as([3]f32, .{x * 2 + 1, 1, z * 2}));
-        try vertices[4].add_attrib(@as([3]f32, .{x * 2, 0, z * 2 + 1}));
-        try vertices[5].add_attrib(@as([3]f32, .{x * 2 + 1, 0, z * 2 + 1}));
-        try vertices[6].add_attrib(@as([3]f32, .{x * 2, 1, z * 2 + 1}));
-        try vertices[7].add_attrib(@as([3]f32, .{x * 2 + 1, 1, z * 2 + 1}));
-
-        for(0..8) |j|
-        {
-            var bit = (i >> @truncate(j)) & 1;
-            bit = if(bit == 1) 0 else 1;
-            try vertices[j].add_attrib(@as([4]f32, .{1, @floatFromInt(bit), @floatFromInt(bit), 1}));
-        }
-
-        try test_mesh_nodes.finalize_vertices();
-    }
-
-    try test_mesh_nodes.build(true);
-}
-
-fn init_mesh_shells(allocator: *const std.mem.Allocator, vk_allocator: *ash.VulkanAllocator) !void
-{
-    test_mesh_shell = try .init(allocator, vk_allocator, assets.rendering.pvis.get(.ClumpShellsDebug), 0, 0);
-
-    for(0..256) |i|
-    {
-        const x: f32 = @as(f32, @floatFromInt(i % 16)) * 2;
-        const z: f32 = @as(f32, @floatFromInt(i / 16)) * 2;
-
-        var cell: SDFCell = .{
-            .pos = .{x, 0, z},
-            .scl = .{1, 1, 1},
-            .values = undefined
-        };
-
-        for(0..8) |j|
-        {
-            const bit: u8 = @as(u8, 1) << @as(u3, @truncate(j));
-            const bit_is_present = (bit & i) != 0;
-            cell.values[j] = if(bit_is_present) 1 else -1;
-        }
-
-        try MarchingCubes.add_cell_to_mesh(&test_mesh_shell, cell);
-    }
-
-    try test_mesh_shell.build(true);
-    ash.print_stdout("Num vertices: {d}\n", .{test_mesh_shell.num_vertices});
-}
-
-pub fn init_tests(allocator: *const std.mem.Allocator, vk_allocator: *ash.VulkanAllocator) !void
-{
-    try init_mesh_nodes(allocator, vk_allocator);
-    try init_mesh_connections(allocator, vk_allocator);
-    try init_mesh_shells(allocator, vk_allocator);
-}

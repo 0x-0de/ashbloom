@@ -4,13 +4,13 @@ const ash = @import("ashbloom");
 const glfw = ash.glfw;
 const vk = ash.vk;
 
-const Window = ash.ABWindow;
+const Window = ash.rendering.Window;
 
-const VkContext = ash.VkContext;
-const VkInterface = ash.VkInterface;
-const VulkanAllocator = ash.VulkanAllocator;
+const VkContext = ash.rendering.VkContext;
+const VkInterface = ash.rendering.VkInterface;
+const VulkanAllocator = ash.utils.VulkanAllocator;
 
-const Swapchain = ash.Swapchain;
+const Swapchain = ash.rendering.Swapchain;
 
 const TICKS_PER_SECOND = 60.0;
 const TICK_RATE = 1.0 / TICKS_PER_SECOND;
@@ -48,12 +48,12 @@ var vk_command_pool: vk.CommandPool = undefined;
 /// Initializes the Vulkan context.
 fn init_vk_interfaces() !void
 {
-    const vk_context_options: ash.VkContext.InitOptions = .{
+    const vk_context_options: VkContext.InitOptions = .{
         .instance_extensions = @ptrCast(&debug_required_instance_extensions),
         .instance_layers = @ptrCast(&debug_required_validation_layers),
     };
 
-    const vk_interface_options: ash.VkInterface.InitOptions = .{
+    const vk_interface_options: VkInterface.InitOptions = .{
         .device_layers = @ptrCast(&debug_required_validation_layers),
         .required_device_extensions = @ptrCast(&required_device_extensions),
         .required_device_features = .{
@@ -62,17 +62,17 @@ fn init_vk_interfaces() !void
 
     };
 
-    vk_context = try ash.VkContext.init(&allocator, vk_context_options);
-    vk_interface = try ash.VkInterface.init_window(&vk_context, &window, vk_interface_options);
+    vk_context = try VkContext.init(&allocator, vk_context_options);
+    vk_interface = try VkInterface.init_window(&vk_context, &window, vk_interface_options);
 
     const queue_families = vk_interface.physical_device_queue_families.?;
 
     vk_queues.set(.Graphics, vk_interface.get_queue(@truncate(queue_families.graphics_family_index.?), 0));
     vk_queues.set(.Presentation, vk_interface.get_queue(@truncate(queue_families.present_family_index.?), 0));
 
-    vk_command_pool = try ash.commands.create_command_pool(&vk_interface, @truncate(queue_families.graphics_family_index.?));
+    vk_command_pool = try ash.rendering.commands.create_command_pool(&vk_interface, @truncate(queue_families.graphics_family_index.?));
 
-    vk_allocator = try ash.VulkanAllocator.init(&vk_interface, &allocator, .{
+    vk_allocator = try VulkanAllocator.init(&vk_interface, &allocator, .{
         .transfer_command_pool = &vk_command_pool,
         .transfer_queue = vk_queues.getPtr(.Graphics),
         .page_size = 128 << 20, // 128 MB.
@@ -91,7 +91,7 @@ fn deinit_vk_interfaces() void
     vk_context.deinit();
 }
 
-var swapchain: ash.Swapchain = undefined;
+var swapchain: ash.rendering.Swapchain = undefined;
 
 /// Initializes a Vulkan KHR swapchain.
 fn init_swapchain() !void
@@ -112,7 +112,7 @@ fn init_swapchain() !void
         .extent = undefined,
         .mip_levels = 1,
         .array_layers = 1,
-        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_interface),
+        .format = try ash.utils.vk_utils.choose_best_depth_buffer_format(&vk_interface),
         .tiling = .optimal,
         .initial_layout = .undefined,
         .usage = .{ .depth_stencil_attachment_bit = true },
@@ -122,7 +122,7 @@ fn init_swapchain() !void
 
     const info_depth_image_view: vk.ImageViewCreateInfo = .{
         .image = undefined,
-        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_interface),
+        .format = try ash.utils.vk_utils.choose_best_depth_buffer_format(&vk_interface),
         .components = .{
             .r = .identity,
             .g = .identity,
@@ -159,7 +159,7 @@ const Attachments = enum(u8)
     SelectionBuffer
 };
 
-var attachments: std.EnumArray(Attachments, ash.AttachmentBundle) = .initUndefined();
+var attachments: std.EnumArray(Attachments, ash.rendering.AttachmentBundle) = .initUndefined();
 
 /// Initializes additional image attachments not associated with the framebuffer.
 fn init_attachments() !void
@@ -224,7 +224,7 @@ fn init_attachments() !void
         .extent = undefined,
         .mip_levels = 1,
         .array_layers = 1,
-        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_interface),
+        .format = try ash.utils.vk_utils.choose_best_depth_buffer_format(&vk_interface),
         .tiling = .optimal,
         .initial_layout = .undefined,
         .usage = .{ .depth_stencil_attachment_bit = true },
@@ -234,7 +234,7 @@ fn init_attachments() !void
 
     const info_depth_image_view: vk.ImageViewCreateInfo = .{
         .image = undefined,
-        .format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_interface),
+        .format = try ash.utils.vk_utils.choose_best_depth_buffer_format(&vk_interface),
         .components = .{
             .r = .identity,
             .g = .identity,
@@ -280,16 +280,16 @@ const RenderPasses = enum(u8)
     Selection
 };
 
-var render_passes: std.EnumArray(RenderPasses, ash.RenderPass) = .initUndefined();
+var render_passes: std.EnumArray(RenderPasses, ash.rendering.RenderPass) = .initUndefined();
 
 fn init_render_passes() !void
 {
     // Both of these render passes ended up being virtually the same, other than the difference between the swapchain format and the selection buffer format.
     // This should be familiar to you if you're familiar with Vulkan render passes.
 
-    const depth_format = try ash.vk_utils.choose_best_depth_buffer_format(&vk_interface);
+    const depth_format = try ash.utils.vk_utils.choose_best_depth_buffer_format(&vk_interface);
 
-    const sp_color_depth: ash.RenderPass.Subpass = .{
+    const sp_color_depth: ash.rendering.RenderPass.Subpass = .{
         .color_attachment_index = 0,
         .depth_stencil_attachment_index = 1,
         .color_attachment_layout = .color_attachment_optimal,
@@ -305,7 +305,7 @@ fn init_render_passes() !void
         }
     };
 
-    const sp_color_depth_selection: ash.RenderPass.Subpass = .{
+    const sp_color_depth_selection: ash.rendering.RenderPass.Subpass = .{
         .color_attachment_index = 0,
         .depth_stencil_attachment_index = 1,
         .color_attachment_layout = .color_attachment_optimal,
@@ -366,9 +366,9 @@ const Pipelines = enum(u8)
     Selection
 };
 
-var pipeline_descriptor_sets: std.EnumArray(PipelineDescriptorSets, ash.PipelineDescriptorSet) = .initUndefined();
-var pipeline_vertex_inputs: std.EnumArray(Pipelines, ash.PipelineVertexInput) = .initUndefined();
-var pipelines: std.EnumArray(Pipelines, ash.Pipeline) = .initUndefined();
+var pipeline_descriptor_sets: std.EnumArray(PipelineDescriptorSets, ash.rendering.PipelineDescriptorSet) = .initUndefined();
+var pipeline_vertex_inputs: std.EnumArray(Pipelines, ash.rendering.PipelineVertexInput) = .initUndefined();
+var pipelines: std.EnumArray(Pipelines, ash.rendering.Pipeline) = .initUndefined();
 
 /// Initializes all pipeline vertex inputs.
 fn init_graphics_pipeline_vertex_inputs() !void
@@ -463,11 +463,11 @@ fn init_graphics_pipelines() !void
     try p_debug_geometry.add_shader_module("../../res/shaders/debug/geometry_vert.spv", .{.vertex_bit = true});
     try p_debug_geometry.add_shader_module("../../res/shaders/debug/geometry_frag.spv", .{.fragment_bit = true});
 
-    try p_debug_geometry.add_color_blend_attachment(ash.pipeline.pipeline_color_blend_attachment_alpha_blend());
+    try p_debug_geometry.add_color_blend_attachment(ash.rendering.pipeline.pipeline_color_blend_attachment_alpha_blend());
 
     p_debug_geometry.set_vertex_input(pipeline_vertex_inputs.getPtr(.DebugGeometry));
 
-    p_debug_geometry.info_depth_stencil_testing = ash.pipeline.pipeline_depth_stencil_state_default();
+    p_debug_geometry.info_depth_stencil_testing = ash.rendering.pipeline.pipeline_depth_stencil_state_default();
 
     try p_debug_geometry.build(.{ .FixedRenderPass = render_passes.getPtr(.DebugGeometry) });
 
@@ -484,11 +484,11 @@ fn init_graphics_pipelines() !void
     try p_main.add_shader_module("../../res/shaders/main_vert.spv", .{.vertex_bit = true});
     try p_main.add_shader_module("../../res/shaders/main_frag.spv", .{.fragment_bit = true});
 
-    try p_main.add_color_blend_attachment(ash.pipeline.pipeline_color_blend_attachment_alpha_blend());
+    try p_main.add_color_blend_attachment(ash.rendering.pipeline.pipeline_color_blend_attachment_alpha_blend());
 
     p_main.set_vertex_input(pipeline_vertex_inputs.getPtr(.Main));
 
-    p_main.info_depth_stencil_testing = ash.pipeline.pipeline_depth_stencil_state_default();
+    p_main.info_depth_stencil_testing = ash.rendering.pipeline.pipeline_depth_stencil_state_default();
 
     try p_main.build(.{ .FixedRenderPass = render_passes.getPtr(.DebugGeometry) });
 
@@ -505,11 +505,11 @@ fn init_graphics_pipelines() !void
     try p_selection_display.add_shader_module("../../res/shaders/debug/selection_vert.spv", .{.vertex_bit = true});
     try p_selection_display.add_shader_module("../../res/shaders/debug/selection_frag.spv", .{.fragment_bit = true});
 
-    try p_selection_display.add_color_blend_attachment(ash.pipeline.pipeline_color_blend_attachment_no_blend());
+    try p_selection_display.add_color_blend_attachment(ash.rendering.pipeline.pipeline_color_blend_attachment_no_blend());
 
     p_selection_display.set_vertex_input(pipeline_vertex_inputs.getPtr(.SelectionDisplay));
 
-    p_selection_display.info_depth_stencil_testing = ash.pipeline.pipeline_depth_stencil_state_default();
+    p_selection_display.info_depth_stencil_testing = ash.rendering.pipeline.pipeline_depth_stencil_state_default();
 
     try p_selection_display.build(.{ .FixedRenderPass = render_passes.getPtr(.DebugGeometry) });
 
@@ -526,11 +526,11 @@ fn init_graphics_pipelines() !void
     try p_selection.add_shader_module("../../res/shaders/selection_vert.spv", .{.vertex_bit = true});
     try p_selection.add_shader_module("../../res/shaders/selection_frag.spv", .{.fragment_bit = true});
 
-    try p_selection.add_color_blend_attachment(ash.pipeline.pipeline_color_blend_attachment_no_blend());
+    try p_selection.add_color_blend_attachment(ash.rendering.pipeline.pipeline_color_blend_attachment_no_blend());
 
     p_selection.set_vertex_input(pipeline_vertex_inputs.getPtr(.Selection));
 
-    p_selection.info_depth_stencil_testing = ash.pipeline.pipeline_depth_stencil_state_default();
+    p_selection.info_depth_stencil_testing = ash.rendering.pipeline.pipeline_depth_stencil_state_default();
 
     try p_selection.build(.{ .FixedRenderPass = render_passes.getPtr(.Selection) });
 }
@@ -589,8 +589,8 @@ fn update_shader_uniforms() !void
 
     const aspect: f32 = @as(f32, @floatFromInt(width)) / @as(f32, @floatFromInt(height));
 
-    var projection = try ash.linalg.mat_projection_perspective(&allocator, fov, aspect, 0.01, 1000.0);
-    const projection_data = try ash.linalg.mat_slice_data(f32, projection);
+    var projection = try ash.math.linalg.mat_projection_perspective(&allocator, fov, aspect, 0.01, 1000.0);
+    const projection_data = try ash.math.linalg.mat_slice_data(f32, projection);
     projection.deinit();
 
     try pds_debug_geometry.place_data(@truncate(swapchain.current_image_index), 0, f32, projection_data, 0);
@@ -598,8 +598,8 @@ fn update_shader_uniforms() !void
 
     allocator.free(projection_data);
 
-    var view = try ash.linalg.mat_look_at(&allocator, camera.pos, camera.rot);
-    const view_data = try ash.linalg.mat_slice_data(f32, view);
+    var view = try ash.math.linalg.mat_look_at(&allocator, camera.pos, camera.rot);
+    const view_data = try ash.math.linalg.mat_slice_data(f32, view);
     view.deinit();
 
     try pds_debug_geometry.place_data(@truncate(swapchain.current_image_index), 0, f32, view_data, 16 * @sizeOf(f32));
@@ -775,7 +775,7 @@ pub fn main() !void
 
     var draw_pipeline: Pipelines = .Main;
 
-    var selection_command_buffer: ash.CommandBuffer = try .init(&vk_interface, vk_command_pool);
+    var selection_command_buffer: ash.rendering.CommandBuffer = try .init(&vk_interface, vk_command_pool);
 
     const selection_fence_info: vk.FenceCreateInfo = .{
         .flags = .{
@@ -893,7 +893,7 @@ pub fn main() !void
             if(!first_frame)
             {
                 // Take the selection buffer image and copy its data to a readable VkBuffer.
-                try ash.vk_memory.copy_image_to_buffer(&vk_interface, selection_buffer.attachments.items[0].image.?.image, selection_data.buffer, .{ .x = cursor_pos.x, .y = cursor_pos.y, .z = 0 },
+                try ash.utils.vk_memory.copy_image_to_buffer(&vk_interface, selection_buffer.attachments.items[0].image.?.image, selection_data.buffer, .{ .x = cursor_pos.x, .y = cursor_pos.y, .z = 0 },
                     .{ .width = 1, .height = 1, .depth = 1 }, vk_command_pool, vk_queues.get(.Graphics));
 
                 // Pull said buffer data out into a readable slice.
