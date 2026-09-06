@@ -13,71 +13,91 @@ pub const vk = @import("vulkan");
 pub const glfw = @import("glfw");
 pub const xml = @import("xml");
 
-pub const attachment = @import("rendering/attachment.zig");
-pub const commands = @import("rendering/commands.zig");
-pub const pipeline = @import("rendering/pipeline.zig");
-pub const vk_context = @import("rendering/vkcontext.zig");
-pub const window = @import("rendering/window.zig");
-pub const mesh = @import("rendering/mesh.zig");
+/// Utilities related to procedural generation, whether it's noise algorithms like Perlin noise or polygonization algorithms like marching cubes.
+pub const gen = struct
+{
+    pub const polygonizers = @import("gen/polygonizers.zig");
+    pub const random = @import("math/random.zig");
 
-pub const linalg = @import("math/linalg.zig");
-pub const interp = @import("math/interp.zig");
-pub const random = @import("math/random.zig");
+    pub const MarchingCubes = polygonizers.MarchingCubes;
+    pub const MarchingTetrahedra = polygonizers.MarchingTetrahedra;
+    pub const SurfaceNets = polygonizers.SurfaceNets;
+};
 
-pub const font = @import("utils/font.zig");
-pub const image_utils = @import("utils/image_utils.zig");
-pub const misc = @import("utils/misc.zig");
-pub const vk_memory = @import("utils/vkmemory.zig");
-pub const ui = @import("utils/vkui.zig");
-pub const vk_utils = @import("utils/vkutils.zig");
+/// Utilities related to advanced math, like vector and matrix math, as well as different methods of interpolation.
+pub const math = struct
+{
+    pub const linalg = @import("math/linalg.zig");
+    pub const interp = @import("math/interp.zig");
 
-pub const ui_layouts = @import("utils/layouts.zig");
-pub const ui_theme_basic = @import("utils/ui_themes/basic.zig");
+    pub const Vec = linalg.Vec;
+    pub const Mat = linalg.Mat;
+};
 
-// Types.
+pub const rendering = struct
+{
+    pub const attachment = @import("rendering/attachment.zig");
+    pub const commands = @import("rendering/commands.zig");
+    pub const mesh = @import("rendering/mesh.zig");
+    pub const pipeline = @import("rendering/pipeline.zig");
+    pub const vk_core = @import("rendering/vkcontext.zig");
+    pub const window = @import("rendering/window.zig");
 
-pub const Attachment = attachment.Attachment;
-pub const AttachmentBundle = attachment.AttachmentBundle;
+    /// Named "ABWindow" because vulkan-zig will try to interface with it if it's just named "Window".
+    pub const ABWindow = window.Window;
 
-pub const CommandBuffer = commands.CommandBuffer;
+    pub const Attachment = attachment.Attachment;
+    pub const AttachmentBundle = attachment.AttachmentBundle;
 
-pub const PipelineVertexInput = pipeline.PipelineVertexInput;
-pub const PipelineDescriptorSet = pipeline.PipelineDescriptorSet;
-pub const Pipeline = pipeline.Pipeline;
+    pub const CommandBuffer = commands.CommandBuffer;
 
-pub const RenderPass = @import("rendering/renderpass.zig").RenderPass;
+    pub const Mesh = mesh.Mesh;
 
-pub const Swapchain = @import("rendering/swapchain.zig").Swapchain;
+    pub const PipelineVertexInput = pipeline.PipelineVertexInput;
+    pub const PipelineDescriptorSet = pipeline.PipelineDescriptorSet;
+    pub const Pipeline = pipeline.Pipeline;
 
-pub const VkContext = vk_context.VkContext;
-pub const VkInterface = vk_context.VkInterface;
+    pub const RenderPass = @import("rendering/renderpass.zig").RenderPass;
 
-pub const Mesh = mesh.Mesh;
+    pub const Swapchain = @import("rendering/swapchain.zig").Swapchain;
 
-/// Named "ABWindow" because vulkan-zig will try to interface with it if it's just named "Window".
-pub const ABWindow = window.Window;
+    pub const VkContext = vk_core.VkContext;
+    pub const VkInterface = vk_core.VkInterface;
+};
 
-pub const FontCharacter = font.FontCharacter;
-pub const Font = font.Font;
+pub const utils = struct
+{
+    pub const image_utils = @import("utils/image_utils.zig");
+    pub const misc = @import("utils/misc.zig");
+    pub const vk_memory = @import("utils/vkmemory.zig");
+    pub const vk_utils = @import("utils/vkutils.zig");
 
-pub const Texture2D = image_utils.Texture2D;
-pub const TextureAtlas2D = image_utils.TextureAtlas2D;
+    pub const FontEntry = misc.FontEntry;
+    pub const FontFamily = misc.FontFamily;
 
-pub const Vec = linalg.Vec;
-pub const Mat = linalg.Mat;
+    pub const Texture2D = image_utils.Texture2D;
+    pub const TextureAtlas2D = image_utils.TextureAtlas2D;
 
-pub const FontEntry = misc.FontEntry;
-pub const FontFamily = misc.FontFamily;
+    pub const VulkanAllocator = vk_memory.VulkanAllocator;
+};
 
-pub const VulkanAllocator = vk_memory.VulkanAllocator;
+pub const ui = struct
+{
+    pub const core = @import("utils/vkui.zig");
+    pub const font = @import("utils/font.zig");
+    pub const layouts = @import("utils/layouts.zig");
+    pub const theme_basic = @import("utils/ui_themes/basic.zig");
 
-pub const Bounds = ui.Bounds;
-pub const Alignment = ui.Alignment;
-pub const ElementCallback = ui.ElementCallback;
-pub const ContainerInputData = ui.ContainerInputData;
-pub const Element = ui.Element;
-pub const ContainerRendering = ui.ContainerRendering;
-pub const Container = ui.Container;
+    pub const Alignment = core.Alignment;
+    pub const Bounds = core.Bounds;
+    pub const Container = core.Container;
+    pub const ContainerInputData = core.ContainerInputData;
+    pub const ContainerRendering = core.ContainerRendering;
+    pub const Element = core.Element;
+    pub const ElementCallback = core.ElementCallback;
+    pub const Font = font.Font;
+    pub const FontCharacter = font.FontCharacter;
+};
 
 var stdout_io: std.Io.Threaded = undefined;
 var stdout_buffer: [2048]u8 = undefined;
@@ -113,28 +133,19 @@ pub fn print_stdout(comptime fmt: []const u8, args: anytype) void
 
 comptime
 {
-    _ = commands;
-    _ = pipeline;
-    _ = vk_context;
-    _ = window;
-    _ = mesh;
-
-    _ = linalg;
-    _ = interp;
-    _ = random;
-
-    _ = font;
-    _ = image_utils;
-    _ = misc;
-    _ = vk_memory;
+    _ = gen;
+    _ = math;
+    _ = rendering;
+    _ = utils;
     _ = ui;
-    _ = vk_utils;
-
-    _ = ui_layouts;
-    _ = ui_theme_basic;
 
     _ = RenderPass;
     _ = Swapchain;
+
+    _ = deinit_graphics;
+    _ = init_graphics;
+
+    _ = print_stdout;
 
     _ = UNICODE;
 }

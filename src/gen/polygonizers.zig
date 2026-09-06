@@ -1,5 +1,5 @@
 const std = @import("std");
-const ash = @import("ashbloom");
+const ash = @import("../root.zig");
 
 const assets = @import("../assets/root.zig");
 
@@ -28,11 +28,6 @@ pub const SDFCell = struct
 fn midpoint_linear(a: f32, b: f32, t: f32) f32
 {
     return (t - a) / (b - a);
-}
-
-fn midpoint_linear_3(a: [3]f32, b: [3]f32, t: f32) [3]f32
-{
-    return .{(t - a[0]) / (b[0] - a[0]), (t - a[1]) / (b[1] - a[1]), (t - a[2]) / (b[2] - a[2])};
 }
 
 pub fn deinit_tests() void
@@ -69,10 +64,24 @@ pub fn draw(swapchain: *ash.Swapchain, camera: *Camera, command_buffer: *ash.Com
     command_buffer.cmd_draw(test_mesh_shell.num_vertices, 1);
 }
 
+pub const PolygonizeCallback: type = *const fn(SDFCell, *ash.mesh.Vertex, [3]f32);
+
+/// The default polygonizer callback, called if **null** is passed to any of the polygonizer algorithms contained in Ashbloom. Adds the position vertex to the mesh,
+/// and assumes the first and only attribute of the mesh is the vertex position.
+pub fn default_vertex_addition(cell: SDFCell, vertex: *ash.mesh.Vertex, vertex_position: [3]f32) ash.mesh.VertexError!void
+{
+    _ = cell;
+    try vertex.add_attrib(vertex_position);
+}
+
 /// This structure is essentially just a namespace that houses the marching cubes polygonization algorithm.
 pub const MarchingCubes = struct
 {
-    pub fn add_cell_to_mesh(mesh: *ash.Mesh, cell: SDFCell) !void
+    /// Adds triangles to the mesh, created and calcuated using the marching cubes algorithm. This algorithm is intended to be used one cell at a time,
+    /// so this function only adds triangles for a single cell. You will likely need to pass a function to handle adding actual vertex data to the mesh,
+    /// which is the purpose of `callback`. If **null** is passed, the `polygonizers.default_vertex_addition` is used in place of `callback`, and this function
+    /// provides an example of how `callback` should be used.
+    pub fn add_cell_to_mesh(mesh: *ash.Mesh, cell: SDFCell, callback: ?PolygonizeCallback) !void
     {
         var code: u8 = 0;
 
@@ -386,7 +395,14 @@ pub const MarchingCubes = struct
             for(0..indices.len) |i|
             {
                 const vertex = vertices[indices[i]];
-                try mesh_vertices[i].add_attrib(vertex);
+                if(callback == null)
+                {
+                    try default_vertex_addition(cell, mesh_vertices.ptr + i, vertex);
+                }
+                else
+                {
+                    try callback(cell, mesh_vertices.ptr + i, vertex);
+                }
             }
         }
 
@@ -397,7 +413,7 @@ pub const MarchingCubes = struct
 /// This structure is essentially just a namespace that houses the marching tetrahedra polygonization algorithm.
 pub const MarchingTetrahedra = struct
 {
-    fn add_tetra(mesh: *ash.Mesh, positions: [4][3]f32, values: [4]f32) !void
+    fn add_tetra(mesh: *ash.Mesh, cell: SDFCell, callback: ?PolygonizeCallback, positions: [4][3]f32, values: [4]f32) !void
     {
         var code: u4 = 0;
 
@@ -466,14 +482,21 @@ pub const MarchingTetrahedra = struct
             for(0..indices.len) |i|
             {
                 const vertex = vertices[indices[i]];
-                try mesh_vertices[i].add_attrib(vertex);
+                if(callback == null)
+                {
+                    try default_vertex_addition(cell, mesh_vertices.ptr + i, vertex);
+                }
+                else
+                {
+                    try callback(cell, mesh_vertices.ptr + i, vertex);
+                }
             }
         }
 
         try mesh.finalize_vertices();
     }
 
-    pub fn add_cell_to_mesh(mesh: *ash.Mesh, cell: SDFCell) !void
+    pub fn add_cell_to_mesh(mesh: *ash.Mesh, cell: SDFCell, callback: ?PolygonizeCallback) !void
     {
         const vertices: [8][3]f32 = .{
             .{cell.pos[0], cell.pos[1], cell.pos[2]},
@@ -486,13 +509,13 @@ pub const MarchingTetrahedra = struct
             .{cell.pos[0] + cell.scl[0], cell.pos[1] + cell.scl[1], cell.pos[2] + cell.scl[2]},
         };
 
-        try add_tetra(mesh, .{vertices[0], vertices[1], vertices[3], vertices[4]}, .{cell.values[0], cell.values[1], cell.values[3], cell.values[4]});
-        try add_tetra(mesh, .{vertices[1], vertices[3], vertices[4], vertices[5]}, .{cell.values[1], cell.values[3], cell.values[4], cell.values[5]});
-        try add_tetra(mesh, .{vertices[3], vertices[4], vertices[5], vertices[7]}, .{cell.values[3], cell.values[4], cell.values[5], cell.values[7]});
+        try add_tetra(mesh, cell, callback, .{vertices[0], vertices[1], vertices[3], vertices[4]}, .{cell.values[0], cell.values[1], cell.values[3], cell.values[4]});
+        try add_tetra(mesh, cell, callback, .{vertices[1], vertices[3], vertices[4], vertices[5]}, .{cell.values[1], cell.values[3], cell.values[4], cell.values[5]});
+        try add_tetra(mesh, cell, callback, .{vertices[3], vertices[4], vertices[5], vertices[7]}, .{cell.values[3], cell.values[4], cell.values[5], cell.values[7]});
 
-        try add_tetra(mesh, .{vertices[2], vertices[3], vertices[4], vertices[0]}, .{cell.values[2], cell.values[3], cell.values[4], cell.values[0]});
-        try add_tetra(mesh, .{vertices[3], vertices[4], vertices[6], vertices[2]}, .{cell.values[3], cell.values[4], cell.values[6], cell.values[2]});
-        try add_tetra(mesh, .{vertices[4], vertices[6], vertices[7], vertices[3]}, .{cell.values[4], cell.values[6], cell.values[7], cell.values[3]});
+        try add_tetra(mesh, cell, callback, .{vertices[2], vertices[3], vertices[4], vertices[0]}, .{cell.values[2], cell.values[3], cell.values[4], cell.values[0]});
+        try add_tetra(mesh, cell, callback, .{vertices[3], vertices[4], vertices[6], vertices[2]}, .{cell.values[3], cell.values[4], cell.values[6], cell.values[2]});
+        try add_tetra(mesh, cell, callback, .{vertices[4], vertices[6], vertices[7], vertices[3]}, .{cell.values[4], cell.values[6], cell.values[7], cell.values[3]});
     }
 };
 
@@ -641,7 +664,7 @@ pub const SurfaceNets = struct
         return sum_points;
     }
 
-    pub fn build(mesh: *ash.Mesh, cells: [][][]SDFCell) !void
+    pub fn build(mesh: *ash.Mesh, cells: [][][]SDFCell, callback: ?PolygonizeCallback) !void
     {
         const net_cells = try mesh.allocator.alloc([][]NetCell, cells.len - 1);
         for(0..net_cells.len) |i|
@@ -784,6 +807,8 @@ pub const SurfaceNets = struct
                 }
             }
         }}}
+
+        const cb = callback orelse default_vertex_addition;
         
         for(0..net_cells.len)       |i| {
         for(0..net_cells[0].len)    |j| {
@@ -801,21 +826,21 @@ pub const SurfaceNets = struct
 
                 if(net_cells[i][j][k].dir_x)
                 {
-                    try vertices[0].add_attrib(@as([3]f32, v1));
-                    try vertices[1].add_attrib(@as([3]f32, v7));
-                    try vertices[2].add_attrib(@as([3]f32, v3));
-                    try vertices[3].add_attrib(@as([3]f32, v1));
-                    try vertices[4].add_attrib(@as([3]f32, v5));
-                    try vertices[5].add_attrib(@as([3]f32, v7));
+                    try cb(cell, vertices.ptr, v1);
+                    try cb(cell, vertices.ptr + 1, v7);
+                    try cb(cell, vertices.ptr + 2, v3);
+                    try cb(cell, vertices.ptr + 3, v1);
+                    try cb(cell, vertices.ptr + 4, v5);
+                    try cb(cell, vertices.ptr + 5, v7);
                 }
                 else
                 {
-                    try vertices[0].add_attrib(@as([3]f32, v1));
-                    try vertices[1].add_attrib(@as([3]f32, v3));
-                    try vertices[2].add_attrib(@as([3]f32, v7));
-                    try vertices[3].add_attrib(@as([3]f32, v1));
-                    try vertices[4].add_attrib(@as([3]f32, v7));
-                    try vertices[5].add_attrib(@as([3]f32, v5));
+                    try cb(cell, vertices.ptr, v1);
+                    try cb(cell, vertices.ptr + 1, v3);
+                    try cb(cell, vertices.ptr + 2, v7);
+                    try cb(cell, vertices.ptr + 3, v1);
+                    try cb(cell, vertices.ptr + 4, v7);
+                    try cb(cell, vertices.ptr + 5, v5);
                 }
 
                 try mesh.finalize_vertices();
@@ -827,22 +852,23 @@ pub const SurfaceNets = struct
 
                 if(net_cells[i][j][k].dir_y)
                 {
-                    try vertices[0].add_attrib(@as([3]f32, v1));
-                    try vertices[1].add_attrib(@as([3]f32, v2));
-                    try vertices[2].add_attrib(@as([3]f32, v6));
-                    try vertices[3].add_attrib(@as([3]f32, v1));
-                    try vertices[4].add_attrib(@as([3]f32, v6));
-                    try vertices[5].add_attrib(@as([3]f32, v5));
+                    try cb(cell, vertices.ptr, v1);
+                    try cb(cell, vertices.ptr + 1, v2);
+                    try cb(cell, vertices.ptr + 2, v6);
+                    try cb(cell, vertices.ptr + 3, v1);
+                    try cb(cell, vertices.ptr + 4, v6);
+                    try cb(cell, vertices.ptr + 5, v5);
                 }
                 else
                 {
-                    try vertices[0].add_attrib(@as([3]f32, v1));
-                    try vertices[1].add_attrib(@as([3]f32, v6));
-                    try vertices[2].add_attrib(@as([3]f32, v2));
-                    try vertices[3].add_attrib(@as([3]f32, v1));
-                    try vertices[4].add_attrib(@as([3]f32, v5));
-                    try vertices[5].add_attrib(@as([3]f32, v6));
+                    try cb(cell, vertices.ptr, v1);
+                    try cb(cell, vertices.ptr + 1, v6);
+                    try cb(cell, vertices.ptr + 2, v2);
+                    try cb(cell, vertices.ptr + 3, v1);
+                    try cb(cell, vertices.ptr + 4, v5);
+                    try cb(cell, vertices.ptr + 5, v6);
                 }
+
                 try mesh.finalize_vertices();
             }
             if(net_cells[i][j][k].z)
@@ -852,21 +878,21 @@ pub const SurfaceNets = struct
 
                 if(net_cells[i][j][k].dir_z)
                 {
-                    try vertices[0].add_attrib(@as([3]f32, v1));
-                    try vertices[1].add_attrib(@as([3]f32, v3));
-                    try vertices[2].add_attrib(@as([3]f32, v4));
-                    try vertices[3].add_attrib(@as([3]f32, v1));
-                    try vertices[4].add_attrib(@as([3]f32, v4));
-                    try vertices[5].add_attrib(@as([3]f32, v2));
+                    try cb(cell, vertices.ptr, v1);
+                    try cb(cell, vertices.ptr + 1, v3);
+                    try cb(cell, vertices.ptr + 2, v4);
+                    try cb(cell, vertices.ptr + 3, v1);
+                    try cb(cell, vertices.ptr + 4, v4);
+                    try cb(cell, vertices.ptr + 5, v2);
                 }
                 else
                 {
-                    try vertices[0].add_attrib(@as([3]f32, v1));
-                    try vertices[1].add_attrib(@as([3]f32, v4));
-                    try vertices[2].add_attrib(@as([3]f32, v3));
-                    try vertices[3].add_attrib(@as([3]f32, v1));
-                    try vertices[4].add_attrib(@as([3]f32, v2));
-                    try vertices[5].add_attrib(@as([3]f32, v4));
+                    try cb(cell, vertices.ptr, v1);
+                    try cb(cell, vertices.ptr + 1, v4);
+                    try cb(cell, vertices.ptr + 2, v3);
+                    try cb(cell, vertices.ptr + 3, v1);
+                    try cb(cell, vertices.ptr + 4, v2);
+                    try cb(cell, vertices.ptr + 5, v4);
                 }
 
                 try mesh.finalize_vertices();
