@@ -240,8 +240,7 @@ const VulkanInitError = error
     IncompatibleWindow
 };
 
-/// VkContext handles initialization of Vulkan, selecting a physical device, and creating the logical Vulkan device handle.
-/// It also serves as the container for the Vulkan instance and device.
+/// VkContext handles initialization of Vulkan and contains the Vulkan instance. This also has the VkDebugUtilsMessengerEXT
 pub const VkContext = struct
 {
     allocator: *const std.mem.Allocator,
@@ -366,9 +365,9 @@ pub const VkContext = struct
         // Most important thing here is to define the version of Vulkan we're using.
 
         const info_app: vk.ApplicationInfo = .{
-            .p_application_name = "Zig Vulkan Test",
+            .p_application_name = "test",
             .application_version = 1,
-            .p_engine_name = "No Engine",
+            .p_engine_name = "ashbloom",
             .engine_version = 1,
             .api_version = @bitCast(vk.API_VERSION_1_0)
         };
