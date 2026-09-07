@@ -19,6 +19,8 @@ pub const Swapchain = struct
 {
     /// GLFW window handle.
     window: *c_long,
+    /// Handle to the window surface.
+    surface: vk.SurfaceKHR,
     /// Vulkan interface.
     interface: *vkcontext.VkInterface,
     /// Vulkan allocator.
@@ -151,7 +153,7 @@ pub const Swapchain = struct
     /// Creates the swap chain and image views.
     fn create_swapchain(self: *Swapchain) !void
     {
-        var sc_support = try vkcontext.query_device_swapchain_support(self.interface.context.instance, self.interface.allocator, self.interface.physical_device.?, self.interface.surface);
+        var sc_support = try vkcontext.query_device_swapchain_support(self.interface.context.instance, self.interface.allocator, self.interface.physical_device.?, self.surface);
         defer sc_support.deinit(self.interface.allocator);
 
         self.format = Swapchain.choose_swapchain_format(sc_support);
@@ -169,7 +171,7 @@ pub const Swapchain = struct
         };
 
         const info_create: vk.SwapchainCreateInfoKHR = .{
-            .surface = self.interface.surface,
+            .surface = self.surface,
             .min_image_count = self.image_count,
             .image_format = self.format.format,
             .image_color_space = self.format.color_space,
@@ -458,12 +460,13 @@ pub const Swapchain = struct
     }
 
     /// Creates the swap chain, along with its image views.
-    pub fn init(window: *Window, interface: *vkcontext.VkInterface, vk_allocator: *vk_memory.VulkanAllocator, command_pool: vk.CommandPool, render_stages: u16) !Swapchain
+    pub fn init(window: *Window, interface: *vkcontext.VkInterface, vk_allocator: *vk_memory.VulkanAllocator, surface: vk.SurfaceKHR, command_pool: vk.CommandPool, render_stages: u16) !Swapchain
     {
         std.debug.assert(render_stages > 0);
 
         var sc: Swapchain = .{
             .window = window.glfw_handle,
+            .surface = surface,
             .interface = interface,
             .vk_allocator = vk_allocator,
             .command_pool = command_pool,
