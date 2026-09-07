@@ -27,6 +27,7 @@ The `VkContext` structure holds the VkInstance object, as well as the VkDebugUti
 `allocator: *const std.mem.Allocator` - CPU allocator.
 
 `vkb: *vk.BaseWrapper` - This structure is for the `vulkan-zig` bindings specifically, used to initialize other wrappers.
+
 `vki: *vk.InstanceWrapper` - `vulkan-zig` wrapper for Vulkan functions that require instances. Required to initialize a `vk.InstanceProxy`.
 
 `instance: *vk.InstanceProxy` - This instance proxy functions both as a `vk.Instance` (`VkInstance`) and as a wrapper for any Vulkan function that requires a `VkInstance` as a first argument.
@@ -40,6 +41,7 @@ The `VkContext` structure holds the VkInstance object, as well as the VkDebugUti
 #### Fields
 
 `instance_extensions: [][*:0]const u8 = &.{}` - List of extensions to add to the Vulkan instance. GLFW extensions are already added when VkContext.init() is called.
+
 `instance_layers: [][*:0]const u8 = &.{}` - List of layers to add to the Vulkan instance.
 
 ### Public Functions
