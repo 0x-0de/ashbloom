@@ -34,6 +34,7 @@ pub const math = struct
     pub const Mat = linalg.Mat;
 };
 
+/// Utilities related to graphical operations with Vulkan.
 pub const rendering = struct
 {
     pub const attachment = @import("rendering/attachment.zig");
@@ -64,6 +65,7 @@ pub const rendering = struct
     pub const Window = window.Window;
 };
 
+/// General utilities that don't belong to any specific category.
 pub const utils = struct
 {
     pub const image_utils = @import("utils/image_utils.zig");
@@ -80,6 +82,7 @@ pub const utils = struct
     pub const VulkanAllocator = vk_memory.VulkanAllocator;
 };
 
+/// Ashbloom's UI system.
 pub const ui = struct
 {
     pub const core = @import("utils/vkui.zig");
