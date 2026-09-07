@@ -46,48 +46,48 @@ The `VkContext` structure holds the VkInstance object, as well as the VkDebugUti
 
 ### Public Functions
 
-`check_device_extension_support(self: VkContext, physical_device: vk.PhysicalDevice, required_extensions: [][*:0]const u8, preferred_extensions: [][*:0]const u8, num_preferred_extensions_supported: *usize) !bool`
+**`check_device_extension_support(self: VkContext, physical_device: vk.PhysicalDevice, required_extensions: [][*:0]const u8, preferred_extensions: [][*:0]const u8, num_preferred_extensions_supported: *usize) !bool`**
 
 Checks if the `physical_device` can support the provided lists of extensions. Sets `num_preferred_extensions_supported.*` to the number of `preferred_extensions` supported. Returns false if any of the `required_extensions` are unsupported.
 
-`check_device_feature_support(self: VkContext, physical_device: vk.PhysicalDevice, required_features: vk.PhysicalDeviceFeatures, preferred_features: vk.PhysicalDeviceFeatures, num_preferred_features_supported: *usize, preferred_features_supported: ?*vk.PhysicalDeviceFeatures) !bool`
+**`check_device_feature_support(self: VkContext, physical_device: vk.PhysicalDevice, required_features: vk.PhysicalDeviceFeatures, preferred_features: vk.PhysicalDeviceFeatures, num_preferred_features_supported: *usize, preferred_features_supported: ?*vk.PhysicalDeviceFeatures) !bool`**
 
 Checks if the `physical_device` can support the provided lists of device features. Sets the fields of `preferred_features_supported.?.*` to true if they are set in `preferred_features`, are supported by the physical device, and if `preferred_features_supported` is not `null`. In the last case, the field is ignored entirely. Returns false if any of the `required_features` are unsupported.
 
-`check_device_swapchain_support(self: VkContext, physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR) !bool`
+**`check_device_swapchain_support(self: VkContext, physical_device: vk.PhysicalDevice, surface: vk.SurfaceKHR) !bool`**
 
 Calls `vk_core.query_device_swapchain_support` using `self.instance` and `self.allocator`, returns true if no errors were produced by that call. The returned `DeviceSwapchainSupport` is deinitialized automatically.
 
-`create_glfw_window_surface(self: VkContext, window: *c_long) !vk.SurfaceKHR`
+**`create_glfw_window_surface(self: VkContext, window: *c_long) !vk.SurfaceKHR`**
 
 Creates a SurfaceKHR object for the `window` (which must be a handle for the GLFW window, available through `Window.glfw_handle`). The SurfaceKHR is required to create a `Swapchain`.
 
-`deinit(self: VkContext) void`
+**`deinit(self: VkContext) void`**
 
 Deinitializes the `VkContext`. This should be the last Vulkan deinitialization call.
 
-`init(allocator: *const std.mem.Allocator, options: InitOptions) !VkContext`
+**`init(allocator: *const std.mem.Allocator, options: InitOptions) !VkContext`**
 
 Initializes a `VkContext`. Creates the Vulkan instance, sets up any validation layers if necessary.
 
 ### Private Functions
 
-`check_required_extensions_support(self: VkContext, additional_extensions: [][*:0]const u8, required_extensions_list: *std.ArrayList([*:0]const u8)) !bool`
+**`check_required_extensions_support(self: VkContext, additional_extensions: [][*:0]const u8, required_extensions_list: *std.ArrayList([*:0]const u8)) !bool`**
 
 Checks if the required Vulkan instance extensions are supported, and initializes and populates `required_extensions_list` if they are, otherwise returns false. This function adds the required GLFW extensions to the passed `additional_extensions` in order to get the final list of required extensions.
 
-`check_validation_layer_support(self: VkContext, layers: [][*:0]const u8) !bool`
+**`check_validation_layer_support(self: VkContext, layers: [][*:0]const u8) !bool`**
 
 Checks if the required Vulkan layers are supported, and returns true if they are.
 
-`create_instance_handle(self: VkContext, options: InitOptions) !vk.Instance`
+**`create_instance_handle(self: VkContext, options: InitOptions) !vk.Instance`**
 
 Creates the Vulkan instance, effectively initializing Vulkan. Returns its handle. Currently, the Vulkan application info is uneditable. This will be fixed soon.
 
-`debug_setup_vulkan_messenger(self: VkContext) !vk.DebugUtilsMessengerEXT`
+**`debug_setup_vulkan_messenger(self: VkContext) !vk.DebugUtilsMessengerEXT`**
 
 Creates the Vulkan debug messenger utility used to print messages relating to any passed validation layers. The behavior of the messenger is managed by Ashbloom.
 
-`debug_print_physical_device_name(self: VkContext, physical_device: vk.PhysicalDevice) !void`
+**`debug_print_physical_device_name(self: VkContext, physical_device: vk.PhysicalDevice) !void`**
 
 Debug function that prints the name of the `physical_device`.
