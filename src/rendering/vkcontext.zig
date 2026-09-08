@@ -8,7 +8,7 @@ const Window = @import("window.zig").Window;
 
 const print = @import("../root.zig").print_stdout;
 
-/// Default device extensions. Since v0lcano's built-in Swapchain structure uses the VkSwapchainKHR extension, it's assumed that it will be
+/// Default device extensions. Since Ashbloom's built-in Swapchain structure uses the VkSwapchainKHR extension, it's assumed that it will be
 /// required for this initialization too.
 var default_device_extensions: [1][*:0]const u8 = .{
     vk.extensions.khr_swapchain.name
@@ -71,17 +71,6 @@ fn c_strequal(a: [*:0]const u8, b: [*:0]const u8) bool
         index += 1;
     }
     return a[index] == b[index];
-}
-
-/// Print out all items in a generic name list.
-fn debug_print_name_list(names: std.ArrayList([*:0]const u8), label: []const u8) void
-{
-    print("[{s}], count {d}:\n", .{label, names.items.len});
-    for(0..names.items.len) |i|
-    {
-        print("\t{s}\n", .{names.items[i]});
-    }
-    print("\t[End of list.]\n", .{});
 }
 
 /// Print out the names of all Vulkan extensions in a provided vk.ExtensionProperties list.
@@ -552,7 +541,7 @@ pub const VkContext = struct
     }
 };
 
-/// Represents an output point for the Vulkan context. This structure contains a Vulkan logical device and surface.
+/// Represents an output point for the Vulkan context. This structure contains a Vulkan logical device, handle for a selected physical device, and list of surfaces.
 pub const VkInterface = struct
 {
     allocator: *const std.mem.Allocator,
