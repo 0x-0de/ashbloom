@@ -1,4 +1,4 @@
-# 'attachment'
+# `attachment`
 
 ## Attachment (`struct`)
 
@@ -32,18 +32,18 @@ Stores a list of Vulkan image attachments. Can be used for refreshing (recreatin
 
 ### Public Functions
 
-`add_attachment(self: *AttachmentBundle, attachment: Attachment) !void`
+**`add_attachment(self: *AttachmentBundle, attachment: Attachment) !void`**
 
 Adds an attachment to the bundle.
 
-`build(self: *AttachmentBundle, resolution: vk.Extent3D) !void`
+**`build(self: *AttachmentBundle, resolution: vk.Extent3D) !void`**
 
 Creates or recreates the Vulkan attachment objects.
 
-`deinit(self: *AttachmentBundle) void`
+**`deinit(self: *AttachmentBundle) void`**
 
 Frees all resources associated with the attachments.
 
-`init(allocator: *const std.mem.Allocator, interface: *VkInterface, vk_allocator: *vk_memory.VulkanAllocator) !AttachmentBundle`
+**`init(allocator: *const std.mem.Allocator, interface: *VkInterface, vk_allocator: *vk_memory.VulkanAllocator) !AttachmentBundle`**
 
 Initializes an empty attachment bundle.
