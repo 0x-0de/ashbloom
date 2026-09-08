@@ -16,8 +16,9 @@ This diagram is simplified, and lacks a lot of details within each module, such 
 
 Hopefully, this gives you a good idea on how this namespace is structured overall.
 
-Table of contents:
+## Modules
 
 1. [vk_core](./pages/rendering/vk_core.md)
 2. [window](./pages/rendering/window.md)
 3. [swapchain](./pages/rendering/swapchain.md)
+4. 

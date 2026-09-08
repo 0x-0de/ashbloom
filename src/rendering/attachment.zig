@@ -35,32 +35,6 @@ pub const AttachmentBundle = struct
     /// ArrayList of all attachments.
     attachments: std.ArrayList(Attachment),
 
-    /// Frees all resources associated with the attachments.
-    pub fn deinit(self: *AttachmentBundle) void
-    {
-        for(self.attachments.items) |*att|
-        {
-            if(att.image != null)
-            {
-                self.vk_allocator.free_image(att.image.?);
-                self.interface.device.destroyImageView(att.image_view.?, null);
-            }
-        }
-
-        self.attachments.deinit(self.allocator.*);
-    }
-
-    /// Initializes an empty attachment bundle.
-    pub fn init(allocator: *const std.mem.Allocator, interface: *VkInterface, vk_allocator: *vk_memory.VulkanAllocator) !AttachmentBundle
-    {
-        return .{
-            .allocator = allocator,
-            .interface = interface,
-            .vk_allocator = vk_allocator,
-            .attachments = try .initCapacity(allocator.*, 0)
-        };
-    }
-
     /// Adds an attachment to the bundle.
     pub fn add_attachment(self: *AttachmentBundle, attachment: Attachment) !void
     {
@@ -89,5 +63,31 @@ pub const AttachmentBundle = struct
             att.info_image_view.image = att.image.?.image;
             att.image_view = try self.interface.device.createImageView(&att.info_image_view, null);
         }
+    }
+
+    /// Frees all resources associated with the attachments.
+    pub fn deinit(self: *AttachmentBundle) void
+    {
+        for(self.attachments.items) |*att|
+        {
+            if(att.image != null)
+            {
+                self.vk_allocator.free_image(att.image.?);
+                self.interface.device.destroyImageView(att.image_view.?, null);
+            }
+        }
+
+        self.attachments.deinit(self.allocator.*);
+    }
+
+    /// Initializes an empty attachment bundle.
+    pub fn init(allocator: *const std.mem.Allocator, interface: *VkInterface, vk_allocator: *vk_memory.VulkanAllocator) !AttachmentBundle
+    {
+        return .{
+            .allocator = allocator,
+            .interface = interface,
+            .vk_allocator = vk_allocator,
+            .attachments = try .initCapacity(allocator.*, 0)
+        };
     }
 };

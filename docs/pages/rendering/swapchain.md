@@ -1,6 +1,10 @@
 # `swapchain`
 
+Contains the `Swapchain` structure.
+
 ## Swapchain (`struct`)
+
+Contains and describes a `VkSwapchainKHR` object, or Vulkan swap chain. A swap chain is a 'chain', list, or queue, of images that Vulkan can render to. The reason we want multiple images rather than just a single image is to prevent screen tearing, which is caused by rendering to and displaying an image at the same time. This structure also contains a command buffer and some synchronization objects for each image.
 
 ### Fields
 
@@ -18,9 +22,9 @@
 
 `image_count: u32 = undefined` - Number of images contained in the swap chain, set during initialization.
 
-`format: vk.SurfaceFormatKHR = undefined` - VkSurfaceFormatKHR of the swap chain, stores the format and color space of each image in the swap chain.
+`format: vk.SurfaceFormatKHR = undefined` - `VkSurfaceFormatKHR` of the swap chain, stores the format and color space of each image in the swap chain.
 
-`extent: vk.Extent2D = undefined` - VkExtent2D of the swap chain, stores the size/resolution of each image.
+`extent: vk.Extent2D = undefined` - `VkExtent2D` of the swap chain, stores the size/resolution of each image.
 
 `image_views: std.ArrayList(vk.ImageView) = undefined` - List of image views corresponding to each image in the swap chain. Used for acquiring the swap chain's framebuffers.
 
@@ -28,19 +32,19 @@
 
 `render_stages: u16` - Number of render stages the swapchain should expect each image to undergo. A render stage is essentially a call to the render() function.
 
-`current_render_stage: u16 = undefined` - Current render stage being performed by the current image. This field is updated automatically when a call to render() is performed, and shouldn't be modified externally.
+`current_render_stage: u16 = undefined` - Current render stage being performed by the current image. This field is updated automatically when a call to **`render`** is performed, and shouldn't be modified externally.
 
-`last_render_stage: ?u16 = null` - The last render stage which was actually rendered. Incremented when a call to render(...) is performed.
+`last_render_stage: ?u16 = null` - The last render stage which was actually rendered. Incremented when a call to **`render`** is performed.
 
 `semaphores_render_stage_finished: []std.ArrayList(vk.Semaphore) = undefined` - List of semaphore lists for each render stage, each semaphore list having one semaphore for each image to signal when their renders have finished.
 
 `fences_command_buffers_finished: []std.ArrayList(vk.Fence) = undefined` - List of fences to signal when the command buffer is no longer pending.
 
-`current_image_index: u32 = 0` - Index of the currently acquired image. Set whenever acquire_image is called.
+`current_image_index: u32 = 0` - Index of the currently acquired image. Set whenever **`acquire_next_image`** is called.
 
-`command_buffers: []std.ArrayList(CommandBuffer) = undefined` - List of command buffers to use for rendering each render stage to each image. Do not access this field directly, instead use get_current_command_buffer.
+`command_buffers: []std.ArrayList(CommandBuffer) = undefined` - List of command buffers to use for rendering each render stage to each image. Do not access this field directly, instead use **`get_current_command_buffer`**.
 
-`attachments: std.ArrayList(att.Attachment) = undefined` - List of attachments that the swapchain keeps track of. Includes things like depth buffers. Add with `add_resource`.
+`attachments: std.ArrayList(att.Attachment) = undefined` - List of attachments that the swapchain keeps track of. Includes things like depth buffers. Add with **`add_resource`**.
 
 ### Enums
 
@@ -104,7 +108,7 @@ Initializes the swap chain.
 
 **`present(self: *Swapchain, present_queue: vk.Queue) !void`**
 
-Submits a command to present the current image to Vulkan. The operation will wait for the current image's render_finished semaphore to be completed before executing. Other operations on the CPU may occur before the image is presented (such as acquiring the next image). present_queue must be a queue that supports presentation operations.
+Submits a command to present the current image to Vulkan. The operation will wait for the current image's render finished semaphore to be completed before executing. Other operations on the CPU may occur before the image is presented (such as acquiring the next image). `present_queue` must be a queue that supports presentation operations.
 
 **`refresh_attachments(self: *Swapchain) !void`**
 
@@ -112,11 +116,11 @@ Refreshes all attachments (recreates them with up-to-date extents). Must be call
 
 **`render(self: *Swapchain, render_queue: vk.Queue) !void`**
 
-Submits a rendering command buffer to Vulkan, using the synchronization objects (fences and semaphores) provided by the swap chain and it's currently selected image. You will need to make sure you're referencing the correct image in the command buffer itself. Waits for the swap chain to finish acquiring the image before submitting the command buffer. render_queue should be a queue that supports graphics operations.
+Submits a rendering command buffer to Vulkan, using the synchronization objects (fences and semaphores) provided by the swap chain and it's currently selected image. You will need to make sure you're referencing the correct image in the command buffer itself. Waits for the swap chain to finish acquiring the image before submitting the command buffer. `render_queue` should be a queue that supports graphics operations.
 
 **`skip_render_stage(self: *Swapchain, render_queue: vk.Queue) !void`**
 
-Skips the current render stage this frame.
+Skips the current render stage this frame. `render_queue` should be a queue that supports graphics operations.
 
 ### Private Functions
 
