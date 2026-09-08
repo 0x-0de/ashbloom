@@ -138,18 +138,6 @@ pub const Swapchain = struct
         }
     }
 
-    /// Returns a list of handles to each image in the swap chain.
-    fn retrieve_images(self: *Swapchain) ![]vk.Image
-    {
-        var image_count: u32 = undefined;
-        _ = try self.interface.device.getSwapchainImagesKHR(self.handle, &image_count, null);
-        
-        const image_list = try self.interface.allocator.alloc(vk.Image, image_count);
-        _ = try self.interface.device.getSwapchainImagesKHR(self.handle, &image_count, @ptrCast(image_list));
-
-        return image_list;
-    }
-
     /// Creates the swap chain and image views.
     fn create_swapchain(self: *Swapchain) !void
     {
@@ -273,6 +261,18 @@ pub const Swapchain = struct
         self.fence_image_acquired = try self.interface.device.createFence(&info_fence, null);
         
         self.current_render_stage = 0;
+    }
+
+    /// Returns a list of handles to each image in the swap chain.
+    fn retrieve_images(self: *Swapchain) ![]vk.Image
+    {
+        var image_count: u32 = undefined;
+        _ = try self.interface.device.getSwapchainImagesKHR(self.handle, &image_count, null);
+
+        const image_list = try self.interface.allocator.alloc(vk.Image, image_count);
+        _ = try self.interface.device.getSwapchainImagesKHR(self.handle, &image_count, @ptrCast(image_list));
+
+        return image_list;
     }
 
     /// Acquires the next image from the swap chain, and possibly recreates the swap chain if the window has been resized or the swap chain

@@ -20,3 +20,4 @@ Table of contents:
 
 1. [vk_core](./pages/rendering/vk_core.md)
 2. [window](./pages/rendering/window.md)
+3. [swapchain](./pages/rendering/swapchain.md)

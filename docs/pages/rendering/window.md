@@ -48,15 +48,13 @@ Returns a `ContainerInputData` structure, used by a UI `Container` object to det
 
 Initializes the window.
 
-**`should_close(self: Window) bool`**
-
-Returns true if the window should close. Usually used as the condition for a game, application, or draw loop.
-
-### Public Static Functions
-
 **`reset_input_values() void`**
 
 Resets all **global** input values. Must be called at least once before or after a UI update events call in a draw loop.
+
+**`should_close(self: Window) bool`**
+
+Returns true if the window should close. Usually used as the condition for a game, application, or draw loop.
 
 ## Private Fields
 
