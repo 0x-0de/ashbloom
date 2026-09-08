@@ -23,3 +23,4 @@ Hopefully, this gives you a good idea on how this namespace is structured overal
 3. [swapchain](./pages/rendering/swapchain.md)
 4. [attachment](./pages/rendering/attachment.md)
 5. [renderpass](./pages/rendering/renderpass.md)
+6. [pipeline](./pages/rendering/pipeline.md)

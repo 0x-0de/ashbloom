@@ -37,7 +37,7 @@ fn dummy_stencil_op_state() vk.StencilOpState
 /// Struct used for setting pipeline vertex input.
 pub const PipelineVertexInput = struct
 {
-    /// ALlocator.
+    /// Allocator.
     allocator: *const std.mem.Allocator,
 
     /// List of attribute descriptions. Do not access directly, if you need to add attribute descriptions, use add_attribute.
@@ -207,7 +207,6 @@ pub const PipelineDescriptorSet = struct
         image: DescriptorBindingImageInfo
     };
 
-    // TODO: Make this a union.
     /// Struct describing the information and requirements for a descriptor binding. Also contains the DescriptorSetLayoutBinding for the binding.
     const DescriptorBinding = struct
     {
