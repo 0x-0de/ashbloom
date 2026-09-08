@@ -19,3 +19,4 @@ Hopefully, this gives you a good idea on how this namespace is structured overal
 Table of contents:
 
 1. [vk_core](./pages/rendering/vk_core.md)
+2. [window](./pages/rendering/window.md)
