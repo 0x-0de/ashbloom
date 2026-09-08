@@ -81,10 +81,15 @@ Debug function that prints the name of the `physical_device`.
 ## VulkanInitError (`error`)
 
 **ExtensionNotSupported** - One or more required extensions for an instance isn't supported.
+
 **LayerNotSupported** - One or more required layers for an instance isn't supported.
+
 **NoPhysicalDeviceSupportsVulkan** - No physical devices which support Vulkan were able to be found.
+
 **NoSuitableGPUs** - No physical device was able to meet the requirements set in `VkInterface.InitOptions`.
+
 **FailedToCreateWindowSurface** - Failed to create a valid VkSurfaceKHR.
+
 **IncompatiableWindow** - Returned if the VkSurfaceKHR object created by adding a secondary window to the `VkInterface` is incompatiable with the logical device that's already been created.
 
 ## VkInterface (`struct`)
@@ -208,6 +213,7 @@ Frees all allocated resources used by this object.
 ## SwapchainSupportError (`error`)
 
 **NoSupportedFormats** - The physical device and/or surface does not support any available swapchain formats.
+
 **NoSupportedPresentationModes** - The physical device and/or surface does not support any available swapchain presentation modes.
 
 ## Private Fields
