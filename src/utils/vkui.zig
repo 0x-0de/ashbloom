@@ -129,7 +129,7 @@ pub const ElementDrawMode = enum
     Texture,
     /// Draws a monochrome texture, meant for rendering text characters.
     Character,
-    /// Fill the draw bounaries of the element with a texture, multiplied by a single color.
+    /// Fill the draw boundaries of the element with a texture, multiplied by a single color.
     ColoredTexture
 };
 

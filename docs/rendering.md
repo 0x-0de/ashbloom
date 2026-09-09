@@ -24,3 +24,5 @@ Hopefully, this gives you a good idea on how this namespace is structured overal
 4. [attachment](./pages/rendering/attachment.md)
 5. [renderpass](./pages/rendering/renderpass.md)
 6. [pipeline](./pages/rendering/pipeline.md)
+7. [commands](./pages/rendering/commands.md)
+8. [mesh](./pages/rendering/mesh.md)
