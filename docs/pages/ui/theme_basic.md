@@ -72,7 +72,7 @@ Specifies properties of a text element required in its creation.
 
 Populates and returns a `TextData` struct.
 
-## ButtonProperties
+## ButtonProperties (`struct`)
 
 Determines the properties of a created button element.
 
@@ -160,10 +160,14 @@ Determines the properties of a textfield element.
 
 `text_size: f32 = 20` - Text size.
 
-```text_alignment: vkui.Alignment = .{
+```
+text_alignment: vkui.Alignment = .{
 	.x = .Left,
 	.y = .Top
-}``` - Alignment of the text within the textfield, including the direction which the text will "grow" in.
+}
+```
+
+Alignment of the text within the textfield, including the direction which the text will "grow" in.
 
 `initial_text: []u32 = &.{}` - Initial text for the field to start with.
 
