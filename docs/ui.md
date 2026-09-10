@@ -76,6 +76,10 @@ Since the theme requires a certain vertex layout, certain shaders, and certain d
 
 ### Loading a UI scene with XML
 
-The basic theme also contains functionality to load in UI elements from XML.
+The basic theme also contains functionality to load in those UI templates from XML.
 
 [todo]().
+
+## Modules
+
+1. [core](./pages/ui/core.md)
