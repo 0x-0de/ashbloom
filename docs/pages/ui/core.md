@@ -1,5 +1,7 @@
 # `core`
 
+Defines the foundational UI components in Ashbloom, including elements and containers.
+
 ## Bounds (`struct`)
 
 Used to represent the position and scale of a UI object.
@@ -366,59 +368,59 @@ The Container acts as an origin point for the UI system, containing an automatic
 
 ### Public Functions
 
-add(self: *Container, element: *Element) !void
+**`add(self: *Container, element: *Element) !void`**
 
 Adds an element to the origin element of this container.
 
-add_callbacks(self: *Container, callbacks: []CallbackEvent) !void
+**`add_callbacks(self: *Container, callbacks: []CallbackEvent) !void`**
 
 Used by the `Element`s' updates functions.
 
-add_and_dispose(self: *Container, element: *Element) !void
+**`add_and_dispose(self: *Container, element: *Element) !void`**
 
 Adds an element to the origin element of this container, then deletes the original element.
 
-add_texture(self: *Container, texture: *images.Texture2D) !images.TextureAtlas2D.TextureSuballocation
+**`add_texture(self: *Container, texture: *images.Texture2D) !images.TextureAtlas2D.TextureSuballocation`**
 
 Adds a texture to the texture atlas.
 
-build(self: *Container) !void
+**`build(self: *Container) !void`**
 
 Builds (or rebuilds) the instance buffer used for drawing. Recommend using only when elements have been added or removed from the origin element or any of its children. Otherwise, use **`refresh_all`**.
 
-deinit(self: *Container) !void
+**`deinit(self: *Container) !void`**
 
 Deinitializes the container, destroying all elements it holds and freeing all memory it uses.
 
-draw(self: *Container, command_buffer: *CommandBuffer, swapchain: *Swapchain, framebuffer: vk.Framebuffer) !void
+**`draw(self: *Container, command_buffer: *CommandBuffer, swapchain: *Swapchain, framebuffer: vk.Framebuffer) !void`**
 
 Draws the instance arrays using the command buffer onto the framebuffer.
 
-get_element(self: *Container, lineage: []usize) AshbloomUIError!*Element
+**`get_element(self: *Container, lineage: []usize) AshbloomUIError!*Element`**
 
 Returns a pointer to the element with `lineage`.
 
-get_element_bounds(self: *Container, lineage: []usize) AshbloomUIError!Element.RuntimeBounds
+**`get_element_bounds(self: *Container, lineage: []usize) AshbloomUIError!Element.RuntimeBounds`**
 
 Returns the `RuntimeBounds` of the element with `lineage`.
 
-init(interface: *VkInterface, vulkan_allocator: *VulkanAllocator) !Container
+**`init(interface: *VkInterface, vulkan_allocator: *VulkanAllocator) !Container`**
 
 Creates a new Container object.
 
-refresh_all(self: *Container) !void
+**`refresh_all(self: *Container) !void`**
 
 Refreshes the entire element list. Called automatically when set_bounds is performed.
 
-set_bounds(self: *Container, pos_x: f32, pos_y: f32, scl_x: f32, scl_y: f32) !void
+**`set_bounds(self: *Container, pos_x: f32, pos_y: f32, scl_x: f32, scl_y: f32) !void`**
 
 Sets the `bounds` object, but also refreshes the instance array after doing so (if the instance array has been built first, otherwise it doesn't).
 
-set_render_instance(self: *Container, resources: ContainerRendering) void
+**`set_render_instance(self: *Container, resources: ContainerRendering) void`**
 
 Sets the `ui_rendering` field to `resources`.
 
-update(self: *Container, input_data: ContainerInputData) !void
+**`update(self: *Container, input_data: ContainerInputData) !void`**
 
 Updates all callbacks for the origin element and all of its children. Also handles refreshing any elements if necessary.
 
