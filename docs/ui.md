@@ -49,3 +49,33 @@ Containers are the root of Ashbloom's UI system, storing an entry point (root) f
 When certain properties of an element change or update, such as color or position, elements can be *refreshed* without affecting the tree, which essentially just rebuilds a small subset of the vertex buffer. However, whenever elements are added to or removed from the Container system, no matter at which final location, the entire tree must be rebuilt.
 
 Elements have "lineage" values determining their position in the Container tree, and building or rebuilding the Container tree is what initializes and sets these values. You use these values to access and modify elements which have been added/copied to the Container directly, and there are plenty of examples of this happening in the element templates implemented in `theme_basic`.
+
+Containers require a `ContainerRendering` struct to draw the UI. This structure consists of the typical structures you find in an Ashbloom/Vulkan draw loop: a `RenderPass` (`VkRenderPass`), `PipelineDescriptorSet` (`VkDescriptorSet`), `Pipeline` (`VkPipeline`), render queue (`VkQueue`), and a callback for updating uniform values. The basic theme, explained below, provides an example construction of this.
+
+## The Basic Theme
+
+The basic theme, found in `ui.layouts` and especially `ui.theme_basic`, can be thought of as an officially supported example theme that Ashbloom implements, or as an "immediate-mode" for the UI system. Found within `theme_basic` are implementations of various element templates, which include common UI components like text, buttons, sliders, and text fields. This module also implements an example `ContainerRendering`, which references precompiled shaders found within the same location as the source module.
+
+It must be stressed that these templates work purely within the confines of the element structure; they don't make allocations outside of the element's `data` field, they don't reference global variables outside the scope of the element, etc. They are entirely self-contained. Their behaviors are mostly the result of their callbacks (responses to user input and changes to the container). Feel free to base your own UI theme's templates off of these, if you feel the need to implement your own to begin with.
+
+The following element templates are implemented, as of 0.2.0:
+
+- Quad (basically wraps a single color element)
+- Icon (basically wraps a texture element)
+- TextCharacter (basically wraps a font character element)
+- Text
+- Button
+- Checkbox
+- Slider
+- Scrollbar
+- Textfield
+
+These elements are created with the various `create_` functions found in `theme_basic`. These functions allocate a new element which must be freed with the allocator passed into said function. There is a shortcut to this, which are the **`add_and_dispose`** functions found in the `Element` and `Container` structures, which add a copy of the element, and then delete the original.
+
+Since the theme requires a certain vertex layout, certain shaders, and certain descriptors, most of the rendering questions that typical Vulkan UI drawing procedures would need to answer are already answered, and this leads to the **`init_render_instance`** function, which initializes a Vulkan graphics pipeline programmed for the `theme_basic` rendering paradigm and packages it alongside the remaining fields (most of which must be provided by you, like the render pass and queue) into a complete `ContainerRendering` struct.
+
+### Loading a UI scene with XML
+
+The basic theme also contains functionality to load in UI elements from XML.
+
+[todo]().
