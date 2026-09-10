@@ -31,7 +31,7 @@ const VulkanAllocator = @import("../vkmemory.zig").VulkanAllocator;
 
 const memcpy_anonymous = @import("../misc.zig").memcpy_anonymous;
 
-const BasicUIElementType = enum
+pub const BasicUIElementType = enum
 {
     Quad,
     Icon,

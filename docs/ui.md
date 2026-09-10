@@ -83,3 +83,4 @@ The basic theme also contains functionality to load in those UI templates from X
 ## Modules
 
 1. [core](./pages/ui/core.md)
+2. [theme_basic](./pages/ui/theme_basic.md)
