@@ -56,7 +56,7 @@ fn init_vk_interfaces() !void
     };
 
     vk_context = try .init(&allocator, vk_context_options);
-    vk_interface = try .init_window(&vk_context, &window, vk_interface_options);
+    vk_interface = try .init(&vk_context, &window, vk_interface_options);
 
     const queue_families = vk_interface.physical_device_queue_families.?;
 
@@ -167,7 +167,7 @@ pub fn main() !void
     try init_vk_interfaces();
     defer deinit_vk_interfaces();
 
-    var swapchain = try ash.rendering.Swapchain.init(&window, &vk_interface, &vk_allocator, vk_command_pool, 1);
+    var swapchain = try ash.rendering.Swapchain.init(&window, &vk_interface, &vk_allocator, vk_interface.surfaces.items[0], vk_command_pool, 1);
     defer swapchain.deinit(true);
 
     try ui.init();

@@ -63,7 +63,7 @@ fn init_vk_interfaces() !void
     };
 
     vk_context = try VkContext.init(&allocator, vk_context_options);
-    vk_interface = try VkInterface.init_window(&vk_context, &window, vk_interface_options);
+    vk_interface = try VkInterface.init(&vk_context, &window, vk_interface_options);
 
     const queue_families = vk_interface.physical_device_queue_families.?;
 
@@ -99,7 +99,7 @@ fn init_swapchain() !void
     // Requires the aforementioned graphics command pool. This is because the swapchain is set up to handle rendering and presentation with command buffers.
     // The vk_allocator is there to allocate any additional attachments added to the framebuffer (see below).
     // This swapchain only needs 1 render stage, used to render the main pipeline.
-    swapchain = try .init(&window, &vk_interface, &vk_allocator, vk_command_pool, 1);
+    swapchain = try .init(&window, &vk_interface, &vk_allocator, vk_interface.surfaces.items[0], vk_command_pool, 1);
 
     // This swapchain requires an additional attachment: one depth buffer for each swapchain image.
     // Since the depth buffer needs to be updated for every single frame drawn to the screen, it's best to implement this depth buffer as an attachment to the main graphics pipeline's render pass.
