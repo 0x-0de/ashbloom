@@ -5,22 +5,23 @@ This library is currently in an unstable (pre-release) state and may not fully s
 
 ## Current features include:
 
-- Window management (with GLFW), *single window only for now*.
+- Window management (with GLFW), *some input functions currently only function with 1 window*.
 - Vulkan context creation.
 - Swapchain management.
 - Render passes (legacy Vulkan feature).
 - Vulkan graphics pipeline, descriptor set, and push constant handling.
 - Linear algebra library, with built-in projection and transformation matrices.
 - Psuedo-random number and noise generation.
+- Built-in polygonization algorithms
 - Vulkan memory allocator.
 - Vulkan texture loader (.bmps only).
-- UI library and immediate-mode theme support.
+- UI library and immediate-mode theme support, along with an XML parser for immediate-mode theme elements.
 - Preliminary support for Linux devices (this library is "native" to Windows).
+- Prepackaged documentation and programming references.
 
 ## Upcoming:
 
 - Support for dynamic rendering (no more render passes!).
-- UI-mode rendering (as opposed to rumtime rendering).
 - .jpeg and .png image decoder (will probably rely on third-party libraries for this).
 - Multi-platform audio library (similar to Crest but for Linux too, at least).
 - More example programs, and other minor features.
@@ -34,3 +35,5 @@ The todo application uses the provided UI tools and the immediate-mode theme to 
 ### Voxel demo:
 
 Provides a 3D demo in which you can edit and mess with a 64x64x64 grid of voxels. Essentially written as an example Vulkan renderer, provides a complete example on how to use the swapchain, render pass, and graphics pipeline bootstrapping tools.
+
+Other small tests are included in the `tests` folder.
