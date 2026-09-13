@@ -4,18 +4,31 @@
 	<text font="main" size="50" alignment="left, bottom" margin="20">
 		Ashbloom UI text test. Maybe someday soon the text will support custom line breaks. Oh well.
 	</text>
-	<button>
+	<button press_callback="print_when_press">
 		<placement relative="0, 1, 0.3, 0.3" alignment="top, left" />
 	</button>
-	<checkbox border_width="5">
+	<checkbox border_width="5" tick_callback="print_when_tick">
 		<placement relative="0.5, 1, 0, 0" absolute="0, -20, 50, 50" alignment="top, center" />
 	</checkbox>
 </quad>
 <quad color="0, 0, 1, 1">
 	<placement relative="0, 1, 0.3, 0" absolute="0, 0, 0, 100" alignment="top, left" />
-	<slider knob_width="15" bar_width="10" discrete_values="5" start_value="0.5" />
+	<slider knob_width="15" bar_width="10" discrete_values="5" start_value="0.5" move_callback="print_when_slide" />
 </quad>
 <textfield text_alignment="right, bottom" text_size="20" initial_text="This is some initial text.">
 	<placement relative="1, 1, 0.3, 0.3" absolute="0, 0, 0, 30" alignment="top, right" />
 </textfield>
+<quad color="0, 0.6, 0, 1">
+	<placement relative="0, 0, 0.3, 0.3" alignment="left, bottom" />
+	<layout type="split" primary_axis="vertical" primary_limit="3" />
+
+	<callback type="mouse_enter" id="print_when_enter" />
+	<callback type="mouse_leave" id="print_when_leave" />
+
+	<quad color="1, 0.5, 0.3, 1" />
+	<quad color="0.75, 0.8, 0.5, 1" />
+	<quad color="0.2, 1, 0.75, 1" />
+	<quad color="0, 0.8, 1, 1" />
+	<quad color="0.4, 0.55, 1, 1" />
+</quad>
 </container>

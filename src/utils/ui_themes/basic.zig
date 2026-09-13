@@ -44,6 +44,26 @@ pub const BasicUIElementType = enum
     Textfield
 };
 
+pub const ButtonPressCallback = *const fn(*Element) anyerror!void;
+pub const CheckboxTickCallback = *const fn(*Element, bool) void;
+pub const SliderMoveCallback = *const fn(*Element, f32) void;
+
+pub const BasicUICallbackType = enum
+{
+    Generic,
+    ButtonPress,
+    CheckboxTick,
+    SliderMove
+};
+
+pub const BasicUICallbackFunction = union(BasicUICallbackType)
+{
+    Generic: vkui.GenericCallbackFunction,
+    ButtonPress: ButtonPressCallback,
+    CheckboxTick: CheckboxTickCallback,
+    SliderMove: SliderMoveCallback
+};
+
 /// Creates a colored quad.
 pub fn create_quad(allocator: *const std.mem.Allocator, placement: Placement, color: [4]f32) !*Element
 {
@@ -480,7 +500,7 @@ fn button_callback_tick(e: *Element, data: ContainerInputData) !void
     memcpy_anonymous(&clock, e.data.?.ptr + data_offset, @sizeOf(f32));
     data_offset += @sizeOf(f32);
 
-    data_offset += @sizeOf(*const fn(*Element) void);
+    data_offset += @sizeOf(ButtonPressCallback);
 
     for(0..4) |i|
     {
@@ -567,13 +587,13 @@ fn button_callback_mouse_press(e: *Element, data: ContainerInputData) !void
 
 fn button_callback_mouse_release(e: *Element, data: ContainerInputData) !void
 {
-    var callback_data: [@sizeOf(*const fn(*Element) void)]u8 = undefined;
-    var callback: *const fn(*Element) anyerror!void = undefined;
+    var callback_data: [@sizeOf(ButtonPressCallback)]u8 = undefined;
+    var callback: ButtonPressCallback = undefined;
 
     const data_offset: usize = @sizeOf(u8) + @sizeOf(f32);
 
-    memcpy_anonymous(&callback_data, e.data.?.ptr + data_offset, @sizeOf(*const fn(*Element) void));
-    @memcpy(@as([*]u8, @ptrCast(&callback)), callback_data[0..@sizeOf(*const fn(*Element) void)]);
+    memcpy_anonymous(&callback_data, e.data.?.ptr + data_offset, @sizeOf(ButtonPressCallback));
+    @memcpy(@as([*]u8, @ptrCast(&callback)), callback_data[0..@sizeOf(ButtonPressCallback)]);
 
     if(data.mouse_buttons & 1 == 0)
     {
@@ -611,7 +631,7 @@ pub const ButtonProperties = struct
     color_press: [4]f32,
 
     /// Specific callback to be called whenever the button is finished being pressed.
-    press_callback: *const fn(*Element) anyerror!void,
+    press_callback: ButtonPressCallback,
 
     /// Initializes the ButtonProperties struct with default colors and no press callback.
     pub fn init_default() ButtonProperties
@@ -647,7 +667,7 @@ pub fn create_button(allocator: *const std.mem.Allocator, properties: ButtonProp
     data_offset += @sizeOf(f32);
     
     var press_callback_alias = properties.press_callback;
-    memcpy_anonymous(e.data.?.ptr + data_offset, @ptrCast(&press_callback_alias), @sizeOf(*const fn(*Element) anyerror!void));
+    memcpy_anonymous(e.data.?.ptr + data_offset, @ptrCast(&press_callback_alias), @sizeOf(ButtonPressCallback));
     data_offset += @sizeOf(@TypeOf(properties.press_callback));
 
     var color_idle = properties.color_idle;
@@ -1027,9 +1047,9 @@ pub const CheckboxData = struct
     color_ticked: [4]f32,
 
     clock: f32,
-    callback: *const fn(*Element, bool) void,
+    callback: CheckboxTickCallback,
 
-    pub fn init(ticked: bool, color_hover: [4]f32, color_ticked: [4]f32, callback: *const fn(*Element, bool) void) CheckboxData
+    pub fn init(ticked: bool, color_hover: [4]f32, color_ticked: [4]f32, callback: CheckboxTickCallback) CheckboxData
     {
         return .{
             .ticked = ticked,
@@ -1060,7 +1080,7 @@ pub const CheckboxProperties = struct
     /// Width of the checkbox's border.
     border_width: f32,
     /// Callback function to call when the checkbox is un/ticked.
-    callback: *const fn(*Element, bool) void,
+    callback: CheckboxTickCallback,
 
     pub fn init_default(placement: Placement) CheckboxProperties
     {
@@ -1332,7 +1352,7 @@ pub const SliderData = struct
     pressed: bool,
     press_toggle: bool,
 
-    callback: *const fn(*Element, f32) void
+    callback: SliderMoveCallback
 };
 
 /// Determines the properties of a slider element.
@@ -1352,7 +1372,7 @@ pub const SliderProperties = struct
     knob_width: f32,
     horizontal: bool,
 
-    callback: *const fn(*Element, f32) void,
+    callback: SliderMoveCallback,
 
     pub fn init_default(placement: Placement) SliderProperties
     {
@@ -2480,7 +2500,9 @@ const XMLUIError = error
     CannotParseData,
     TooMuchData,
     WrongClosingTag,
-    MultipleContainers
+    MultipleContainers,
+    MissingAttribute,
+    DuplicateAttributes
 };
 
 const XMLAttribute = struct
@@ -2721,6 +2743,86 @@ fn parse_alignment(s: []const u8) !vkui.Alignment
     return alignment;
 }
 
+const layouts = @import("../layouts.zig");
+
+fn parse_direction(s: []const u8) !layouts.LayoutAxis
+{
+    if(std.mem.eql(u8, s, "horizontal"))
+    {
+        return .Horizontal;
+    }
+    else if(std.mem.eql(u8, s, "vertical"))
+    {
+        return .Vertical;
+    }
+
+    return XMLUIError.CannotParseData;
+}
+
+fn parse_element_callback_type(s: []const u8) !vkui.ElementCallbackType
+{
+    if(std.mem.eql(u8, s, "tick"))
+    {
+        return .Tick;
+    }
+    else if(std.mem.eql(u8, s, "mouse_enter"))
+    {
+        return .MouseEnter;
+    }
+    else if(std.mem.eql(u8, s, "mouse_leave"))
+    {
+        return .MouseLeave;
+    }
+    else if(std.mem.eql(u8, s, "mouse_hover"))
+    {
+        return .MouseHover;
+    }
+    else if(std.mem.eql(u8, s, "mouse_press"))
+    {
+        return .MousePress;
+    }
+    else if(std.mem.eql(u8, s, "mouse_release"))
+    {
+        return .MouseRelease;
+    }
+    else if(std.mem.eql(u8, s, "mouse_hold"))
+    {
+        return .MouseHold;
+    }
+    else if(std.mem.eql(u8, s, "window_resize"))
+    {
+        return .WindowResize;
+    }
+    else if(std.mem.eql(u8, s, "scroll"))
+    {
+        return .Scroll;
+    }
+    else if(std.mem.eql(u8, s, "deinit"))
+    {
+        return .Deinit;
+    }
+    else if(std.mem.eql(u8, s, "rebuild"))
+    {
+        return .Rebuild;
+    }
+    else if(std.mem.eql(u8, s, "copy"))
+    {
+        return .Copy;
+    }
+    else if(std.mem.eql(u8, s, "add_child"))
+    {
+        return .AddChild;
+    }
+    else if(std.mem.eql(u8, s, "remove_child"))
+    {
+        return .RemoveChild;
+    }
+    else
+    {
+        return XMLUIError.UnknownAttribute;
+    }
+}
+
 fn load_xml_quad(allocator: *const std.mem.Allocator, attributes: []XMLAttribute) !*Element
 {
     var color: [4]f32 = undefined;
@@ -2780,7 +2882,7 @@ fn load_xml_text(allocator: *const std.mem.Allocator, attributes: []XMLAttribute
         {
             for(assets.fonts) |f|
             {
-                if(std.mem.eql(u8, att.value, f.name))
+                if(std.mem.eql(u8, att.value, f.id))
                 {
                     font = f.font;
                 }
@@ -2803,11 +2905,13 @@ fn load_xml_text(allocator: *const std.mem.Allocator, attributes: []XMLAttribute
     return try create_text(allocator, text_properties);
 }
 
-fn load_xml_button(allocator: *const std.mem.Allocator, attributes: []XMLAttribute) !*Element
+fn load_xml_button(allocator: *const std.mem.Allocator, attributes: []XMLAttribute, assets: XMLUIAssets) !*Element
 {
     var color_idle: [4]f32 = .{1, 1, 1, 0.3};
     var color_hover: [4]f32 = .{1, 1, 1, 0.6};
     var color_press: [4]f32 = .{1, 1, 1, 0.75};
+
+    var press_callback: ButtonPressCallback = empty_press_callback;
 
     for(attributes) |att|
     {
@@ -2822,6 +2926,31 @@ fn load_xml_button(allocator: *const std.mem.Allocator, attributes: []XMLAttribu
         else if(std.mem.eql(u8, att.name, "color_press"))
         {
             color_press = try parse_4_floats(att.value);
+        }
+        else if(std.mem.eql(u8, att.name, "press_callback"))
+        {
+            var has_callback = false;
+
+            for(assets.callbacks) |cb|
+            {
+                if(std.mem.eql(u8, cb.id, att.value))
+                {
+                    has_callback = true;
+                    switch(cb.callback)
+                    {
+                        .ButtonPress => |c|
+                        {
+                            press_callback = c;
+                        },
+                        else =>
+                        {
+                            return XMLUIError.UnknownAttribute;
+                        }
+                    }
+                }
+            }
+
+            if(!has_callback) return XMLUIError.MissingAttribute;
         }
         else
         {
@@ -2848,7 +2977,7 @@ fn load_xml_button(allocator: *const std.mem.Allocator, attributes: []XMLAttribu
             }
         },
 
-        .press_callback = empty_press_callback
+        .press_callback = press_callback
     };
 
     return create_button(allocator, button_properties);
@@ -2859,7 +2988,7 @@ fn load_xml_scrollbar(allocator: *const std.mem.Allocator) !*Element
     return create_scrollbar(allocator);
 }
 
-fn load_xml_checkbox(allocator: *const std.mem.Allocator, attributes: []XMLAttribute) !*Element
+fn load_xml_checkbox(allocator: *const std.mem.Allocator, attributes: []XMLAttribute, assets: XMLUIAssets) !*Element
 {
     var color_border: [4]f32 = .{1, 1, 1, 1};
     var color_hover: [4]f32 = .{1, 1, 1, 0.4};
@@ -2867,6 +2996,8 @@ fn load_xml_checkbox(allocator: *const std.mem.Allocator, attributes: []XMLAttri
 
     var border_width: f32 = 4;
     var start_ticked: u1 = 0;
+
+    var tick_callback: CheckboxTickCallback = empty_checkbox_callback;
 
     for(attributes) |att|
     {
@@ -2889,6 +3020,31 @@ fn load_xml_checkbox(allocator: *const std.mem.Allocator, attributes: []XMLAttri
         else if(std.mem.eql(u8, att.name, "start_ticked"))
         {
             start_ticked = try std.fmt.parseInt(u1, att.value, 10);
+        }
+        else if(std.mem.eql(u8, att.name, "tick_callback"))
+        {
+            var has_callback = false;
+
+            for(assets.callbacks) |cb|
+            {
+                if(std.mem.eql(u8, cb.id, att.value))
+                {
+                    has_callback = true;
+                    switch(cb.callback)
+                    {
+                        .CheckboxTick => |c|
+                        {
+                            tick_callback = c;
+                        },
+                        else =>
+                        {
+                            return XMLUIError.UnknownAttribute;
+                        }
+                    }
+                }
+            }
+
+            if(!has_callback) return XMLUIError.MissingAttribute;
         }
         else
         {
@@ -2918,13 +3074,13 @@ fn load_xml_checkbox(allocator: *const std.mem.Allocator, attributes: []XMLAttri
             }
         },
 
-        .callback = empty_checkbox_callback
+        .callback = tick_callback
     };
 
     return create_checkbox(allocator, checkbox_properties);
 }
 
-fn load_xml_slider(allocator: *const std.mem.Allocator, attributes: []XMLAttribute) !*Element
+fn load_xml_slider(allocator: *const std.mem.Allocator, attributes: []XMLAttribute, assets: XMLUIAssets) !*Element
 {
     var bar_width: f32 = 3;
     
@@ -2938,6 +3094,8 @@ fn load_xml_slider(allocator: *const std.mem.Allocator, attributes: []XMLAttribu
 
     var knob_width: f32 = 8;
     var start_value: f32 = 0.5;
+
+    var move_callback: SliderMoveCallback = empty_slider_callback;
 
     for(attributes) |att|
     {
@@ -2977,6 +3135,31 @@ fn load_xml_slider(allocator: *const std.mem.Allocator, attributes: []XMLAttribu
         {
             start_value = try std.fmt.parseFloat(f32, att.value);
         }
+        else if(std.mem.eql(u8, att.name, "move_callback"))
+        {
+            var has_callback = false;
+
+            for(assets.callbacks) |cb|
+            {
+                if(std.mem.eql(u8, cb.id, att.value))
+                {
+                    has_callback = true;
+                    switch(cb.callback)
+                    {
+                        .SliderMove => |c|
+                        {
+                            move_callback = c;
+                        },
+                        else =>
+                        {
+                            return XMLUIError.UnknownAttribute;
+                        }
+                    }
+                }
+            }
+
+            if(!has_callback) return XMLUIError.MissingAttribute;
+        }
         else
         {
             return XMLUIError.UnknownAttribute;
@@ -2985,7 +3168,7 @@ fn load_xml_slider(allocator: *const std.mem.Allocator, attributes: []XMLAttribu
 
     const slider_properties: SliderProperties = .{
         .bar_width = bar_width,
-        .callback = empty_slider_callback,
+        .callback = move_callback,
         .color_bar = color_bar,
         .color_knob_hover = color_knob_hover,
         .color_knob_idle = color_knob_idle,
@@ -3027,7 +3210,7 @@ fn load_xml_textfield(allocator: *const std.mem.Allocator, attributes: []XMLAttr
         {
             for(assets.fonts) |f|
             {
-                if(std.mem.eql(u8, att.value, f.name))
+                if(std.mem.eql(u8, att.value, f.id))
                 {
                     font = f.font;
                 }
@@ -3125,16 +3308,170 @@ fn load_xml_placement(attributes: []XMLAttribute) !Placement
     };
 }
 
+fn load_xml_layout(element: *Element, attributes: []XMLAttribute) !void
+{
+    for(attributes, 0..) |att, i|
+    {
+        if(std.mem.eql(u8, att.name, "type"))
+        {
+            if(std.mem.eql(u8, att.value, "linear"))
+            {
+                var properties: layouts.LinearLayoutProperties = .{
+                    .alignment = .{
+                        .x = .Left,
+                        .y = .Top
+                    },
+                    .primary_axis = .Horizontal,
+                    .primary_direction = .{
+                        .margin = 5,
+                        .spacing = 5
+                    },
+                    .secondary_direction = .{
+                        .margin = 5,
+                        .spacing = 5
+                    }
+                };
+
+                for(attributes) |a|
+                {
+                    if(std.mem.eql(u8, a.name, "type")) {}
+                    else if(std.mem.eql(u8, a.name, "primary_axis"))
+                    {
+                        const dir = try parse_direction(a.value);
+                        properties.primary_axis = dir;
+                    }
+                    else if(std.mem.eql(u8, a.name, "alignment"))
+                    {
+                        const alignment = try parse_alignment(a.value);
+                        properties.alignment = alignment;
+                    }
+                    else if(std.mem.eql(u8, a.name, "primary_spacing"))
+                    {
+                        const spacing = try std.fmt.parseFloat(f32, a.value);
+                        properties.primary_direction.spacing = spacing;
+                    }
+                    else if(std.mem.eql(u8, a.name, "primary_margin"))
+                    {
+                        const spacing = try std.fmt.parseFloat(f32, a.value);
+                        properties.primary_direction.margin = spacing;
+                    }
+                    else if(std.mem.eql(u8, a.name, "secondary_spacing"))
+                    {
+                        const spacing = try std.fmt.parseFloat(f32, a.value);
+                        properties.secondary_direction.spacing = spacing;
+                    }
+                    else if(std.mem.eql(u8, a.name, "secondary_margin"))
+                    {
+                        const spacing = try std.fmt.parseFloat(f32, a.value);
+                        properties.secondary_direction.margin = spacing;
+                    }
+                    else
+                    {
+                        return XMLUIError.UnknownAttribute;
+                    }
+                }
+
+                try layouts.set_layout_linear(element, properties);
+
+                break;
+            }
+            else if(std.mem.eql(u8, att.value, "split"))
+            {
+                var properties: layouts.SplitLayoutProperties = .{
+                    .primary_axis = .Horizontal,
+                    .primary_limit = 0
+                };
+
+                for(attributes) |a|
+                {
+                    if(std.mem.eql(u8, a.name, "type")) {}
+                    else if(std.mem.eql(u8, a.name, "primary_axis"))
+                    {
+                        const dir = try parse_direction(a.value);
+                        properties.primary_axis = dir;
+                    }
+                    else if(std.mem.eql(u8, a.name, "primary_limit"))
+                    {
+                        const limit = try std.fmt.parseInt(usize, a.value, 10);
+                        properties.primary_limit = limit;
+                    }
+                    else
+                    {
+                        return XMLUIError.UnknownAttribute;
+                    }
+                }
+
+                try layouts.set_layout_split(element, properties);
+
+                break;
+            }
+        }
+        else if(i == attributes.len - 1)
+        {
+            return XMLUIError.CannotParseData;
+        }
+    }
+}
+
+fn load_xml_element_callback(element: *Element, attributes: []XMLAttribute, assets: XMLUIAssets) !void
+{
+    var has_type = false;
+    var has_id = false;
+    var has_good_id = false;
+
+    var element_callback: vkui.ElementCallback = undefined;
+
+    for(attributes) |att|
+    {
+        if(std.mem.eql(u8, "type", att.name))
+        {
+            if(has_type) return XMLUIError.DuplicateAttributes;
+            element_callback.type = try parse_element_callback_type(att.value);
+
+            has_type = true;
+        }
+        else if(std.mem.eql(u8, "id", att.name))
+        {
+            if(has_id) return XMLUIError.DuplicateAttributes;
+
+            for(assets.callbacks) |cb|
+            {
+                if(std.mem.eql(u8, cb.id, att.value))
+                {
+                    switch(cb.callback)
+                    {
+                        .Generic => |c|
+                        {
+                            element_callback.callback = c;
+                        },
+                        else =>
+                        {
+                            return XMLUIError.UnknownAttribute;
+                        }
+                    }
+
+                    has_good_id = true;
+                }
+            }
+
+            has_id = true;
+        }
+    }
+
+    if(!has_type or !has_good_id) return XMLUIError.MissingAttribute;
+    try element.add_callback(element_callback.type, element_callback.callback);
+}
+
 pub const XMLUIFontEntry = struct
 {
-    name: []const u8,
+    id: []const u8,
     font: *Font
 };
 
 pub const XMLUICallbackEntry = struct
 {
-    name: []const u8,
-    callback: *const fn(*Element, ContainerInputData) anyerror!void
+    id: []const u8,
+    callback: BasicUICallbackFunction
 };
 
 pub const XMLUIAssets = struct
@@ -3233,7 +3570,7 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
                 {
                     try element_type_stack.append(allocator.*, .Button);
 
-                    const new_element = try load_xml_button(allocator, attributes);
+                    const new_element = try load_xml_button(allocator, attributes, assets);
                     try element_stack.append(allocator.*, new_element);
                 }
                 else if(std.mem.eql(u8, element_name, "scrollbar"))
@@ -3247,14 +3584,14 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
                 {
                     try element_type_stack.append(allocator.*, .Checkbox);
 
-                    const new_element = try load_xml_checkbox(allocator, attributes);
+                    const new_element = try load_xml_checkbox(allocator, attributes, assets);
                     try element_stack.append(allocator.*, new_element);
                 }
                 else if(std.mem.eql(u8, element_name, "slider"))
                 {
                     try element_type_stack.append(allocator.*, .Slider);
 
-                    const new_element = try load_xml_slider(allocator, attributes);
+                    const new_element = try load_xml_slider(allocator, attributes, assets);
                     try element_stack.append(allocator.*, new_element);
                 }
                 else if(std.mem.eql(u8, element_name, "textfield"))
@@ -3280,6 +3617,14 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
                     {
                         first_element_start = false;
                     }
+                }
+                else if(std.mem.eql(u8, element_name, "layout"))
+                {
+                    try load_xml_layout(element_stack.items[element_stack.items.len - 1], attributes);
+                }
+                else if(std.mem.eql(u8, element_name, "callback"))
+                {
+                    try load_xml_element_callback(element_stack.items[element_stack.items.len - 1], attributes, assets);
                 }
                 else
                 {

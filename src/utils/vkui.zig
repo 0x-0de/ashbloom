@@ -151,19 +151,21 @@ pub const ElementCallbackType = enum
     RemoveChild
 };
 
+pub const GenericCallbackFunction = *const fn(*Element, ContainerInputData) anyerror!void;
+
 /// Element callback. When the callback is called is determined by the callback type.
 pub const ElementCallback = struct
 {
     /// Type of the callback.
     type: ElementCallbackType,
     /// Callback function.
-    callback: *const fn(*Element, ContainerInputData) anyerror!void
+    callback: GenericCallbackFunction
 };
 
 pub const CallbackEvent = struct
 {
     element: *Element,
-    callback: *const fn(*Element, ContainerInputData) anyerror!void
+    callback: GenericCallbackFunction
 };
 
 /// Container input data, used in event callbacks.
@@ -403,7 +405,7 @@ pub const Element = struct
     }
 
     /// Adds a callback to this element.
-    pub fn add_callback(self: *Element, callback_type: ElementCallbackType, callback_func: *const fn(*Element, ContainerInputData) anyerror!void) !void
+    pub fn add_callback(self: *Element, callback_type: ElementCallbackType, callback_func: GenericCallbackFunction) !void
     {
         try self.callbacks.append(self.allocator.*, .{
             .type = callback_type,

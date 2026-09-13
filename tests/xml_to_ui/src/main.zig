@@ -89,6 +89,43 @@ var app_ui_container: ui.Container = undefined;
 /// The application's chosen text font.
 var app_font: ash.ui.Font = undefined;
 
+fn callback_mouse_enter(e: *ash.ui.Element, data: ash.ui.ContainerInputData) !void
+{
+    _ = e;
+    _ = data;
+
+    ash.print_stdout("{s}\n", .{"Mouse entered!"});
+}
+
+fn callback_mouse_leave(e: *ash.ui.Element, data: ash.ui.ContainerInputData) !void
+{
+    _ = e;
+    _ = data;
+
+    ash.print_stdout("{s}\n", .{"Mouse left!"});
+}
+
+fn callback_button_press(e: *ash.ui.Element) !void
+{
+    _ = e;
+
+    ash.print_stdout("{s}\n", .{"Button pressed!"});
+}
+
+fn callback_checkbox_tick(e: *ash.ui.Element, value: bool) void
+{
+    _ = e;
+
+    ash.print_stdout("{s} {}.\n", .{"Checkbox is", value});
+}
+
+fn callback_slider_move(e: *ash.ui.Element, value: f32) void
+{
+    _ = e;
+
+    ash.print_stdout("{s} {d}.\n", .{"Slider is", value});
+}
+
 fn init_ui_elements(font: *ash.ui.Font) !void
 {
     const background = try ash.ui.theme_basic.create_quad(&allocator, .{
@@ -108,11 +145,42 @@ fn init_ui_elements(font: *ash.ui.Font) !void
     const ui_assets: ash.ui.theme_basic.XMLUIAssets = .{
         .fonts = &.{
             .{
-                .name = "main",
+                .id = "main",
                 .font = font
             }
         },
-        .callbacks = &.{}
+        .callbacks = &.{
+            .{
+                .id = "print_when_enter",
+                .callback = .{
+                    .Generic = callback_mouse_enter
+                }
+            },
+            .{
+                .id = "print_when_leave",
+                .callback = .{
+                    .Generic = callback_mouse_leave
+                }
+            },
+            .{
+                .id = "print_when_press",
+                .callback = .{
+                    .ButtonPress = callback_button_press
+                }
+            },
+            .{
+                .id = "print_when_tick",
+                .callback = .{
+                    .CheckboxTick = callback_checkbox_tick
+                }
+            },
+            .{
+                .id = "print_when_slide",
+                .callback = .{
+                    .SliderMove = callback_slider_move
+                }
+            }
+        }
     };
 
     try ash.ui.theme_basic.load_xml_ui(&allocator, "../../res/test_xml.xml", background, ui_assets);
