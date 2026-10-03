@@ -185,9 +185,20 @@ fn text_deinit_callback(element: *Element, data: ContainerInputData) !void
 fn loop_text_character(index: usize, text: []u32, character: FontCharacter, bound_width: f32, endpoint: *usize, offset: *f32, prev_offset: *f32, line_length: *f32, end_skip: *usize, word_mode: *bool, should_break: *bool) void
 {
     const projected_length = offset.* + @as(f32, @floatFromInt(character.advance)) + @as(f32, @floatFromInt(character.bearing_x));
-    if(projected_length > bound_width)
+
+    ash.print_stdout("\tCharacter unicode: {d}\n", .{character.unicode});
+    
+    if(character.unicode == '\n')
     {
-        if(index > 0 and text[index - 1] == ' ')
+        endpoint.* = index - 1;
+        end_skip.* = 2;
+
+        should_break.* = true;
+        return;
+    }
+    else if(projected_length > bound_width)
+    {
+        if((index > 0 and text[index - 1] == ' '))
         {
             // Prevents a bug where the first character of a word can go over the space.
             endpoint.* = index - 1;
@@ -196,6 +207,7 @@ fn loop_text_character(index: usize, text: []u32, character: FontCharacter, boun
         should_break.* = true;
         return;
     }
+
     if(!word_mode.* and character.unicode != ' ')
     {
         word_mode.* = true;
@@ -211,6 +223,7 @@ fn loop_text_character(index: usize, text: []u32, character: FontCharacter, boun
 
     if(index == text.len - 1)
     {
+        ash.print_stdout("Hello?\n", .{});
         endpoint.* = index;
         line_length.* = projected_length - @as(f32, @floatFromInt(character.bearing_x));
     }
@@ -241,116 +254,102 @@ fn get_text_line_vertical_offset(text_data: TextData, bounds: vkui.Bounds, line_
     };
 }
 
-fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextData) ![]TextLine
+fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextData) !std.ArrayList(TextLine)
 {
-    if(text.string.len == 0) return &.{};
+    ash.print_stdout("GET TEXT LINE DATA.\n", .{});
+
+    if(text.string.len == 0) return .initCapacity(element.allocator.*, 0);
+    var lines = try std.ArrayList(TextLine).initCapacity(element.allocator.*, 1);
 
     const parent_lineage = element.lineage.?[0..element.lineage.?.len - 1];
     const bounds = try data.container.get_element_bounds(parent_lineage);
 
-    var line: usize = 0;
-
     var line_start: usize = 0;
-    var line_end: usize = 0;
+    var next_break: usize = 0;
 
-    var word_mode: bool = false;
     var should_loop: bool = true;
 
     const container_width = bounds.draw_bounds.scl_x - text.margin * 2;
 
+    ash.print_stdout("LOOP\n", .{});
+
     while(should_loop)
     {
+        const line = try lines.addOne(element.allocator.*);
+        ash.print_stdout("Line {d}.\n", .{lines.items.len});
+
         var offset: f32 = 0;
-        var prev_offset: f32 = 0;
-        var line_length: f32 = 0;
-        var end_skip: usize = 0;
+        var contains_whitespace = false;
+        var ended_with_newline = false;
 
-        var should_break = false;
+        line.start = line_start;
 
-        var check_end: usize = undefined;
-
-        word_mode = text.string[line_start] != ' ';
-        
         for(line_start..text.string.len) |i|
         {
             const unicode = text.string[i];
-            const character = try text.font.request(unicode, text.size);
 
-            loop_text_character(i, text.string, character, container_width, &line_end, &offset, &prev_offset,
-            &line_length, &end_skip, &word_mode, &should_break);
+            if(unicode == '\n')
+            {
+                next_break = i;
+                ended_with_newline = true;
+                break;
+            }
+            else
+            {
+                const character = try text.font.request(unicode, text.size);
 
-            check_end = i;
-            if(should_break) break;
+                // Width of the entire line in pixels, assuming this character is added to it.
+                const projected_length = offset + character.advance + character.bearing_x;
+                
+                if(i == text.string.len - 1)
+                {
+                    ash.print_stdout("  projected length of last character's line: {d}\n", .{projected_length});
+                }
+
+                if(projected_length > container_width)
+                {
+                    if(!contains_whitespace) next_break = i;
+                    break;
+                }
+
+                if(character_is_whitespace(unicode))
+                {
+                    contains_whitespace = true;
+                    next_break = i;
+                }
+                else
+                {
+                }
+
+                if(i == text.string.len - 1)
+                {
+                    next_break = i;
+                }
+
+                offset += character.advance;
+            }
         }
 
-        line += 1;
-        if(line_start == line_end and element.children.items.len - line_start > 1)
-        {
-            // No whitespaces in the current line.
-            line_end = check_end;
-        }
-        line_start = line_end + end_skip;
-        if(line_end == element.children.items.len - 1) should_loop = false;
+        ash.print_stdout(" final offset: {d} (limit: {d})\n", .{offset, container_width});
+        ash.print_stdout(" start: {d}, end: {d} (limit: {d})\n.", .{line_start, next_break, text.string.len - 1});
+
+        line.length = next_break - line_start;
+        line.size = offset;
+
+        const line_alignment_push = get_text_line_alignment_push(text, bounds.draw_bounds, offset);
+        line.alignment_push = line_alignment_push;
+
+        line_start = if(contains_whitespace) next_break + 1 else next_break;
+        if(next_break >= text.string.len - 1) should_loop = false;
     }
 
-    var lines = try element.allocator.alloc(TextLine, line);
-
-    line = 0;
-
-    line_start = 0;
-    line_end = 0;
-
-    should_loop = true;
-
-    while(should_loop)
-    {
-        var offset: f32 = 0;
-        var prev_offset: f32 = 0;
-        var line_length: f32 = 0;
-        var end_skip: usize = 0;
-
-        var should_break = false;
-
-        lines[line].start = line_start;
-        word_mode = text.string[line_start] != ' ';
-
-        var check_end: usize = undefined;
-
-        for(line_start..element.children.items.len) |i|
-        {
-            const unicode = text.string[i];
-            const character = try text.font.request(unicode, text.size);
-
-            loop_text_character(i, text.string, character, container_width, &line_end, &offset, &prev_offset,
-            &line_length, &end_skip, &word_mode, &should_break);
-
-            check_end = i;
-            if(should_break) break;
-        }
-
-        if(line_start == line_end and element.children.items.len - line_start > 1)
-        {
-            // No whitespaces in the current line.
-            line_end = check_end;
-            line_length = offset;
-        }
-
-        lines[line].length = line_end - line_start;
-        lines[line].size = offset;
-
-        const line_alignment_push = get_text_line_alignment_push(text, bounds.draw_bounds, line_length);
-        lines[line].alignment_push = line_alignment_push;
-        
-        line += 1;
-        line_start = line_end + end_skip;
-        if(line_end == element.children.items.len - 1) should_loop = false;
-    }
-
+    ash.print_stdout("\tDone.\n", .{});
     return lines;
 }
 
 fn text_parent_resize_callback(element: *Element, data: ContainerInputData) !void
 {
+    ash.print_stdout("TEXT PARENT RESIZE CALLBACK.\n", .{});
     if(element.children.items.len == 0) return;
     
     const parent_lineage = element.lineage.?[0..element.lineage.?.len - 1];
@@ -359,27 +358,46 @@ fn text_parent_resize_callback(element: *Element, data: ContainerInputData) !voi
     var text_data: TextData = undefined;
     memcpy_anonymous(&text_data, element.data.?.ptr, @sizeOf(TextData));
 
-    const lines = try get_text_line_data(element, data, text_data);
+    var lines = try get_text_line_data(element, data, text_data);
 
-    for(lines, 0..) |line, i|
+    ash.print_stdout("Number of lines: {d}\n", .{lines.items.len});
+    for(lines.items) |l|
+    {
+        ash.print_stdout("Newline.\n", .{});
+        for(l.start..l.start + l.length) |i|
+        {
+            ash.print_stdout("{d} ", .{text_data.string[i]});
+        }
+        ash.print_stdout("\n", .{});
+    }
+
+    var character_index: usize = 0;
+
+    for(lines.items, 0..) |line, i|
     {
         var offset: f32 = 0;
 
         for(line.start..line.start + line.length + 1) |j|
         {
-            const e = element.children.items[j];
-
             const uc = text_data.string[j];
             const ch = try text_data.font.request(uc, text_data.size);
 
-            e.placement.absolute_offset.pos_x = offset + @as(f32, @floatFromInt(ch.bearing_x)) + line.alignment_push;
-            e.placement.absolute_offset.pos_y = -(e.placement.absolute_offset.scl_y - @as(f32, @floatFromInt(ch.bearing_y))) - @as(f32, @floatFromInt(i)) * text_data.size;
-            offset += @floatFromInt(ch.advance);
+            if(!character_is_whitespace(uc))
+            {
+                const e = element.children.items[character_index];
+
+                e.placement.absolute_offset.pos_x = offset + @as(f32, @floatFromInt(ch.bearing_x)) + line.alignment_push;
+                e.placement.absolute_offset.pos_y = -(e.placement.absolute_offset.scl_y - @as(f32, @floatFromInt(ch.bearing_y))) - @as(f32, @floatFromInt(i)) * text_data.size;
+
+                character_index += 1;
+            }
+
+            if(uc != '\n') offset += @floatFromInt(ch.advance);
         }
     }
 
-    const total_lines = @as(f32, @floatFromInt(lines.len));
-    element.allocator.free(lines);
+    const total_lines = @as(f32, @floatFromInt(lines.items.len));
+    lines.deinit(element.allocator.*);
 
     // Vertical alignment.
 
@@ -412,6 +430,7 @@ fn text_parent_resize_callback(element: *Element, data: ContainerInputData) !voi
     }
 
     element.refresh(true);
+    ash.print_stdout("\tDone.\n", .{});
 }
 
 /// Determines the properties of a text element.
@@ -451,6 +470,8 @@ pub fn create_text(allocator: *const std.mem.Allocator, properties: TextProperti
 
     for(properties.string) |ch|
     {
+        if(character_is_whitespace(ch)) continue;
+
         const fce = try create_text_character(allocator, placement, properties.font, properties.size, ch);
         try e.add_and_dispose(fce.element);
     }
@@ -1753,10 +1774,10 @@ fn get_offset_of_textfield_character(index: usize, element: *Element, container_
     var text_data: TextData = undefined;
     memcpy_anonymous(&text_data, text_element.data.?.ptr, @sizeOf(TextData));
 
-    const lines = try get_text_line_data(text_element, container_data, text_data);
-    defer element.allocator.free(lines);
+    var lines = try get_text_line_data(text_element, container_data, text_data);
+    defer lines.deinit(text_element.allocator.*);
 
-    if(lines.len == 0)
+    if(lines.items.len == 0)
     {
         // No text.
         const line_alignment_push = get_text_line_alignment_push(text_data, textfield_bounds, 0);
@@ -1783,7 +1804,7 @@ fn get_offset_of_textfield_character(index: usize, element: *Element, container_
     }
     else
     {
-        for(lines) |line|
+        for(lines.items) |line|
         {
             if(line.start < index)
             {
@@ -1797,14 +1818,14 @@ fn get_offset_of_textfield_character(index: usize, element: *Element, container_
     }
 
     const line_index = @as(usize, @intFromFloat(index_line - 1));
-    if(textfield.text_alignment.y == .Bottom) index_line = @as(f32, @floatFromInt(lines.len)) - index_line;
+    if(textfield.text_alignment.y == .Bottom) index_line = @as(f32, @floatFromInt(lines.items.len)) - index_line;
 
     // std.debug.print("Index line: {d}.\n", .{index_line});
 
-    const cursor_y = get_text_line_vertical_offset(text_data, textfield_bounds, index_line, lines.len);
+    const cursor_y = get_text_line_vertical_offset(text_data, textfield_bounds, index_line, lines.items.len);
 
-    const line_start = lines[line_index].start;
-    const line_end = line_start + lines[line_index].length;
+    const line_start = lines.items[line_index].start;
+    const line_end = line_start + lines.items[line_index].length;
 
     var cursor_x: f32 = 0;
 
@@ -1824,7 +1845,7 @@ fn get_offset_of_textfield_character(index: usize, element: *Element, container_
         }
     }
 
-    cursor_x += lines[line_index].alignment_push;
+    cursor_x += lines.items[line_index].alignment_push;
 
     return .{
         .pos_x = cursor_x,
@@ -2103,8 +2124,10 @@ fn textfield_update_editing_visual(e: *Element, textfield_data: *TextFieldData) 
 }
 
 /// Handles textfield key events, such as using the arrow keys to move the cursor's index position.
-fn textfield_update_key_input(keys: []u32, textfield_data: *TextFieldData) void
+fn textfield_update_key_input(e: *Element, keys: []u32, textfield_data: *TextFieldData) !bool
 {
+    var update_text = false;
+
     for(keys) |k|
     {
         if(k == glfw.KeyLeft)
@@ -2121,7 +2144,22 @@ fn textfield_update_key_input(keys: []u32, textfield_data: *TextFieldData) void
 
             textfield_data.cursor_timer = 1;
         }
+        else if(k == glfw.KeyEnter)
+        {
+            const array: [1]u32 = .{'\n'};
+
+            const new_slice = try insert_characters_into_text(e.allocator, textfield_data.current_cursor_pos, 
+            @ptrCast(@constCast(&array)), textfield_data.text);
+
+            textfield_data.text = new_slice;
+            update_text = true;
+        }
     }
+
+    textfield_data.update = true;
+    textfield_data.cursor_timer = 1;
+
+    return update_text;
 }
 
 /// Handles inputting text into the textfield. Returns true if the text elements actually need to be updated.
@@ -2211,7 +2249,6 @@ fn textfield_callback_tick(e: *Element, data: ContainerInputData) !void
     var textfield_data: TextFieldData = undefined;
     memcpy_anonymous(&textfield_data, e.data.?.ptr, @sizeOf(TextFieldData));
 
-    try textfield_update_cursor_placement(e, data, textfield_data);
     textfield_update_mouse_input(data, &textfield_data);
 
     const text_space = e.children.items[0];
@@ -2221,18 +2258,21 @@ fn textfield_callback_tick(e: *Element, data: ContainerInputData) !void
     if(textfield_data.editing)
     {
         // Show the cursor.
+        try textfield_update_cursor_placement(e, data, textfield_data);
         textfield_update_editing_visual(e, &textfield_data);
 
         if(data.keys != null)
         {
             // Possibly move the cursor with the arrow keys.
-            textfield_update_key_input(data.keys.?, &textfield_data);
+            const should_update = try textfield_update_key_input(e, data.keys.?, &textfield_data);
+            if(!update_text) update_text = should_update;
         }
 
         if(data.text != null)
         {
             // Possibly add text to the textfield.
-            update_text = try textfield_update_text_input(e, data.text.?, &textfield_data);
+            const should_update = try textfield_update_text_input(e, data.text.?, &textfield_data);
+            if(!update_text) update_text = should_update;
         }
     }
     else

@@ -113,7 +113,7 @@ pub const Font = struct
             .suballocation = suballocation,
             .advance = @truncate(@as(u16, @intCast(self.typeface.*.glyph.*.advance.x)) >> 6),
             .bearing_x = @truncate(@as(i16, @intCast(self.typeface.*.glyph.*.bitmap_left))),
-            .bearing_y = @truncate(@as(u16, @intCast(self.typeface.*.glyph.*.bitmap_top)))
+            .bearing_y = @truncate(@as(i16, @intCast(self.typeface.*.glyph.*.bitmap_top)))
         };
 
         return character;
