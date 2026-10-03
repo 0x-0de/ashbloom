@@ -182,56 +182,6 @@ fn text_deinit_callback(element: *Element, data: ContainerInputData) !void
     element.allocator.free(text_data.string);
 }
 
-fn loop_text_character(index: usize, text: []u32, character: FontCharacter, bound_width: f32, endpoint: *usize, offset: *f32, prev_offset: *f32, line_length: *f32, end_skip: *usize, word_mode: *bool, should_break: *bool) void
-{
-    const projected_length = offset.* + @as(f32, @floatFromInt(character.advance)) + @as(f32, @floatFromInt(character.bearing_x));
-
-    ash.print_stdout("\tCharacter unicode: {d}\n", .{character.unicode});
-    
-    if(character.unicode == '\n')
-    {
-        endpoint.* = index - 1;
-        end_skip.* = 2;
-
-        should_break.* = true;
-        return;
-    }
-    else if(projected_length > bound_width)
-    {
-        if((index > 0 and text[index - 1] == ' '))
-        {
-            // Prevents a bug where the first character of a word can go over the space.
-            endpoint.* = index - 1;
-            end_skip.* = 1;
-        }
-        should_break.* = true;
-        return;
-    }
-
-    if(!word_mode.* and character.unicode != ' ')
-    {
-        word_mode.* = true;
-        endpoint.* = index;
-        line_length.* = prev_offset.*;
-    }
-    else if(character.unicode == ' ')
-    {
-        word_mode.* = false;
-        endpoint.* = index + 1;
-        line_length.* = offset.*;
-    }
-
-    if(index == text.len - 1)
-    {
-        ash.print_stdout("Hello?\n", .{});
-        endpoint.* = index;
-        line_length.* = projected_length - @as(f32, @floatFromInt(character.bearing_x));
-    }
-
-    prev_offset.* = offset.*;
-    offset.* += @as(f32, @floatFromInt(character.advance));
-}
-
 fn get_text_line_alignment_push(text_data: TextData, draw_bounds: vkui.Bounds, line_length: f32) f32
 {
     return switch(text_data.alignment.x)
@@ -316,9 +266,6 @@ fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextDat
                 {
                     contains_whitespace = true;
                     next_break = i;
-                }
-                else
-                {
                 }
 
                 if(i == text.string.len - 1)
