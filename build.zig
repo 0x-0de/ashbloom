@@ -28,14 +28,18 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
         .optimize = optimize
     });
 
+    const miniaudio = b.dependency("miniaudio", .{
+        .target = target,
+        .optimize = optimize
+    });
+
     cmp.root_module.addImport("glfw", glfw.module("glfw"));
     cmp.root_module.addImport("vulkan", vulkan.module("vulkan-zig"));
     cmp.root_module.addImport("xml", xml.module("xml"));
+    cmp.root_module.addImport("miniaudio", miniaudio.module("root"));
 
     cmp.root_module.addLibraryPath(b.path("deps"));
 
-    // cmp.root_module.addLibraryPath(.{ .cwd_relative = "bin" });
-    
     // Searching for the Vulkan drivers.
     // On Windows, they're located in System32.
     if(builtin.target.os.tag == .windows)
@@ -43,7 +47,7 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
         const sys32_path: std.Build.LazyPath = .{
             .cwd_relative = "C:/Windows/System32"
         };
-        
+
         cmp.root_module.addLibraryPath(sys32_path);
 
         const win32 = b.addModule("win32", .{
