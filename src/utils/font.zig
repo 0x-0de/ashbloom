@@ -39,7 +39,7 @@ pub const FontCharacter = struct
     /// Indicates the pixel x-offset of the character (used in text rendering).
     bearing_x: i16,
     /// Indicates the pixel y-offset of the character (used in text rendering).
-    bearing_y: u16
+    bearing_y: i16
 };
 
 /// Stores and performs font loading operations.
