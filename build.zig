@@ -69,6 +69,7 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
     }
 
     cmp.root_module.linkSystemLibrary("libfreetype", .{});
+    cmp.root_module.linkLibrary(miniaudio.artifact("miniaudio"));
 }
 
 pub fn build(b: *std.Build) void

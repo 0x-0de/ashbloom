@@ -12,6 +12,7 @@ pub const UNICODE = false;
 pub const vk = @import("vulkan");
 pub const glfw = @import("glfw");
 pub const xml = @import("xml");
+pub const miniaudio = @import("miniaudio");
 
 /// Utilities related to procedural generation, whether it's noise algorithms like Perlin noise or polygonization algorithms like marching cubes.
 pub const gen = struct
