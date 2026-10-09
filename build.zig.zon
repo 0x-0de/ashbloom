@@ -27,10 +27,6 @@
         .xml = .{
             .url = "https://github.com/ianprime0509/zig-xml.git",
             .hash = "xml-0.2.0-ZTbP35V4AgA_pFiWGWiBILJK7ifCCvj7mbiGfyMcEi2K"
-        },
-        .miniaudio = .{
-            .url = "https://github.com/zig-gamedev/zaudio",
-            .hash = "zaudio-0.11.0-dev-_M-91iAzQQCTA0NTL2NJsB1qm6kMRrMWRQApIuyX-1Im"
         }
     }
 }

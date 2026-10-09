@@ -14,6 +14,12 @@ pub const glfw = @import("glfw");
 pub const xml = @import("xml");
 pub const miniaudio = @import("miniaudio");
 
+/// Utilities related to audio streaming.
+pub const audio = struct
+{
+
+};
+
 /// Utilities related to procedural generation, whether it's noise algorithms like Perlin noise or polygonization algorithms like marching cubes.
 pub const gen = struct
 {

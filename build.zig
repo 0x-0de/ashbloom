@@ -28,15 +28,9 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
         .optimize = optimize
     });
 
-    const miniaudio = b.dependency("miniaudio", .{
-        .target = target,
-        .optimize = optimize
-    });
-
     cmp.root_module.addImport("glfw", glfw.module("glfw"));
     cmp.root_module.addImport("vulkan", vulkan.module("vulkan-zig"));
     cmp.root_module.addImport("xml", xml.module("xml"));
-    cmp.root_module.addImport("miniaudio", miniaudio.module("root"));
 
     cmp.root_module.addLibraryPath(b.path("deps"));
 
@@ -69,7 +63,64 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
     }
 
     cmp.root_module.linkSystemLibrary("libfreetype", .{});
-    cmp.root_module.linkLibrary(miniaudio.artifact("miniaudio"));
+}
+
+fn load_miniaudio_module(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module
+{
+    const miniaudio = b.addModule("miniaudio", .{
+        .target = target,
+        .optimize = optimize
+    });
+
+    miniaudio.addIncludePath(b.path("include/miniaudio"));
+    miniaudio.linkSystemLibrary("c", .{});
+
+    miniaudio.addCSourceFile(.{
+        .file = b.path("include/miniaudio/miniaudio.c"),
+        .flags = &.{
+            "-DMA_NO_WEBAUDIO",
+            "-DMA_NO_NULL",
+            "-DMA_NO_JACK",
+            "-DMA_NO_DSOUND",
+            "-DMA_NO_WINMM",
+            "-std=c99",
+            "-fno-sanitize=undefined",
+            if(target.result.os.tag == .macos) "-DMA_NO_RUNTIME_LINKING" else ""
+        },
+    });
+
+    miniaudio.addCSourceFile(.{
+        .file = b.path("include/miniaudio/ma_bind.c"),
+        .flags = &.{
+            "-std=c99",
+            "-fno-sanitize=undefined"
+        },
+    });
+
+    switch(target.result.os.tag)
+    {
+        .macos => {
+            if(b.lazyDependency("system_sdk", .{})) |system_sdk|
+            {
+                miniaudio.addFrameworkPath(system_sdk.path("macos12/System/Library/Frameworks"));
+                miniaudio.addSystemIncludePath(system_sdk.path("macos12/usr/include"));
+                miniaudio.addLibraryPath(system_sdk.path("macos12/usr/lib"));
+            }
+
+            miniaudio.linkFramework("CoreAudio", .{});
+            miniaudio.linkFramework("CoreFoundation", .{});
+            miniaudio.linkFramework("AudioUnit", .{});
+            miniaudio.linkFramework("AudioToolbox", .{});
+        },
+        .linux => {
+            miniaudio.linkSystemLibrary("pthread", .{});
+            miniaudio.linkSystemLibrary("m", .{});
+            miniaudio.linkSystemLibrary("dl", .{});
+        },
+        else => {}
+    }
+
+    return miniaudio;
 }
 
 pub fn build(b: *std.Build) void
@@ -100,11 +151,21 @@ pub fn build(b: *std.Build) void
         }
     });
 
-    const lib = b.addLibrary(.{
-        .linkage = .static,
+    const ashbloom_lib = b.addLibrary(.{
         .name = "ashbloom",
-        .root_module = ashbloom_mod
+        .root_module = ashbloom_mod,
+        .linkage = .static
     });
+
+    const miniaudio = load_miniaudio_module(b, std_target, std_optimize);
+
+    const miniaudio_lib = b.addLibrary(.{
+        .name = "miniaudio",
+        .root_module = miniaudio,
+        .linkage = .static
+    });
+
+    b.installArtifact(miniaudio_lib);
 
     const exe_test = b.addTest(.{
         .name = "ashbloom-test",
@@ -123,17 +184,19 @@ pub fn build(b: *std.Build) void
     });
 
     add_library_dependencies(b, &exe_test.step);
-    add_library_dependencies(b, &lib.step);
+    add_library_dependencies(b, &ashbloom_lib.step);
 
     add_libraries(b, exe_test, std_target, std_optimize);
-    add_libraries(b, lib, std_target, std_optimize);
+    add_libraries(b, ashbloom_lib, std_target, std_optimize);
+
+    ashbloom_lib.root_module.linkLibrary(miniaudio_lib);
 
     // Building library documentation.
 
     const install_docs = b.addInstallDirectory(.{
         .install_dir = .prefix,
         .install_subdir = "docs",
-        .source_dir = lib.getEmittedDocs()
+        .source_dir = ashbloom_lib.getEmittedDocs()
     });
 
     const docs_step = b.step("docs", "Build documentation");
