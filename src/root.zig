@@ -21,7 +21,9 @@ pub const ma = @import("miniaudio");
 /// Utilities related to audio streaming.
 pub const audio = struct
 {
+    pub const audio_source = @import("audio/output_source.zig");
 
+    pub const Producer = audio_source.Producer;
 };
 
 /// Utilities related to procedural generation, whether it's noise algorithms like Perlin noise or polygonization algorithms like marching cubes.
@@ -112,6 +114,94 @@ pub const ui = struct
     pub const FontCharacter = font.FontCharacter;
 };
 
+const AUDIO_BUFFER_SIZE = 2048;
+
+var audio_context: *ma.Context = undefined;
+var audio_device: *ma.Device = undefined;
+
+var audio_output_buffer: [AUDIO_BUFFER_SIZE]f32 = undefined;
+
+var audio_providers: std.ArrayList(audio.Producer) = undefined;
+
+fn ashbloom_audio_callback(device: *ma.Device, output: *anyopaque, _: *anyopaque, frame_count: u32) callconv(.c) void
+{
+    var frames_remaining = frame_count;
+    while(frames_remaining > 0)
+    {
+        const next_amount_of_frames = @min(frame_count, AUDIO_BUFFER_SIZE);
+
+        for(0..next_amount_of_frames) |i|
+        {
+            var out: [2]f32 = undefined;
+
+            for(0..2) |j|
+            {
+                out[j] = 0;
+            }
+
+            for(audio_providers.items) |ap|
+            {
+                ap.generator(&out[0..2], device);
+            }
+
+            for(0..2) |j|
+            {
+                const index = i * 2 + j;
+                audio_output_buffer[index] = out[j];
+            }
+        }
+
+        utils.misc.memcpy_anonymous(output, &audio_output_buffer, next_amount_of_frames * 2 * @sizeOf(f32));
+        frames_remaining -= next_amount_of_frames;
+    }
+}
+
+/// Deinitializes the audio side of the ashbloom framework.
+pub fn deinit_audio(allocator: *const std.mem.Allocator) void
+{
+    audio_device.stop();
+
+    audio_providers.deinit(allocator.*);
+
+    audio_device.deinit();
+    audio_context.deinit();
+}
+
+/// Initializes the audio side of the ashbloom framework. Creates a default miniaudio context and polls all available audio I/O devices (speakers, microphones, etc.).
+pub fn init_audio(allocator: *const std.mem.Allocator) !void
+{
+    audio_context = try .init();
+    
+    var config: ma.Device.Config = .init(.Playback);
+
+    config.playback.format = .Unknown;
+    config.playback.channels = 0;
+    config.sample_rate = 0;
+    config.data_callback = ashbloom_audio_callback;
+    config.user_data = null;
+
+    audio_device = try .init(audio_context, &config);
+
+    for(0..AUDIO_BUFFER_SIZE) |i|
+    {
+        audio_output_buffer[i] = 0;
+    }
+
+    audio_providers = try .initCapacity(allocator.*, 0);
+
+    try audio_device.start();
+}
+
+pub fn add_audio_producer(allocator: *const std.mem.Allocator, producer: audio.Producer) !void
+{
+    try audio_providers.append(allocator.*, producer);
+}
+
+pub fn remove_audio_producer(index: usize) void
+{
+    _ = audio_providers.orderedRemove(index);
+}
+
 var stdout_io: std.Io.Threaded = undefined;
 var stdout_buffer: [2048]u8 = undefined;
 var stdout_writer: std.Io.File.Writer = undefined;
@@ -135,6 +225,7 @@ pub fn init_graphics(allocator: *const std.mem.Allocator) !void
 
     glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
 }
+
 
 /// Prints to the standard output. Useful since Zig's `std.debug.print` prints to stderr. Ashbloom inits its own instance of stdout().writer so this is just a shortcut.
 /// Max buffer size is 2048 characters, exceeding this value will likely cause a panic.

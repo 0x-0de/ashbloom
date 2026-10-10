@@ -495,6 +495,13 @@ pub const Context = opaque
         }
     };
 
+    extern fn ma_context_uninit(context: ?*Context) Result;
+
+    pub fn deinit(self: *Context) void
+    {
+        _ = ma_context_uninit(self);
+    }
+
     extern fn mazig_context_init(context: *?*Context) Result;
 
     pub fn init() Error!*Context
@@ -523,13 +530,6 @@ pub const Context = opaque
             .playback_devices = playback_devices[0..playback_count],
             .capture_devices = capture_devices[0..capture_count]
         };
-    }
-
-    extern fn ma_context_uninit(context: ?*Context) Result;
-
-    pub fn uninit(self: *Context) void
-    {
-        _ = ma_context_uninit(self);
     }
 };
 
@@ -647,6 +647,13 @@ pub const Device = opaque
         };
     };
 
+    extern fn mazig_device_uninit(device: *Device) void;
+
+    pub fn deinit(self: *Device) void
+    {
+        mazig_device_uninit(self);
+    }
+
     extern fn mazig_device_init(context: ?*anyopaque, device_config: *const Config, device: *?*Device) Result;
 
     pub fn init(context: ?*anyopaque, device_config: *const Config) Error!*Device
@@ -670,12 +677,5 @@ pub const Device = opaque
     pub fn stop(self: *Device) void
     {
         _ = ma_device_stop(self);
-    }
-
-    extern fn mazig_device_uninit(device: *Device) void;
-
-    pub fn uninit(self: *Device) void
-    {
-        mazig_device_uninit(self);
     }
 };
