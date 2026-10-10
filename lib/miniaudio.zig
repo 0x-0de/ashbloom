@@ -271,7 +271,20 @@ pub const Format = enum(c_uint)
     Signed16,
     Signed24,
     Signed32,
-    Float32
+    Float32,
+
+    pub fn get_size(self: Format) usize
+    {
+        return switch(self)
+        {
+            .Unknown => @panic("Can't get size of unknown data format."),
+            .Unsigned8 => 1,
+            .Signed16 => 2,
+            .Signed24 => 3,
+            .Signed32 => 4,
+            .Float32 => 4
+        };
+    }
 };
 
 pub const DeviceType = enum(c_uint)
@@ -530,6 +543,17 @@ pub const Context = opaque
             .playback_devices = playback_devices[0..playback_count],
             .capture_devices = capture_devices[0..capture_count]
         };
+    }
+
+    extern fn ma_context_get_device_info(context: ?*Context, device_type: DeviceType, device_id: *const Device.ID, device_info: *Device.Info) Result;
+
+    pub fn get_device_info(self: *Context, device_type: DeviceType, id: *const Device.ID) Error!Device.Info
+    {
+        var info: Device.Info = undefined;
+        const result = ma_context_get_device_info(self, device_type, id, &info);
+        if(result_to_error(result)) |r| return r;
+
+        return info;
     }
 };
 

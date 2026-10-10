@@ -23,6 +23,8 @@ pub const audio = struct
 {
     pub const audio_source = @import("audio/output_source.zig");
 
+    pub const AudioFormat = audio_source.AudioFormat;
+    pub const OutputSource = audio_source.OutputSource;
     pub const Producer = audio_source.Producer;
 };
 
@@ -116,42 +118,79 @@ pub const ui = struct
 
 const AUDIO_BUFFER_SIZE = 2048;
 
+var audio_allocator: *const std.mem.Allocator = undefined;
+
 var audio_context: *ma.Context = undefined;
 var audio_device: *ma.Device = undefined;
 
 var audio_output_buffer: [AUDIO_BUFFER_SIZE]f32 = undefined;
+var audio_output_data_buffer: [AUDIO_BUFFER_SIZE * @sizeOf(f32)]u8 = undefined;
 
-var audio_providers: std.ArrayList(audio.Producer) = undefined;
+var audio_device_output_format: audio.AudioFormat = undefined;
+
+var audio_sources: std.ArrayList(*audio.OutputSource) = undefined;
 
 fn ashbloom_audio_callback(device: *ma.Device, output: *anyopaque, _: *anyopaque, frame_count: u32) callconv(.c) void
 {
+    _ = device;
+
     var frames_remaining = frame_count;
     while(frames_remaining > 0)
     {
         const next_amount_of_frames = @min(frame_count, AUDIO_BUFFER_SIZE);
 
-        for(0..next_amount_of_frames) |i|
+        for(audio_sources.items) |os|
         {
-            var out: [2]f32 = undefined;
-
-            for(0..2) |j|
+            const data = os.pull_audio(next_amount_of_frames) catch
             {
-                out[j] = 0;
-            }
+                @panic("Error generating audio from provider.");
+            };
+            defer audio_allocator.free(data);
 
-            for(audio_providers.items) |ap|
+            for(0..next_amount_of_frames) |i|
             {
-                ap.generator(&out[0..2], device);
-            }
-
-            for(0..2) |j|
-            {
-                const index = i * 2 + j;
-                audio_output_buffer[index] = out[j];
+                for(0..2) |j|
+                {
+                    const index = i * 2 + j;
+                    audio_output_buffer[index] = data[i][j];
+                }
+                audio_allocator.free(data[i]);
             }
         }
 
-        utils.misc.memcpy_anonymous(output, &audio_output_buffer, next_amount_of_frames * 2 * @sizeOf(f32));
+        const format_size = audio_device_output_format.format.get_size();
+
+        var converted_offset: usize = 0;
+        for(0..next_amount_of_frames * 2) |i|
+        {
+            switch(audio_device_output_format.format)
+            {
+                .Unknown => {},
+                .Unsigned8 => {
+                    var dp: u8 = @truncate(@as(usize, @intFromFloat(audio_output_buffer[i] * 128 + 128)));
+                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &dp, format_size);
+                },
+                .Signed16 => {
+                    var dp: i16 = @truncate(@as(isize, @intFromFloat(audio_output_buffer[i] * 32768)));
+                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &dp, format_size);
+                },
+                .Signed24 => {
+                    var dp: i24 = @truncate(@as(isize, @intFromFloat(audio_output_buffer[i] * 8388608)));
+                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &dp, format_size);
+                },
+                .Signed32 => {
+                    var dp: i32 = @truncate(@as(isize, @intFromFloat(audio_output_buffer[i] * 2147483648)));
+                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &dp, format_size);
+                },
+                .Float32 => {
+                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &audio_output_buffer[i], format_size);
+                }
+            }
+
+            converted_offset += format_size;
+        }
+
+        utils.misc.memcpy_anonymous(output, &audio_output_data_buffer, next_amount_of_frames * 2 * format_size);
         frames_remaining -= next_amount_of_frames;
     }
 }
@@ -161,7 +200,7 @@ pub fn deinit_audio(allocator: *const std.mem.Allocator) void
 {
     audio_device.stop();
 
-    audio_providers.deinit(allocator.*);
+    audio_sources.deinit(allocator.*);
 
     audio_device.deinit();
     audio_context.deinit();
@@ -170,13 +209,47 @@ pub fn deinit_audio(allocator: *const std.mem.Allocator) void
 /// Initializes the audio side of the ashbloom framework. Creates a default miniaudio context and polls all available audio I/O devices (speakers, microphones, etc.).
 pub fn init_audio(allocator: *const std.mem.Allocator) !void
 {
+    audio_allocator = allocator;
     audio_context = try .init();
-    
+
+    const audio_devices = try audio_context.get_devices();
+    audio_devices.print();
+
+    var playback_device_info: ma.Device.Info = undefined;
+    for(audio_devices.playback_devices) |d|
+    {
+        if(d.is_default == .True)
+        {
+            playback_device_info = d;
+        }
+    }
+
+    std.debug.print("Selected playback device: ", .{});
+    for(playback_device_info.name, 0..) |c, i|
+    {
+        if(c == 0)
+        {
+            std.debug.print("{s}\n", .{playback_device_info.name[0..i]});
+            break;
+        }
+    }
+
+    const playback_device_info_ext = try audio_context.get_device_info(.Playback, &playback_device_info.id);
+
+    audio_device_output_format.channels = playback_device_info_ext.native_data_formats[0].channels;
+    audio_device_output_format.format = playback_device_info_ext.native_data_formats[0].format;
+    audio_device_output_format.sample_rate = playback_device_info_ext.native_data_formats[0].sample_rate;
+
+    std.debug.print("\tChannels: {d}\n", .{audio_device_output_format.channels});
+    std.debug.print("\tFormat: {d}\n", .{@intFromEnum(audio_device_output_format.format)});
+    std.debug.print("\tSample rate: {d}\n", .{audio_device_output_format.sample_rate});
+
     var config: ma.Device.Config = .init(.Playback);
 
-    config.playback.format = .Unknown;
-    config.playback.channels = 0;
-    config.sample_rate = 0;
+    config.playback.device_id = &playback_device_info.id;
+    config.playback.format = audio_device_output_format.format;
+    config.playback.channels = audio_device_output_format.channels;
+    config.sample_rate = audio_device_output_format.sample_rate;
     config.data_callback = ashbloom_audio_callback;
     config.user_data = null;
 
@@ -187,19 +260,22 @@ pub fn init_audio(allocator: *const std.mem.Allocator) !void
         audio_output_buffer[i] = 0;
     }
 
-    audio_providers = try .initCapacity(allocator.*, 0);
+    audio_sources = try .initCapacity(allocator.*, 0);
 
     try audio_device.start();
 }
 
-pub fn add_audio_producer(allocator: *const std.mem.Allocator, producer: audio.Producer) !void
+pub fn add_audio_source(allocator: *const std.mem.Allocator, source: *audio.OutputSource) !void
 {
-    try audio_providers.append(allocator.*, producer);
+    source.export_channels = audio_device_output_format.channels;
+    source.export_sample_rate = audio_device_output_format.sample_rate;
+
+    try audio_sources.append(allocator.*, source);
 }
 
-pub fn remove_audio_producer(index: usize) void
+pub fn remove_audio_source(index: usize) void
 {
-    _ = audio_providers.orderedRemove(index);
+    _ = audio_sources.orderedRemove(index);
 }
 
 var stdout_io: std.Io.Threaded = undefined;

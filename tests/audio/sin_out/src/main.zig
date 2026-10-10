@@ -3,21 +3,23 @@ const ash = @import("ashbloom");
 
 const ma = ash.ma;
 
+const SAMPLE_RATE = 44100.0;
+
 var data_buffer: [2048]f32 = undefined;
 
 var sin_frame: f32 = 0;
 
-fn produce_sin(output: *const []f32, _: ?*anyopaque) void
+fn produce_sin(output: *const []f32, flags: ash.audio.Producer.Flags, _: ?*anyopaque) void
 {
     const pi = std.math.pi;
-    const value = std.math.sin(2.0 * pi * sin_frame * 400.0 / 48000.0) * 0.25;
+    const value = std.math.sin(2.0 * pi * sin_frame * 400.0 / SAMPLE_RATE) * 0.25;
 
     for(output.*) |*o|
     {
         o.* = value;
     }
 
-    sin_frame += 1;
+    if(flags.sample_margin != 1) sin_frame += 1;
 }
 
 pub fn main() !void
@@ -37,13 +39,24 @@ pub fn main() !void
     try ash.init_audio(&allocator);
     defer ash.deinit_audio(&allocator);
 
+    // For the stdout console.
+    try ash.init_graphics(&allocator);
+    defer ash.deinit_graphics();
+
     const producer: ash.audio.Producer = .{
-        .generator = produce_sin
+        .generator = produce_sin,
+        .sample_rate = SAMPLE_RATE,
+        .channels = 1
     };
 
-    try ash.add_audio_producer(&allocator, producer);
+    var source: ash.audio.OutputSource = try .init(&allocator);
+    defer source.deinit();
 
-    while(sin_frame < 48000) {}
+    try source.add_producer(producer);
 
-    ash.remove_audio_producer(0);
+    try ash.add_audio_source(&allocator, &source);
+
+    while(sin_frame < SAMPLE_RATE) {}
+
+    ash.remove_audio_source(0);
 }
