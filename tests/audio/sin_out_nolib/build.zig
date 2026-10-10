@@ -57,7 +57,7 @@ pub fn build(b: *std.Build) void
     const std_optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
-        .name = "multi_windows",
+        .name = "sin_out",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = std_target,

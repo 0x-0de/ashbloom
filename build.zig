@@ -34,6 +34,9 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
 
     cmp.root_module.addLibraryPath(b.path("deps"));
 
+    const miniaudio = load_miniaudio_module(b, target, optimize);
+    cmp.root_module.addImport("miniaudio", miniaudio);
+
     // Searching for the Vulkan drivers.
     // On Windows, they're located in System32.
     if(builtin.target.os.tag == .windows)
@@ -120,7 +123,24 @@ fn load_miniaudio_module(b: *std.Build, target: std.Build.ResolvedTarget, optimi
         else => {}
     }
 
-    return miniaudio;
+    const miniaudio_lib = b.addLibrary(.{
+        .name = "miniaudio",
+        .root_module = miniaudio,
+        .linkage = .static
+    });
+
+    b.installArtifact(miniaudio_lib);
+
+    const miniaudio_bind = b.addModule("miniaudio", .{
+        .root_source_file = b.path("lib/miniaudio.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true
+    });
+
+    miniaudio_bind.linkLibrary(miniaudio_lib);
+
+    return miniaudio_bind;
 }
 
 pub fn build(b: *std.Build) void
@@ -157,16 +177,6 @@ pub fn build(b: *std.Build) void
         .linkage = .static
     });
 
-    const miniaudio = load_miniaudio_module(b, std_target, std_optimize);
-
-    const miniaudio_lib = b.addLibrary(.{
-        .name = "miniaudio",
-        .root_module = miniaudio,
-        .linkage = .static
-    });
-
-    b.installArtifact(miniaudio_lib);
-
     const exe_test = b.addTest(.{
         .name = "ashbloom-test",
         .root_module = b.createModule(.{
@@ -188,8 +198,6 @@ pub fn build(b: *std.Build) void
 
     add_libraries(b, exe_test, std_target, std_optimize);
     add_libraries(b, ashbloom_lib, std_target, std_optimize);
-
-    ashbloom_lib.root_module.linkLibrary(miniaudio_lib);
 
     // Building library documentation.
 

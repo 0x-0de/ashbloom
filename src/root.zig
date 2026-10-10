@@ -9,10 +9,14 @@ pub const UNICODE = false;
 
 // Namespaces.
 
+/// vulkan-zig
 pub const vk = @import("vulkan");
+/// zGLFW
 pub const glfw = @import("glfw");
+/// ianprime0509's XML loader
 pub const xml = @import("xml");
-pub const miniaudio = @import("miniaudio");
+/// miniaudio (custom bindings based on zaudio)
+pub const ma = @import("miniaudio");
 
 /// Utilities related to audio streaming.
 pub const audio = struct

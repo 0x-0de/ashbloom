@@ -1,7 +1,7 @@
 .{
-    .name = .ashbloom_example_layouts,
+    .name = .ashbloom_example_sin_out,
     .version = "0.0.0",
-    .fingerprint = 0xbe140bdf7bee2acd,
+    .fingerprint = 0x77f454e284c39a5a,
     .minimum_zig_version = "0.16.0",
 
     .paths = .{
