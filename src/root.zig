@@ -22,6 +22,7 @@ pub const ma = @import("miniaudio");
 pub const audio = struct
 {
     pub const audio_source = @import("audio/output_source.zig");
+    pub const decoders = @import("audio/decoders.zig");
 
     pub const AudioFormat = audio_source.AudioFormat;
     pub const OutputSource = audio_source.OutputSource;

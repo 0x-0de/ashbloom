@@ -12,7 +12,22 @@ pub const AudioFormat = struct
     /// Format (data type) that the audio is stored in.
     format: ma.Format,
     /// Number of channels that the audio stores.
-    channels: u32
+    channels: u32,
+
+    pub fn get_frame_size(self: AudioFormat) usize
+    {
+        const sample_size: usize = switch(self.format)
+        {
+            .Unknown => 0,
+            .Unsigned8 => 1,
+            .Signed16 => 2,
+            .Signed24 => 3,
+            .Signed32 => 4,
+            .Float32 => 4
+        };
+
+        return sample_size * self.channels * sample_size;
+    }
 };
 
 /// Audio generator function type. This function is responsible for producing an audio frame and writing it to `output`. Input data can be specified with `data`.
@@ -27,7 +42,7 @@ pub const Producer = struct
     sample_rate: u32,
     /// Number of channels (data points) the generator should produce per-frame.
     channels: u32,
-    /// Optional pointer to some additional data which can facilitate the production of audio data.
+    /// Optional pointer to some additional data which can facilitate the production of audio data. If not `null`, assumed to be an allocated resource from the source.
     data: ?*anyopaque = null,
 
     /// Flags send to the AudioGenerator to clue it in on some details.
@@ -248,5 +263,15 @@ pub const OutputSource = struct
         }
 
         return data;
+    }
+
+    pub fn remove_producer(self: *OutputSource, index: usize) void
+    {
+        if(self.producers.items[index].data != null)
+        {
+            self.allocator.free(self.producers.items[index].data);
+        }
+
+        _ = self.producers.orderedRemove(index);
     }
 };
