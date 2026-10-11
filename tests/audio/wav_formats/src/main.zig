@@ -1,26 +1,8 @@
 const std = @import("std");
 const ash = @import("ashbloom");
 
+const glfw = ash.glfw;
 const ma = ash.ma;
-
-const SAMPLE_RATE = 44100.0;
-
-var data_buffer: [2048]f32 = undefined;
-
-var sin_frame: f32 = 0;
-
-fn produce_sin(output: *const []f32, flags: ash.audio.Producer.Flags, _: ?*anyopaque) void
-{
-    const pi = std.math.pi;
-    const value = std.math.sin(2.0 * pi * sin_frame * 400.0 / SAMPLE_RATE) * 0.25;
-
-    for(output.*) |*o|
-    {
-        o.* = value;
-    }
-
-    if(flags.sample_margin != 1) sin_frame += 1;
-}
 
 pub fn main() !void
 {
@@ -43,20 +25,44 @@ pub fn main() !void
     try ash.init_graphics(&allocator);
     defer ash.deinit_graphics();
 
-    const producer: ash.audio.Producer = .{
-        .generator = produce_sin,
-        .sample_rate = SAMPLE_RATE,
-        .channels = 1
+    var current_play: usize = 0;
+    var current_round: usize = 0;
+
+    var decoders: [6]ash.audio.decoders.WavDecoder = .{
+        try ash.audio.decoders.WavDecoder.init(&allocator, "../../res/i16 mono.wav"),
+        try ash.audio.decoders.WavDecoder.init(&allocator, "../../res/i16 stereo.wav"),
+        try ash.audio.decoders.WavDecoder.init(&allocator, "../../res/i24 mono.wav"),
+        try ash.audio.decoders.WavDecoder.init(&allocator, "../../res/i24 stereo.wav"),
+        try ash.audio.decoders.WavDecoder.init(&allocator, "../../res/f32 mono.wav"),
+        try ash.audio.decoders.WavDecoder.init(&allocator, "../../res/f32 stereo.wav")
     };
 
     var source: ash.audio.OutputSource = try .init(&allocator);
     defer source.deinit();
 
-    try source.add_producer(producer);
-
     try ash.add_audio_source(&allocator, &source);
 
-    while(sin_frame < SAMPLE_RATE) {}
+    while(true)
+    {
+        if(source.producers.items.len == 0)
+        {
+            if(current_play == 6)
+            {
+                current_play = 0;
+                current_round += 1;
+            }
+            if(current_round == 3)
+            {
+                break;
+            }
+            ash.print_stdout("File {d}\n", .{current_play + 1});
+            try source.add_producer(try decoders[current_play].new_producer());
+            current_play += 1;
+        }
+    }
 
-    ash.remove_audio_source(0);
+    for(&decoders) |*d|
+    {
+        d.deinit();
+    }
 }
