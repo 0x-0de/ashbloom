@@ -1,5 +1,5 @@
 .{
-    .name = .ashbloom, 
+    .name = .ashbloom,
     .version = "0.3.0",
     .fingerprint = 0x40abb2cb32622512,
     .minimum_zig_version = "0.16.0",
@@ -13,7 +13,7 @@
         "README.md",
         "res",
         "include"
-    },
+    }, 
 
     .dependencies = .{
         .glfw = .{
@@ -27,6 +27,10 @@
         .xml = .{
             .url = "https://github.com/ianprime0509/zig-xml.git",
             .hash = "xml-0.2.0-ZTbP35V4AgA_pFiWGWiBILJK7ifCCvj7mbiGfyMcEi2K"
-        }
+        },
+        .flac = .{
+            .url = "git+https://codeberg.org/audiophile/flac?ref=v1.0.2#8681b5be53bc950101f4f33e291b7f1e1f117059",
+            .hash = "flac-1.0.2-7jA7CZA9AgBAXSOAymtmXJ5xNLYRK0XWkhMPBIOQN4r5",
+        },
     }
 }

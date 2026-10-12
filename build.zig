@@ -28,9 +28,15 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
         .optimize = optimize
     });
 
+    const flac = b.dependency("flac", .{
+        .target = target,
+        .optimize = optimize
+    });
+
     cmp.root_module.addImport("glfw", glfw.module("glfw"));
     cmp.root_module.addImport("vulkan", vulkan.module("vulkan-zig"));
     cmp.root_module.addImport("xml", xml.module("xml"));
+    cmp.root_module.addImport("flac", flac.module("flac"));
 
     cmp.root_module.addLibraryPath(b.path("deps"));
 

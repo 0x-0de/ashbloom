@@ -1,16 +1,18 @@
 const std = @import("std");
 const ash = @import("../root.zig");
 
+const flac = @import("flac");
+
 const AudioFormat = ash.audio.AudioFormat;
 
-pub const WavDecoderError = error
+pub const WAVDecoderError = error
 {
     InvalidFormat,
     MissingDataBlock
 };
 
 /// Creates producers that read and export PCM data from .wav files.
-pub const WavDecoder = struct
+pub const WAVDecoder = struct
 {
     allocator: *const std.mem.Allocator,
     io_threaded: *std.Io.Threaded,
@@ -137,13 +139,12 @@ pub const WavDecoder = struct
             return .Success;
         }
 
-        pub fn init(parent: WavDecoder) !Producer
+        pub fn init(parent: WAVDecoder) !Producer
         {
             const cwd = std.Io.Dir.cwd();
             const io = parent.io_threaded.io();
 
             var file = try cwd.openFile(io, parent.path, .{ .mode = .read_only });
-            errdefer file.close(io);
 
             var wav_producer: Producer = .{
                 .allocator = parent.allocator,
@@ -173,20 +174,20 @@ pub const WavDecoder = struct
         }
     };
 
-    pub fn deinit(self: *WavDecoder) void
+    pub fn deinit(self: *WAVDecoder) void
     {
         self.io_threaded.deinit();
         self.allocator.destroy(self.io_threaded);
     }
 
-    pub fn init(allocator: *const std.mem.Allocator, path: []const u8) !WavDecoder
+    pub fn init(allocator: *const std.mem.Allocator, path: []const u8) !WAVDecoder
     {
         const io_threaded = try allocator.create(std.Io.Threaded);
         io_threaded.* = std.Io.Threaded.init(allocator.*, .{});
 
         const io = io_threaded.io();
 
-        var wav_decoder: WavDecoder = .{
+        var wav_decoder: WAVDecoder = .{
             .allocator = allocator,
             .io_threaded = io_threaded,
             .path = path,
@@ -228,13 +229,13 @@ pub const WavDecoder = struct
             }
         }
 
-        if(!found_format) return WavDecoderError.InvalidFormat;
-        if(!found_data_block) return WavDecoderError.MissingDataBlock;
+        if(!found_format) return WAVDecoderError.InvalidFormat;
+        if(!found_data_block) return WAVDecoderError.MissingDataBlock;
 
         return wav_decoder;
     }
 
-    pub fn new_producer(self: WavDecoder) !ash.audio.Producer
+    pub fn new_producer(self: WAVDecoder) !ash.audio.Producer
     {
         const producer = try self.allocator.create(Producer);
         producer.* = try .init(self);
@@ -326,5 +327,159 @@ pub const WavDecoder = struct
         }
 
         return .{ .Unknown = @as(void, undefined) };
+    }
+};
+
+const FLAC_BUFFER_SIZE = 256;
+
+/// Creates producers that decode and export PCM data from .flac files.
+pub const FLACDecoder = struct
+{
+    allocator: *const std.mem.Allocator,
+    io_threaded: *std.Io.Threaded,
+
+    path: []const u8,
+
+    pub const Producer = struct
+    {
+        allocator: *const std.mem.Allocator,
+        io_threaded: *std.Io.Threaded,
+
+        format: AudioFormat,
+
+        file: *std.Io.File,
+        file_reader: *std.Io.File.Reader,
+        flac_decoder: *flac.Decoder,
+
+        file_buffer: []u8,
+        flac_buffer: [FLAC_BUFFER_SIZE]f32 = undefined,
+        flac_buffer_offset: usize = FLAC_BUFFER_SIZE,
+        flac_buffer_size: usize = 0,
+
+        pub fn deinit(context: *anyopaque) void
+        {
+            const self: *Producer = @ptrCast(@alignCast(context));
+
+            self.flac_decoder.deinit(self.allocator.*);
+            self.allocator.destroy(self.flac_decoder);
+
+            self.allocator.destroy(self.file_reader);
+
+            self.allocator.free(self.file_buffer);
+
+            self.file.close(self.io_threaded.io());
+            self.allocator.destroy(self.file);
+
+            self.allocator.destroy(self);
+        }
+
+        pub fn generate(context: *anyopaque, output: *const []f32, flags: ash.audio.Producer.GeneratorFlags) ash.audio.Producer.Result
+        {
+            const self: *Producer = @ptrCast(@alignCast(context));
+
+            for(0..self.format.channels) |i|
+            {
+                if(self.flac_buffer_offset >= self.flac_buffer_size)
+                {
+                    const samples = self.flac_decoder.read(f32, &self.flac_buffer) catch |err|
+                    {
+                        std.debug.print("Error reading .flac samples: {any}\n", .{err});
+                        return .Fail;
+                    };
+
+                    if(samples.len == 0)
+                    {
+                        if(self.flac_buffer_size == 0)
+                        {
+                            // If samples.len == 0, either we reached EOF or the buffer is too small for the number of channels.
+                            // If flac_buffer_size is 0, meaning it was set to 0, then I assume the latter.
+                            std.debug.print(".flac decoding: Initial samples grab failed. Likely too many channels in the .flac file to function. Increasing FLAC_BUFFER_SIZE might fix it.\n", .{});
+                            return .Fail;
+                        }
+                        else
+                        {
+                            // Otherwise, it's extremely likely that it's just EOF.
+                            return .EndOfStream;
+                        }
+                    }
+
+                    self.flac_buffer_size = samples.len;
+                    self.flac_buffer_offset = 0;
+                }
+
+                output.*[i] = self.flac_buffer[self.flac_buffer_offset];
+                if(flags.sample_margin != 1) self.flac_buffer_offset += 1;
+            }
+
+            return .Success;
+        }
+
+        pub fn init(parent: FLACDecoder) !Producer
+        {
+            const cwd = std.Io.Dir.cwd();
+            const io = parent.io_threaded.io();
+
+            var flac_producer: Producer = .{
+                .allocator = parent.allocator,
+                .io_threaded = parent.io_threaded,
+                .format = undefined,
+                .file = try parent.allocator.create(std.Io.File),
+                .file_buffer = try parent.allocator.alloc(u8, FLAC_BUFFER_SIZE * 4),
+                .file_reader = try parent.allocator.create(std.Io.File.Reader),
+                .flac_decoder = try parent.allocator.create(flac.Decoder),
+            };
+            
+            flac_producer.file.* = try cwd.openFile(io, parent.path, .{ .mode = .read_only });
+
+            flac_producer.file_reader.* = flac_producer.file.reader(io, flac_producer.file_buffer);
+
+            flac_producer.flac_decoder.* = try .init(flac_producer.allocator.*, &flac_producer.file_reader.interface, .{
+                .seek_impl = .file,
+                .skip_metadata = true
+            });
+
+            flac_producer.format.format = .Float32; // The FLAC decoder will automatically convert to f32.
+            flac_producer.format.channels = flac_producer.flac_decoder.channels;
+            flac_producer.format.sample_rate = flac_producer.flac_decoder.sample_rate;
+
+            return flac_producer;
+        }
+
+        pub fn interface(self: *Producer) ash.audio.Producer
+        {
+            return .{
+                .channels = self.format.channels,
+                .context = self,
+                .deinit_fn = Producer.deinit,
+                .generate_fn = generate,
+                .sample_rate = self.format.sample_rate
+            };
+        }
+    };
+
+    pub fn deinit(self: *FLACDecoder) void
+    {
+        self.io_threaded.deinit();
+        self.allocator.destroy(self.io_threaded);
+    }
+
+    pub fn init(allocator: *const std.mem.Allocator, path: []const u8) !FLACDecoder
+    {
+        const io_threaded = try allocator.create(std.Io.Threaded);
+        io_threaded.* = std.Io.Threaded.init(allocator.*, .{});
+
+        return .{
+            .allocator = allocator,
+            .io_threaded = io_threaded,
+            .path = path
+        };
+    }
+
+    pub fn new_producer(self: FLACDecoder) !ash.audio.Producer
+    {
+        const producer = try self.allocator.create(Producer);
+        producer.* = try .init(self);
+
+        return producer.interface();
     }
 };

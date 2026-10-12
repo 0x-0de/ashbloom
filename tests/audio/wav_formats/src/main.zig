@@ -28,13 +28,13 @@ pub fn main() !void
     var current_play: usize = 0;
     var current_round: usize = 0;
 
-    var decoders: [6]ash.audio.decoders.WavDecoder = .{
-        try ash.audio.decoders.WavDecoder.init(&allocator, "../../res/i16 mono.wav"),
-        try ash.audio.decoders.WavDecoder.init(&allocator, "../../res/i16 stereo.wav"),
-        try ash.audio.decoders.WavDecoder.init(&allocator, "../../res/i24 mono.wav"),
-        try ash.audio.decoders.WavDecoder.init(&allocator, "../../res/i24 stereo.wav"),
-        try ash.audio.decoders.WavDecoder.init(&allocator, "../../res/f32 mono.wav"),
-        try ash.audio.decoders.WavDecoder.init(&allocator, "../../res/f32 stereo.wav")
+    var decoders: [6]ash.audio.decoders.WAVDecoder = .{
+        try ash.audio.decoders.WAVDecoder.init(&allocator, "../../res/i16 mono.wav"),
+        try ash.audio.decoders.WAVDecoder.init(&allocator, "../../res/i16 stereo.wav"),
+        try ash.audio.decoders.WAVDecoder.init(&allocator, "../../res/i24 mono.wav"),
+        try ash.audio.decoders.WAVDecoder.init(&allocator, "../../res/i24 stereo.wav"),
+        try ash.audio.decoders.WAVDecoder.init(&allocator, "../../res/f32 mono.wav"),
+        try ash.audio.decoders.WAVDecoder.init(&allocator, "../../res/f32 stereo.wav")
     };
 
     var source: ash.audio.OutputSource = try .init(&allocator);
