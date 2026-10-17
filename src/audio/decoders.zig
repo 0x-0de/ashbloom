@@ -3,6 +3,7 @@ const ash = @import("../root.zig");
 
 const flac = @import("flac");
 const minimp3 = ash.minimp3;
+const vorbis = ash.stb_vorbis;
 
 const AudioFormat = ash.audio.AudioFormat;
 
@@ -661,6 +662,131 @@ pub const MP3Decoder = struct
     }
 
     pub fn new_producer(self: MP3Decoder) !ash.audio.Producer
+    {
+        const producer = try self.allocator.create(Producer);
+        producer.* = try .init(self);
+
+        return producer.interface();
+    }
+};
+
+/// Creates producers that decode and export PCM data from vorbis (.ogg) files.
+pub const VorbisDecoder = struct
+{
+    allocator: *const std.mem.Allocator,
+    path: []const u8,
+
+    pub const Producer = struct
+    {
+        allocator: *const std.mem.Allocator,
+        format: AudioFormat,
+
+        v: *vorbis.VorbisInstance,
+
+        buffer: [vorbis.MAX_CHANNELS][2048]f32,
+        frame_size: usize,
+        frame_offset: usize,
+
+        pub fn deinit(context: *anyopaque) void
+        {
+            const self: *Producer = @ptrCast(@alignCast(context));
+
+            self.v.close();
+
+            self.allocator.destroy(self);
+        }
+
+        pub fn generate(context: *anyopaque, output: *const []f32, flags: ash.audio.Producer.GeneratorFlags) ash.audio.Producer.Result
+        {
+            const self: *Producer = @ptrCast(@alignCast(context));
+
+            for(0..self.format.channels) |i|
+            {
+                if(self.frame_offset >= self.frame_size)
+                {
+                    const frame = self.v.get_frame_float() catch
+                    {
+                        return .Fail;
+                    };
+
+                    if(frame.num_samples_per_channel == 0)
+                    {
+                        return .EndOfStream;
+                    }
+
+                    const channels = frame.ptr[0..frame.num_channels];
+                    for(0..channels.len) |j|
+                    {
+                        const samples = channels[j][0..frame.num_samples_per_channel];
+                        for(0..samples.len) |k|
+                        {
+                            self.buffer[j][k] = samples[k];
+                        }
+                    }
+
+                    self.frame_size = frame.num_samples_per_channel;
+                    self.frame_offset = 0;
+                }
+
+                output.*[i] = self.buffer[i][self.frame_offset];
+                if(flags.sample_margin != 1 and i == self.format.channels - 1) self.frame_offset += 1;
+            }
+
+            return .Success;
+        }
+
+        pub fn init(parent: VorbisDecoder) !Producer
+        {
+            var ogg_producer: Producer = .{
+                .allocator = parent.allocator,
+                .format = undefined,
+                .v = try .open_filename(parent.path),
+                .buffer = undefined,
+                .frame_size = 0,
+                .frame_offset = 0
+            };
+
+            const info = ogg_producer.v.get_info();
+
+            ogg_producer.format.channels = @bitCast(info.channels);
+            ogg_producer.format.format = .Float32;
+            ogg_producer.format.sample_rate = @bitCast(info.sample_rate);
+
+            return ogg_producer;
+        }
+
+        pub fn interface(self: *Producer) ash.audio.Producer
+        {
+            return .{
+                .channels = self.format.channels,
+                .context = self,
+                .deinit_fn = Producer.deinit,
+                .generate_fn = generate,
+                .sample_rate = self.format.sample_rate
+            };
+        }
+    };
+
+    pub fn init(allocator: *const std.mem.Allocator, path: []const u8) !VorbisDecoder
+    {
+        var io_threaded: std.Io.Threaded = .init(allocator.*, .{});
+        defer io_threaded.deinit();
+
+        const io = io_threaded.io();
+
+        const cwd = std.Io.Dir.cwd();
+
+        // Checking if the file exists.
+        const file = try cwd.openFile(io, path, .{ .mode = .read_only });
+        file.close(io);
+
+        return .{
+            .allocator = allocator,
+            .path = path
+        };
+    }
+
+    pub fn new_producer(self: VorbisDecoder) !ash.audio.Producer
     {
         const producer = try self.allocator.create(Producer);
         producer.* = try .init(self);

@@ -19,6 +19,8 @@ pub const xml = @import("xml");
 pub const ma = @import("miniaudio");
 /// minimp3 (custom bindings)
 pub const minimp3 = @import("minimp3");
+/// stb_vorbis (custom bindings)
+pub const stb_vorbis = @import("stb_vorbis");
 
 /// Utilities related to audio streaming.
 pub const audio = struct

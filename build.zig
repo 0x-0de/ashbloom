@@ -46,6 +46,9 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
     const minimp3 = load_minimp3_module(b, target, optimize);
     cmp.root_module.addImport("minimp3", minimp3);
 
+    const vorbis = load_stb_vorbis_module(b, target, optimize);
+    cmp.root_module.addImport("stb_vorbis", vorbis);
+
     // Searching for the Vulkan drivers.
     // On Windows, they're located in System32.
     if(builtin.target.os.tag == .windows)
@@ -184,6 +187,40 @@ fn load_minimp3_module(b: *std.Build, target: std.Build.ResolvedTarget, optimize
     minimp3_bind.linkLibrary(minimp3_lib);
 
     return minimp3_bind;
+}
+
+fn load_stb_vorbis_module(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module
+{
+    const stb_vorbis = b.addModule("stb_vorbis", .{
+        .target = target,
+        .optimize = optimize
+    });
+
+    stb_vorbis.addIncludePath(b.path("include/stb_vorbis"));
+    stb_vorbis.linkSystemLibrary("c", .{});
+
+    stb_vorbis.addCSourceFile(.{
+        .file = b.path("include/stb_vorbis/stb_vorbis.c")
+    });
+
+    const vorbis_lib = b.addLibrary(.{
+        .name = "stb_vorbis",
+        .root_module = stb_vorbis,
+        .linkage = .static
+    });
+
+    b.installArtifact(vorbis_lib);
+
+    const vorbis_bind = b.addModule("stb_vorbis", .{
+        .root_source_file = b.path("lib/vorbis.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true
+    });
+
+    vorbis_bind.linkLibrary(vorbis_lib);
+
+    return vorbis_bind;
 }
 
 pub fn build(b: *std.Build) void
