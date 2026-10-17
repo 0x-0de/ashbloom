@@ -33,15 +33,24 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
         .optimize = optimize
     });
 
+    const mp3 = b.dependency("mp3", .{
+        .target = target,
+        .optimize = optimize
+    });
+
     cmp.root_module.addImport("glfw", glfw.module("glfw"));
     cmp.root_module.addImport("vulkan", vulkan.module("vulkan-zig"));
     cmp.root_module.addImport("xml", xml.module("xml"));
     cmp.root_module.addImport("flac", flac.module("flac"));
+    cmp.root_module.addImport("mp3", mp3.module("mp3"));
 
     cmp.root_module.addLibraryPath(b.path("deps"));
 
     const miniaudio = load_miniaudio_module(b, target, optimize);
     cmp.root_module.addImport("miniaudio", miniaudio);
+
+    const minimp3 = load_minimp3_module(b, target, optimize);
+    cmp.root_module.addImport("minimp3", minimp3);
 
     // Searching for the Vulkan drivers.
     // On Windows, they're located in System32.
@@ -147,6 +156,40 @@ fn load_miniaudio_module(b: *std.Build, target: std.Build.ResolvedTarget, optimi
     miniaudio_bind.linkLibrary(miniaudio_lib);
 
     return miniaudio_bind;
+}
+
+fn load_minimp3_module(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module
+{
+    const minimp3 = b.addModule("minimp3", .{
+        .target = target,
+        .optimize = optimize
+    });
+
+    minimp3.addIncludePath(b.path("include/minimp3"));
+    minimp3.linkSystemLibrary("c", .{});
+
+    minimp3.addCSourceFile(.{
+        .file = b.path("include/minimp3/minimp3.c")
+    });
+
+    const minimp3_lib = b.addLibrary(.{
+        .name = "minimp3",
+        .root_module = minimp3,
+        .linkage = .static
+    });
+
+    b.installArtifact(minimp3_lib);
+
+    const minimp3_bind = b.addModule("minimp3", .{
+        .root_source_file = b.path("lib/minimp3.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true
+    });
+
+    minimp3_bind.linkLibrary(minimp3_lib);
+
+    return minimp3_bind;
 }
 
 pub fn build(b: *std.Build) void

@@ -17,6 +17,8 @@ pub const glfw = @import("glfw");
 pub const xml = @import("xml");
 /// miniaudio (custom bindings based on zaudio)
 pub const ma = @import("miniaudio");
+/// minimp3 (custom bindings)
+pub const minimp3 = @import("minimp3");
 
 /// Utilities related to audio streaming.
 pub const audio = struct

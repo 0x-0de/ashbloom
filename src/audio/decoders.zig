@@ -2,6 +2,7 @@ const std = @import("std");
 const ash = @import("../root.zig");
 
 const flac = @import("flac");
+const minimp3 = ash.minimp3;
 
 const AudioFormat = ash.audio.AudioFormat;
 
@@ -443,6 +444,148 @@ pub const FLACDecoder = struct
             flac_producer.format.sample_rate = flac_producer.flac_decoder.sample_rate;
 
             return flac_producer;
+        }
+
+        pub fn interface(self: *Producer) ash.audio.Producer
+        {
+            return .{
+                .channels = self.format.channels,
+                .context = self,
+                .deinit_fn = Producer.deinit,
+                .generate_fn = generate,
+                .sample_rate = self.format.sample_rate
+            };
+        }
+    };
+
+    pub fn deinit(self: *FLACDecoder) void
+    {
+        self.io_threaded.deinit();
+        self.allocator.destroy(self.io_threaded);
+    }
+
+    pub fn init(allocator: *const std.mem.Allocator, path: []const u8) !FLACDecoder
+    {
+        const io_threaded = try allocator.create(std.Io.Threaded);
+        io_threaded.* = std.Io.Threaded.init(allocator.*, .{});
+
+        return .{
+            .allocator = allocator,
+            .io_threaded = io_threaded,
+            .path = path
+        };
+    }
+
+    pub fn new_producer(self: FLACDecoder) !ash.audio.Producer
+    {
+        const producer = try self.allocator.create(Producer);
+        producer.* = try .init(self);
+
+        return producer.interface();
+    }
+};
+
+const MP3_BUFFER_SIZE = 8192;
+
+/// Creates producers that decode and export PCM data from .mp3 files.
+pub const MP3Decoder = struct
+{
+    allocator: *const std.mem.Allocator,
+    io_threaded: *std.Io.Threaded,
+
+    path: []const u8,
+
+    pub const Producer = struct
+    {
+        allocator: *const std.mem.Allocator,
+        io_threaded: *std.Io.Threaded,
+
+        format: AudioFormat,
+
+        file: *std.Io.File,
+        file_size: usize,
+        file_reader: *std.Io.File.Reader,
+        decoder: minimp3.MP3Decoder,
+
+        file_buffer: [MP3_BUFFER_SIZE]u8,
+        pcm_output: [minimp3.MAX_SAMPLES_PER_FRAME]f32,
+        pcm_offset: usize,
+        pcm_amount: usize,
+
+        pub fn deinit(context: *anyopaque) void
+        {
+            const self: *Producer = @ptrCast(@alignCast(context));
+
+            self.allocator.destroy(self.file_reader);
+
+            self.file.close(self.io_threaded.io());
+            self.allocator.destroy(self.file);
+
+            self.allocator.destroy(self);
+        }
+
+        pub fn generate(context: *anyopaque, output: *const []f32, flags: ash.audio.Producer.GeneratorFlags) ash.audio.Producer.Result
+        {
+            const self: *Producer = @ptrCast(@alignCast(context));
+            const reader = &self.file_reader.interface;
+
+            for(0..self.format.channels) |i|
+            {
+                if(self.pcm_offset >= self.pcm_amount)
+                {
+                    var mp3_frame: minimp3.MP3FrameInfo = undefined;
+                    var read: []u8 = undefined;
+
+                    const file_read_amnt = @min(self.file_size - self.file_reader.pos, MP3_BUFFER_SIZE);
+                    if(file_read_amnt > 0)
+                        read = try reader.peek(file_read_amnt);
+
+                    const samples = self.decoder.decode_frame(read, &self.pcm_output, &mp3_frame);
+
+                    if(samples == 0 and mp3_frame.frame_bytes == 0)
+                    {
+                        return .EndOfStream;
+                    }
+
+                    const frame_size: usize = @intCast(mp3_frame.frame_bytes);
+                    reader.toss(frame_size);
+                    read = read[frame_size..];
+                }
+
+                output.*[i] = self.pcm_output[self.pcm_offset];
+                if(flags.sample_margin != 1) self.pcm_offset += 1;
+            }
+
+            return .Success;
+        }
+
+        pub fn init(parent: FLACDecoder) !Producer
+        {
+            const cwd = std.Io.Dir.cwd();
+            const io = parent.io_threaded.io();
+
+            var mp3_producer: Producer = .{
+                .allocator = parent.allocator,
+                .io_threaded = parent.io_threaded,
+                .format = undefined,
+                .file = try parent.allocator.create(std.Io.File),
+                .file_size = undefined,
+                .file_reader = try parent.allocator.create(std.Io.File.Reader),
+                .file_buffer = undefined,
+                .decoder = .init(),
+                .pcm_output = undefined,
+                .pcm_offset = 0,
+                .pcm_amount = 0
+            };
+            
+            mp3_producer.file.* = try cwd.openFile(io, parent.path, .{ .mode = .read_only });
+            mp3_producer.file_reader.* = mp3_producer.file.reader(io, mp3_producer.file_buffer);
+
+            mp3_producer.file_size = try mp3_producer.file_reader.getSize();
+
+            // TODO: Format setting.
+
+            return mp3_producer;
         }
 
         pub fn interface(self: *Producer) ash.audio.Producer
