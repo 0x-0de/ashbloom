@@ -495,6 +495,12 @@ pub const MP3Decoder = struct
 
     path: []const u8,
 
+    pub const Error = error
+    {
+        InvalidData,
+        TooManyChannels
+    };
+
     pub const Producer = struct
     {
         allocator: *const std.mem.Allocator,
@@ -508,9 +514,11 @@ pub const MP3Decoder = struct
         decoder: minimp3.MP3Decoder,
 
         file_buffer: [MP3_BUFFER_SIZE]u8,
+        last_read: []u8,
         pcm_output: [minimp3.MAX_SAMPLES_PER_FRAME]f32,
         pcm_offset: usize,
         pcm_amount: usize,
+        last_frame_size: usize,
 
         pub fn deinit(context: *anyopaque) void
         {
@@ -531,25 +539,39 @@ pub const MP3Decoder = struct
 
             for(0..self.format.channels) |i|
             {
-                if(self.pcm_offset >= self.pcm_amount)
+                var samples: usize = 0;
+                while(self.pcm_offset >= self.pcm_amount and samples == 0)
                 {
                     var mp3_frame: minimp3.MP3FrameInfo = undefined;
-                    var read: []u8 = undefined;
 
                     const file_read_amnt = @min(self.file_size - self.file_reader.pos, MP3_BUFFER_SIZE);
                     if(file_read_amnt > 0)
-                        read = try reader.peek(file_read_amnt);
+                    {
+                        self.last_read = reader.peek(file_read_amnt) catch
+                        {
+                            return .Fail;
+                        };
+                    }
+                    else
+                    {
+                        self.last_read = self.last_read[self.last_frame_size..];
+                    }
 
-                    const samples = self.decoder.decode_frame(read, &self.pcm_output, &mp3_frame);
-
-                    if(samples == 0 and mp3_frame.frame_bytes == 0)
+                    samples = self.decoder.decode_frame(self.last_read, &self.pcm_output, &mp3_frame);
+                    if((samples == 0 and mp3_frame.frame_bytes == 0) or self.last_read.len == 0)
                     {
                         return .EndOfStream;
                     }
 
-                    const frame_size: usize = @intCast(mp3_frame.frame_bytes);
+                    const frame_size: usize = @as(u32, @bitCast(mp3_frame.frame_bytes));
+                    self.last_frame_size = frame_size;
                     reader.toss(frame_size);
-                    read = read[frame_size..];
+
+                    if(samples != 0)
+                    {
+                        self.pcm_offset = 0;
+                        self.pcm_amount = samples * self.format.channels;
+                    }
                 }
 
                 output.*[i] = self.pcm_output[self.pcm_offset];
@@ -559,7 +581,7 @@ pub const MP3Decoder = struct
             return .Success;
         }
 
-        pub fn init(parent: FLACDecoder) !Producer
+        pub fn init(parent: MP3Decoder) !Producer
         {
             const cwd = std.Io.Dir.cwd();
             const io = parent.io_threaded.io();
@@ -572,18 +594,38 @@ pub const MP3Decoder = struct
                 .file_size = undefined,
                 .file_reader = try parent.allocator.create(std.Io.File.Reader),
                 .file_buffer = undefined,
+                .last_read = undefined,
                 .decoder = .init(),
                 .pcm_output = undefined,
                 .pcm_offset = 0,
-                .pcm_amount = 0
+                .pcm_amount = 0,
+                .last_frame_size = 0,
             };
             
             mp3_producer.file.* = try cwd.openFile(io, parent.path, .{ .mode = .read_only });
-            mp3_producer.file_reader.* = mp3_producer.file.reader(io, mp3_producer.file_buffer);
+            mp3_producer.file_reader.* = mp3_producer.file.reader(io, &mp3_producer.file_buffer);
 
             mp3_producer.file_size = try mp3_producer.file_reader.getSize();
 
-            // TODO: Format setting.
+            var mp3_frame: minimp3.MP3FrameInfo = undefined;
+
+            const reader = &mp3_producer.file_reader.interface;
+
+            const read: []u8 = try reader.peek(MP3_BUFFER_SIZE);
+            const samples = mp3_producer.decoder.decode_frame(read, &mp3_producer.pcm_output, &mp3_frame);
+
+            if(samples == 0 and mp3_frame.frame_bytes == 0)
+            {
+                return Error.InvalidData;
+            }
+            else if(mp3_frame.channels > 2)
+            {
+                return Error.TooManyChannels;
+            }
+
+            mp3_producer.format.format = .Float32;
+            mp3_producer.format.channels = @bitCast(mp3_frame.channels);
+            mp3_producer.format.sample_rate = @bitCast(mp3_frame.hz);
 
             return mp3_producer;
         }
@@ -600,13 +642,13 @@ pub const MP3Decoder = struct
         }
     };
 
-    pub fn deinit(self: *FLACDecoder) void
+    pub fn deinit(self: *MP3Decoder) void
     {
         self.io_threaded.deinit();
         self.allocator.destroy(self.io_threaded);
     }
 
-    pub fn init(allocator: *const std.mem.Allocator, path: []const u8) !FLACDecoder
+    pub fn init(allocator: *const std.mem.Allocator, path: []const u8) !MP3Decoder
     {
         const io_threaded = try allocator.create(std.Io.Threaded);
         io_threaded.* = std.Io.Threaded.init(allocator.*, .{});
@@ -618,7 +660,7 @@ pub const MP3Decoder = struct
         };
     }
 
-    pub fn new_producer(self: FLACDecoder) !ash.audio.Producer
+    pub fn new_producer(self: MP3Decoder) !ash.audio.Producer
     {
         const producer = try self.allocator.create(Producer);
         producer.* = try .init(self);

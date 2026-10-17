@@ -25,7 +25,7 @@ pub const MP3Decoder = extern struct
 
     pub fn decode_frame(self: *MP3Decoder, mp3: []u8, pcm: []f32, info: *MP3FrameInfo) usize
     {
-        const length: i32 = @intCast(mp3.len);
+        const length: i32 = @bitCast(@as(u32, @truncate(mp3.len)));
         return @intCast(mp3dec_decode_frame(self, mp3.ptr, length, pcm.ptr, info));
     }
 

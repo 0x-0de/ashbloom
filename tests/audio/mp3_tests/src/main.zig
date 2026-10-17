@@ -28,11 +28,11 @@ pub fn main() !void
     var current_play: usize = 0;
     var current_round: usize = 0;
 
-    var decoders: [4]ash.audio.decoders.FLACDecoder = .{
-        try .init(&allocator, "../../res/i16 mono.flac"),
-        try .init(&allocator, "../../res/i16 stereo.flac"),
-        try .init(&allocator, "../../res/i24 mono.flac"),
-        try .init(&allocator, "../../res/i24 stereo.flac")
+    var decoders: [4]ash.audio.decoders.MP3Decoder = .{
+        try .init(&allocator, "../../res/128 mono.mp3"),
+        try .init(&allocator, "../../res/128 stereo.mp3"),
+        try .init(&allocator, "../../res/192 mono.mp3"),
+        try .init(&allocator, "../../res/192 stereo.mp3")
     };
 
     var source: ash.audio.OutputSource = try .init(&allocator);

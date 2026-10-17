@@ -31,10 +31,6 @@
         .flac = .{
             .url = "git+https://codeberg.org/audiophile/flac?ref=v1.0.2#8681b5be53bc950101f4f33e291b7f1e1f117059",
             .hash = "flac-1.0.2-7jA7CZA9AgBAXSOAymtmXJ5xNLYRK0XWkhMPBIOQN4r5"
-        },
-        .mp3 = .{
-            .url = "https://git.jcollie.dev/jeff/zig-mp3/archive/zig-0.16.tar.gz",
-            .hash = "zig_mp3-0.1.0-yG5WDI_YDgChvQwajXT0XaTme0BTYSW87eaSitAUK0V6"
         }
     }
 }
