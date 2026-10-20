@@ -39,6 +39,8 @@ pub const Swapchain = struct
     /// VkExtent2D of the swap chain, stores the size/resolution of each image.
     extent: vk.Extent2D = undefined,
 
+    /// List of images in the swap chain.
+    images: []vk.Image = undefined,
     /// List of image views corresponding to each image in the swap chain. Used for acquiring the swap chain's framebuffers.
     image_views: std.ArrayList(vk.ImageView) = undefined,
 
@@ -176,8 +178,7 @@ pub const Swapchain = struct
 
         self.handle = try self.interface.device.createSwapchainKHR(&info_create, null);
 
-        const images= try self.retrieve_images();
-        defer self.interface.allocator.free(images);
+        self.images = try self.retrieve_images();
 
         // Image views describe an image, which parts of the image are accessible, how to access them, etc.
         // They are required for most Vulkan operations on images.
@@ -189,25 +190,25 @@ pub const Swapchain = struct
         self.fences_command_buffers_finished = try self.interface.allocator.alloc(std.ArrayList(vk.Fence), self.render_stages);
         self.command_buffers = try self.interface.allocator.alloc(std.ArrayList(CommandBuffer), self.render_stages);
 
-        self.image_views = try std.ArrayList(vk.ImageView).initCapacity(self.interface.allocator.*, images.len);
-        try self.image_views.resize(self.interface.allocator.*, images.len);
+        self.image_views = try std.ArrayList(vk.ImageView).initCapacity(self.interface.allocator.*, self.images.len);
+        try self.image_views.resize(self.interface.allocator.*, self.images.len);
 
         for(0..self.render_stages) |i|
         {
-            self.semaphores_render_stage_finished[i] = try std.ArrayList(vk.Semaphore).initCapacity(self.interface.allocator.*, images.len);
-            try self.semaphores_render_stage_finished[i].resize(self.interface.allocator.*, images.len);
+            self.semaphores_render_stage_finished[i] = try std.ArrayList(vk.Semaphore).initCapacity(self.interface.allocator.*, self.images.len);
+            try self.semaphores_render_stage_finished[i].resize(self.interface.allocator.*, self.images.len);
 
-            self.fences_command_buffers_finished[i] = try std.ArrayList(vk.Fence).initCapacity(self.interface.allocator.*, images.len);
-            try self.fences_command_buffers_finished[i].resize(self.interface.allocator.*, images.len);
+            self.fences_command_buffers_finished[i] = try std.ArrayList(vk.Fence).initCapacity(self.interface.allocator.*, self.images.len);
+            try self.fences_command_buffers_finished[i].resize(self.interface.allocator.*, self.images.len);
 
-            self.command_buffers[i] = try std.ArrayList(CommandBuffer).initCapacity(self.interface.allocator.*, images.len);
-            try self.command_buffers[i].resize(self.interface.allocator.*, images.len);
+            self.command_buffers[i] = try std.ArrayList(CommandBuffer).initCapacity(self.interface.allocator.*, self.images.len);
+            try self.command_buffers[i].resize(self.interface.allocator.*, self.images.len);
         }
 
-        for(images, 0..) |_, i|
+        for(self.images, 0..) |_, i|
         {
             const info_image_view: vk.ImageViewCreateInfo = .{
-                .image = images[i],
+                .image = self.images[i],
                 .view_type = vk.ImageViewType.@"2d",
                 .format = self.format.format,
                 // In case you aren't aware, "swizzling" refers to mixing up components of different vectors, i.e. passing (B,G,G,A) to an (R,G,B,A) vector.
@@ -423,6 +424,7 @@ pub const Swapchain = struct
         }
 
         self.image_views.deinit(self.interface.allocator.*);
+        self.interface.allocator.free(self.images);
 
         self.interface.device.destroySwapchainKHR(self.handle, null);
         self.interface.device.destroyFence(self.fence_image_acquired, null);

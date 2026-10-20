@@ -570,6 +570,9 @@ pub const VkInterface = struct
         preferred_device_extensions: [][*:0]const u8 = &.{},
         /// List of non-required device features to attempt to enable on the Vulkan device.
         preferred_device_features: vk.PhysicalDeviceFeatures = .{},
+
+        /// Struct appended to the VkDeviceCreateInfo, used to specify device extensions and features like dynamic rendering.
+        extensions: ?*anyopaque = null
     };
 
     /// Contains the indices of each queue family for a physical device. Created via get_physical_device_queue_families.
@@ -644,7 +647,8 @@ pub const VkInterface = struct
             .enabled_extension_count = @truncate(options.required_device_extensions.len),
             .pp_enabled_extension_names = @ptrCast(options.required_device_extensions),
             .enabled_layer_count = @truncate(options.device_layers.len),
-            .pp_enabled_layer_names = @ptrCast(options.device_layers)
+            .pp_enabled_layer_names = @ptrCast(options.device_layers),
+            .p_next = options.extensions
         };
 
         return try self.context.instance.createDevice(self.physical_device.?, &info_device_create, null);
@@ -803,6 +807,12 @@ pub const VkInterface = struct
 
         const selected_device = available_physical_devices.items[current_selected_index];
         return selected_device;
+    }
+
+    /// Adds a struct which is appended to the VkDeviceCreateInfo struct, used to specify Vulkan extensions such as dynamic rendering.
+    pub fn add_device_extension_struct(self: *VkInterface, extension: *anyopaque) !void
+    {
+        self.device_extension_feature_structs.append(self.allocator.*, extension);
     }
 
     /// Adds a new window surface object to the VkInterface, which is created using the passed Window object.

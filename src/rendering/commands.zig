@@ -64,6 +64,54 @@ pub fn end_and_submit_single_time_command_buffer(context: *VkInterface, command_
     context.device.freeCommandBuffers(command_pool, &.{ command_buffer });
 }
 
+pub const MemoryBarrierAccesses = struct
+{
+    src_access_mask: vk.AccessFlags,
+    dst_access_mask: vk.AccessFlags
+};
+
+pub const BufferMemoryBarrier = struct
+{
+    src_queue_family_index: u32 = vk.QUEUE_FAMILY_IGNORED,
+    dst_queue_family_index: u32 = vk.QUEUE_FAMILY_IGNORED,
+
+    buffer: vk.Buffer,
+    offset: vk.DeviceSize,
+    size: vk.DeviceSize,
+
+    accesses: MemoryBarrierAccesses
+};
+
+pub const ImageMemoryBarrier = struct
+{
+    src_queue_family_index: u32 = vk.QUEUE_FAMILY_IGNORED,
+    dst_queue_family_index: u32 = vk.QUEUE_FAMILY_IGNORED,
+
+    image: vk.Image,
+    subresource_range: vk.ImageSubresourceRange,
+
+    old_layout: vk.ImageLayout,
+    new_layout: vk.ImageLayout,
+
+    accesses: MemoryBarrierAccesses
+};
+
+pub const MemoryBarrier = union(enum)
+{
+    Generic: MemoryBarrierAccesses,
+    Buffer: BufferMemoryBarrier,
+    Image: ImageMemoryBarrier
+};
+
+/// Describes a pipeline barrier, most often used to transition buffer and image layouts prior to certain operations (such as rendering or presentation).
+pub const PipelineBarrier = struct
+{
+    barrier: MemoryBarrier,
+
+    src_stage_mask: vk.PipelineStageFlags,
+    dst_stage_mask: vk.PipelineStageFlags
+};
+
 /// Essentially wraps a vk.CommandBuffer object and provides some helper functions for common commands, such as beginning/ending
 /// buffer recording, drawing commands, resetting buffers, binding a graphics pipeline, and so on.
 pub const CommandBuffer = struct
@@ -141,12 +189,6 @@ pub const CommandBuffer = struct
         self.proxy.drawIndexed(index_count, instance_count, 0, 0, 0);
     }
 
-    /// Ends the render pass.
-    pub fn cmd_end_render_pass(self: *CommandBuffer) void
-    {
-        self.proxy.endRenderPass();
-    }
-
     /// Sets the command buffer to the executable state, effectively ending recording.
     pub fn end_recording(self: *CommandBuffer) !void
     {
@@ -177,6 +219,52 @@ pub const CommandBuffer = struct
             .handle = cmd_handle,
             .proxy = proxy
         };
+    }
+
+    /// Adds a pipeline barrier to synchronize resource accesses in this command buffer.
+    pub fn pipeline_barrier(self: *CommandBuffer, barrier: PipelineBarrier, dependency_flags: vk.DependencyFlags) void
+    {
+        switch(barrier.barrier)
+        {
+            .Generic => |b|
+            {
+                const info: vk.MemoryBarrier = .{
+                    .src_access_mask = b.src_access_mask,
+                    .dst_access_mask = b.dst_access_mask
+                };
+
+                self.proxy.pipelineBarrier(barrier.src_stage_mask, barrier.dst_stage_mask, dependency_flags, &.{ info }, null, null);
+            },
+            .Buffer => |b|
+            {
+                const info: vk.BufferMemoryBarrier = .{
+                    .buffer = b.buffer,
+                    .src_queue_family_index = b.src_queue_family_index,
+                    .dst_queue_family_index = b.dst_queue_family_index,
+                    .src_access_mask = b.accesses.src_access_mask,
+                    .dst_access_mask = b.accesses.dst_access_mask,
+                    .offset = b.offset,
+                    .size = b.size
+                };
+
+                self.proxy.pipelineBarrier(barrier.src_stage_mask, barrier.dst_stage_mask, dependency_flags, null, &.{ info }, null);
+            },
+            .Image => |b|
+            {
+                const info: vk.ImageMemoryBarrier = .{
+                    .image = b.image,
+                    .old_layout = b.old_layout,
+                    .new_layout = b.new_layout,
+                    .src_queue_family_index = b.src_queue_family_index,
+                    .dst_queue_family_index = b.dst_queue_family_index,
+                    .subresource_range = b.subresource_range,
+                    .src_access_mask = b.accesses.src_access_mask,
+                    .dst_access_mask = b.accesses.dst_access_mask
+                };
+
+                self.proxy.pipelineBarrier(barrier.src_stage_mask, barrier.dst_stage_mask, dependency_flags, null, null, &.{ info });
+            }
+        }
     }
 
     /// Pushes constants to a set push constant location in the shader.
