@@ -467,7 +467,7 @@ pub fn pipeline_rasterizer_fill_triangle_cull_back_no_depth() vk.PipelineRasteri
         .polygon_mode = vk.PolygonMode.fill,
         .line_width = 1,
         .cull_mode = .{
-            .back_bit = true
+            .back = true
         },
         .front_face = vk.FrontFace.counter_clockwise
     };
@@ -480,7 +480,7 @@ pub fn pipeline_multisample_no_multisampling() vk.PipelineMultisampleStateCreate
     return .{
         .sample_shading_enable = vk.Bool32.false,
         .rasterization_samples = .{
-            .@"1_bit" = true
+            .@"1" = true
         },
         .min_sample_shading = 1,
         .alpha_to_coverage_enable = vk.Bool32.false,
@@ -494,10 +494,10 @@ pub fn pipeline_color_blend_attachment_no_blend() vk.PipelineColorBlendAttachmen
 {
     return .{
         .color_write_mask = .{
-            .r_bit = true,
-            .g_bit = true,
-            .b_bit = true,
-            .a_bit = true
+            .r = true,
+            .g = true,
+            .b = true,
+            .a = true
         },
         .blend_enable = vk.Bool32.false,
         .src_alpha_blend_factor = vk.BlendFactor.one,
@@ -515,10 +515,10 @@ pub fn pipeline_color_blend_attachment_alpha_blend() vk.PipelineColorBlendAttach
 {
     return .{
         .color_write_mask = .{
-            .r_bit = true,
-            .g_bit = true,
-            .b_bit = true,
-            .a_bit = true
+            .r = true,
+            .g = true,
+            .b = true,
+            .a = true
         },
         .blend_enable = vk.Bool32.true,
         .src_alpha_blend_factor = vk.BlendFactor.one,
@@ -724,7 +724,7 @@ pub const Pipeline = struct
             }
         }
 
-        _ = try self.interface.device.createGraphicsPipelines(.null_handle, &.{ info_pipeline }, null, @ptrCast(&self.pipeline));
+        _ = try self.interface.device.createGraphicsPipelines(.null, &.{ info_pipeline }, null, @ptrCast(&self.pipeline));
 
         shader_stage_list.deinit(self.interface.allocator.*);
 

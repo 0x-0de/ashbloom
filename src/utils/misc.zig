@@ -41,17 +41,6 @@ pub fn get_exe_path() []u8
 
         return buffer[0..len];
     }
-    else if(comptime builtin.os.tag == .linux)
-    {
-        const unistd = @cImport({
-            @cInclude("unistd.h");
-        });
-
-        var buffer: [4096]u8 = undefined;
-        const len = unistd.readlink("/proc/self/exe", @as([*:0]u8, @ptrCast(&buffer)), 4096 - 1);
-
-        return buffer[0..@intCast(len)];
-    }
     else
     {
         @compileError("Your OS doesn't support the get_exe_path() function.");

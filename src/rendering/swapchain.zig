@@ -157,7 +157,7 @@ pub const Swapchain = struct
             self.image_count = sc_support.capabilities.max_image_count;
 
         const image_usage: vk.ImageUsageFlags = .{
-            .color_attachment_bit = true
+            .color_attachment = true
         };
 
         const info_create: vk.SwapchainCreateInfoKHR = .{
@@ -170,7 +170,7 @@ pub const Swapchain = struct
             .image_usage = image_usage,
             .image_sharing_mode = vk.SharingMode.exclusive, // Can be exclusive or concurrent. Concurrent is used when multiple Vulkan queues will access the images at once.
             .pre_transform = sc_support.capabilities.current_transform, // You can transform the images after rendering to them, if you wish.
-            .composite_alpha = .{.opaque_bit_khr = true}, // Alpha compositing mode. For swap chains, I can't see this being any value other than opaque.
+            .composite_alpha = .{.opaque_khr = true}, // Alpha compositing mode. For swap chains, I can't see this being any value other than opaque.
             .present_mode = presentation_mode,
             .clipped = .true, // This allows Vulkan to discard rendering operations done on parts of the surface which aren't visible (i.e. if the window is partially off-screen).
             .old_swapchain = @enumFromInt(0), // May aid in resource reuse if we're recreating the swap chain after a window resize.
@@ -223,7 +223,7 @@ pub const Swapchain = struct
                 .subresource_range = .{
                     // The aspect mask identifies which "aspects" of the image are included in this ImageView.
                     .aspect_mask = .{
-                        .color_bit = true
+                        .color = true
                     },
                     // Mipmap levels accessible in the view. We only have one mipmap level (i.e. we don't do any mipmapping at all).
                     .base_mip_level = 0,
@@ -239,7 +239,7 @@ pub const Swapchain = struct
             const info_semaphore: vk.SemaphoreCreateInfo = .{};
             const info_fence: vk.FenceCreateInfo = .{
                 .flags = .{
-                    .signaled_bit = true
+                    .signaled = true
                 }
             };
 
@@ -255,7 +255,7 @@ pub const Swapchain = struct
 
         const info_fence: vk.FenceCreateInfo = .{
             .flags = .{
-                .signaled_bit = true
+                .signaled = true
             }
         };
 
@@ -283,7 +283,7 @@ pub const Swapchain = struct
         try self.interface.device.resetFences(&.{ self.fence_image_acquired });
         self.last_render_stage = null;
 
-        var result = try self.interface.device.acquireNextImageKHR(self.handle, std.math.maxInt(u64), .null_handle, self.fence_image_acquired);
+        var result = try self.interface.device.acquireNextImageKHR(self.handle, std.math.maxInt(u64), .null, self.fence_image_acquired);
 
         var window_width: c_int = undefined;
         var window_height: c_int = undefined;
@@ -308,7 +308,7 @@ pub const Swapchain = struct
             try self.create_swapchain();
 
             try self.interface.device.resetFences(&.{ self.fence_image_acquired });
-            result = try self.interface.device.acquireNextImageKHR(self.handle, std.math.maxInt(u64), .null_handle, self.fence_image_acquired);
+            result = try self.interface.device.acquireNextImageKHR(self.handle, std.math.maxInt(u64), .null, self.fence_image_acquired);
         }
         else if(result.result != .success)
         {
@@ -564,7 +564,7 @@ pub const Swapchain = struct
         };
 
         const wait_stage: vk.PipelineStageFlags = .{
-            .bottom_of_pipe_bit = true
+            .bottom_of_pipe = true
         };
 
         if(self.last_render_stage != null)

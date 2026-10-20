@@ -143,7 +143,7 @@ transfer_queue: vk.Queue) !void
         .buffer_image_height = 0,
         .image_subresource = .{
             .aspect_mask = .{
-                .color_bit = true
+                .color = true
             },
             .mip_level = 0,
             .base_array_layer = 0,
@@ -172,7 +172,7 @@ transfer_queue: vk.Queue) !void
         .buffer_image_height = 0,
         .image_subresource = .{
             .aspect_mask = .{
-                .color_bit = true
+                .color = true
             },
             .mip_level = 0,
             .base_array_layer = 0,
@@ -208,18 +208,18 @@ pub fn get_allocator_buffer_usage_flags(allocator_usage: VulkanAllocatorUsage) V
     return switch(allocator_usage)
     {
         .VertexBuffer => .{
-            .vertex_buffer_bit = true,
-            .transfer_dst_bit = true
+            .vertex_buffer = true,
+            .transfer_dst = true
         },
         .IndexBuffer => .{
-            .index_buffer_bit = true,
-            .transfer_dst_bit = true
+            .index_buffer = true,
+            .transfer_dst = true
         },
         .UniformBuffer => .{
-            .uniform_buffer_bit = true
+            .uniform_buffer = true
         },
         .CPUTransferDst => .{
-            .transfer_dst_bit = true
+            .transfer_dst = true
         },
         else => VulkanAllocatorError.InvalidAllocatorUsage
     };
@@ -230,15 +230,15 @@ pub fn get_allocator_image_usage_flags(allocator_usage: VulkanAllocatorUsage) Vu
     return switch(allocator_usage)
     {
         .Texture => .{
-            .transfer_dst_bit = true,
-            .sampled_bit = true
+            .transfer_dst = true,
+            .sampled = true
         },
         .Subtexture => .{
-            .transfer_src_bit = true,
-            .transfer_dst_bit = true
+            .transfer_src = true,
+            .transfer_dst = true
         },
         .DepthAttachment => .{
-            .depth_stencil_attachment_bit = true
+            .depth_stencil_attachment = true
         },
         else => VulkanAllocatorError.InvalidAllocatorUsage
     };
@@ -249,14 +249,14 @@ pub fn get_allocator_usage_memory_properties(allocator_usage: VulkanAllocatorUsa
     return switch(allocator_usage)
     {
         .VertexBuffer, .IndexBuffer => .{
-            .device_local_bit = true,
+            .device_local = true,
         },
         .UniformBuffer, .CPUTransferDst => .{
-            .host_visible_bit = true,
-            .host_coherent_bit = true
+            .host_visible = true,
+            .host_coherent = true
         },
         .Texture, .Subtexture, .GenericAttachment, .DepthAttachment => .{
-            .device_local_bit = true
+            .device_local = true
         }
     };
 }
@@ -672,7 +672,7 @@ pub const VulkanAllocator = struct
         const image = try self.interface.device.createImage(&image_info, null);
 
         const memory_properties: vk.MemoryPropertyFlags = .{
-            .device_local_bit = true
+            .device_local = true
         };
 
         const memory_requirements = self.interface.device.getImageMemoryRequirements(image);
@@ -752,7 +752,7 @@ pub const VulkanAllocator = struct
             .initial_layout = .undefined,
             .usage = image_flags,
             .sharing_mode = .exclusive,
-            .samples = .{ .@"1_bit" = true }
+            .samples = .{ .@"1" = true }
         };
 
         return self.alloc_image_empty(info_image, usage);
@@ -776,7 +776,7 @@ pub const VulkanAllocator = struct
             .initial_layout = .undefined,
             .usage = image_flags,
             .sharing_mode = .exclusive,
-            .samples = .{ .@"1_bit" = true }
+            .samples = .{ .@"1" = true }
         };
 
         return self.alloc_image(info_image, image_data, usage);
@@ -819,7 +819,7 @@ pub const VulkanAllocator = struct
 
         const page = self.memory_pages.items[allocation.page];
 
-        if(!page.properties.host_visible_bit or !page.properties.host_coherent_bit)
+        if(!page.properties.host_visible or !page.properties.host_coherent)
         {
             return VulkanMemoryError.InvalidMemoryType;
         }
@@ -898,12 +898,12 @@ pub const VulkanAllocator = struct
         };
 
         alloc.staging_buffer = try create_buffer(interface, options.staging_size, .exclusive, .{
-            .transfer_src_bit = true,
+            .transfer_src = true,
         });
 
         alloc.staging_buffer_memory = try allocate_vulkan_memory_from_buffer(interface, alloc.staging_buffer, .{
-            .host_visible_bit = true,
-            .host_coherent_bit = true
+            .host_visible = true,
+            .host_coherent = true
         });
 
         return alloc;

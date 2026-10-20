@@ -17,7 +17,7 @@ pub fn create_command_pool(vkc: *VkInterface, queue_family_index: u32) !vk.Comma
 {
     const info_command_pool: vk.CommandPoolCreateInfo = .{
         .flags = .{
-            .reset_command_buffer_bit = true
+            .reset_command_buffer = true
         },
         .queue_family_index = queue_family_index 
     };
@@ -39,7 +39,7 @@ pub fn begin_single_time_command_buffer(context: *VkInterface, command_pool: vk.
 
     const info_begin: vk.CommandBufferBeginInfo = .{
         .flags = .{
-            .one_time_submit_bit = true
+            .one_time_submit = true
         }
     };
 

@@ -82,7 +82,7 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, target: std.Build.
 
 fn load_miniaudio_module(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module
 {
-    const miniaudio = b.addModule("miniaudio", .{
+    const miniaudio = b.createModule(.{
         .target = target,
         .optimize = optimize
     });
@@ -136,7 +136,7 @@ fn load_miniaudio_module(b: *std.Build, target: std.Build.ResolvedTarget, optimi
     }
 
     const miniaudio_lib = b.addLibrary(.{
-        .name = "miniaudio",
+        .name = "miniaudio_lib",
         .root_module = miniaudio,
         .linkage = .static
     });
@@ -157,7 +157,7 @@ fn load_miniaudio_module(b: *std.Build, target: std.Build.ResolvedTarget, optimi
 
 fn load_minimp3_module(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module
 {
-    const minimp3 = b.addModule("minimp3", .{
+    const minimp3 = b.createModule(.{
         .target = target,
         .optimize = optimize
     });
@@ -170,7 +170,7 @@ fn load_minimp3_module(b: *std.Build, target: std.Build.ResolvedTarget, optimize
     });
 
     const minimp3_lib = b.addLibrary(.{
-        .name = "minimp3",
+        .name = "minimp3_lib",
         .root_module = minimp3,
         .linkage = .static
     });
@@ -191,7 +191,7 @@ fn load_minimp3_module(b: *std.Build, target: std.Build.ResolvedTarget, optimize
 
 fn load_stb_vorbis_module(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module
 {
-    const stb_vorbis = b.addModule("stb_vorbis", .{
+    const stb_vorbis = b.createModule(.{
         .target = target,
         .optimize = optimize
     });
@@ -204,7 +204,7 @@ fn load_stb_vorbis_module(b: *std.Build, target: std.Build.ResolvedTarget, optim
     });
 
     const vorbis_lib = b.addLibrary(.{
-        .name = "stb_vorbis",
+        .name = "stb_vorbis_lib",
         .root_module = stb_vorbis,
         .linkage = .static
     });
@@ -276,7 +276,7 @@ pub fn build(b: *std.Build) void
     add_library_dependencies(b, &exe_test.step);
     add_library_dependencies(b, &ashbloom_lib.step);
 
-    add_libraries(b, exe_test, std_target, std_optimize);
+    // add_libraries(b, exe_test, std_target, std_optimize);
     add_libraries(b, ashbloom_lib, std_target, std_optimize);
 
     // Building library documentation.

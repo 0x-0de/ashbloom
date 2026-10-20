@@ -11,14 +11,14 @@ const print = @import("../root.zig").print_stdout;
 /// Default device extensions. Since Ashbloom's built-in Swapchain structure uses the VkSwapchainKHR extension, it's assumed that it will be
 /// required for this initialization too.
 var default_device_extensions: [1][*:0]const u8 = .{
-    vk.extensions.khr_swapchain.name
+    vk.device_extensions.khr_swapchain.name
 };
 
 /// Wrapper function. The vulkan-zig wrapper gets all function pointers dynamically, so there needs to be some user-defined function which
 /// wraps vkGetInstanceProcAddr that vulkan-zig can use.
-fn vk_get_instance_proc_address(instance: vk.Instance, proc_name: [*:0]const u8) vk.PfnVoidFunction
+fn vk_get_instance_proc_address(instance: ?vk.Instance, proc_name: [*:0]const u8) vk.PfnVoidFunction
 {
-    const func = glfw.getInstanceProcAddress(@intFromEnum(instance), proc_name);
+    const func = glfw.getInstanceProcAddress(@intFromPtr(instance), proc_name);
     return func;
 }
 
@@ -30,7 +30,7 @@ fn vk_debug_validation_layer_message_callback(message_severity: vk.DebugUtilsMes
     
     _ = p_user_data;
 
-    if(message_severity.error_bit_ext)
+    if(message_severity.error_ext)
     {
         err_print("[VK|VAL|ERR] {s}\n", .{p_callback_data.?.p_message.?});
     }
@@ -48,14 +48,14 @@ fn get_debug_messenger_create_info() vk.DebugUtilsMessengerCreateInfoEXT
 {
     return .{
         .message_severity = .{
-            .verbose_bit_ext = true,
-            .warning_bit_ext = true,
-            .error_bit_ext = true
+            .verbose_ext = true,
+            .warning_ext = true,
+            .error_ext = true
         },
         .message_type = .{
-            .general_bit_ext = true,
-            .validation_bit_ext = true,
-            .performance_bit_ext = true
+            .general_ext = true,
+            .validation_ext = true,
+            .performance_ext = true
         },
         .pfn_user_callback = vk_debug_validation_layer_message_callback
     };
@@ -489,7 +489,7 @@ pub const VkContext = struct
     pub fn create_glfw_window_surface(self: VkContext, window: *c_long) !vk.SurfaceKHR
     {
         var surface_id: u64 = undefined;
-        const result = glfw.createWindowSurface(@intFromEnum(self.instance.handle), window, null, &surface_id);
+        const result = glfw.createWindowSurface(@intFromPtr(self.instance.handle), window, null, &surface_id);
         if(result != .success) return VulkanInitError.FailedToCreateWindowSurface;
 
         return @enumFromInt(surface_id);
@@ -518,7 +518,7 @@ pub const VkContext = struct
         vk_context.vkb.* = vk.BaseWrapper.load(vk_get_instance_proc_address);
 
         const hndl_instance = try vk_context.create_instance_handle(options);
-        
+
         // The instance wrapper handles all functions that require an instance handle only.
 
         vk_context.vki = try allocator.create(vk.InstanceWrapper);
@@ -673,12 +673,12 @@ pub const VkInterface = struct
 
         for(queue_families.items, 0..) |family, i|
         {
-            if(family.queue_flags.graphics_bit) qf.graphics_family_index = i;
+            if(family.queue_flags.graphics) qf.graphics_family_index = i;
 
             if(try self.context.vki.getPhysicalDeviceSurfaceSupportKHR(physical_device, @truncate(i), surface) == .true)
             {
                 qf.present_family_index = i;
-                if(family.queue_flags.graphics_bit) qf.graphics_family_index = i;
+                if(family.queue_flags.graphics) qf.graphics_family_index = i;
             }
         }
 
@@ -856,7 +856,7 @@ pub const VkInterface = struct
         };
 
         // Creating the window surface.
-
+        
         const surface = interface.surfaces.addOneAssumeCapacity();
         surface.* = try context.create_glfw_window_surface(window.glfw_handle);
 
@@ -864,7 +864,7 @@ pub const VkInterface = struct
 
         interface.physical_device = try interface.select_physical_device(options, surface.*);
         interface.physical_device_queue_families = try interface.get_physical_device_queue_families(interface.physical_device.?, surface.*);
-
+        
         const hndl_device = try interface.create_vulkan_logical_device(options);
 
         // Seems like the best way to get the correct vkGetDeviceProcAddr function is to get it straight from the dispatch table.
