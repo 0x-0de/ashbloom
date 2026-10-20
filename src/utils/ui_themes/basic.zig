@@ -44,7 +44,7 @@ pub const BasicUIElementType = enum
     Textfield
 };
 
-pub const ButtonPressCallback = *const fn(*Element) anyerror!void;
+pub const ButtonPressCallback = *const fn(*Element) void;
 pub const CheckboxTickCallback = *const fn(*Element, bool) void;
 pub const SliderMoveCallback = *const fn(*Element, f32) void;
 
@@ -250,7 +250,7 @@ fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextDat
 
                 // Width of the entire line in pixels, assuming this character is added to it.
                 const projected_length = offset + character.advance + character.bearing_x;
-                
+
                 if(i == text.string.len - 1)
                 {
                     ash.print_stdout("  projected length of last character's line: {d}\n", .{projected_length});
@@ -580,7 +580,7 @@ pub fn test_callback_button_press(e: *Element) void
     std.debug.print("Button pressed.\nAddress of element: {*}\n", .{e});
 }
 
-fn empty_press_callback(e: *Element) !void
+fn empty_press_callback(e: *Element) void
 {
     _ = e;
 }
