@@ -1,7 +1,7 @@
 .{
-    .name = .ashbloom_example,
+    .name = .ashbloom_example_audio_ogg_tests,
     .version = "0.0.0",
-    .fingerprint = 0x77f454e284c39a5a,
+    .fingerprint = 0x1c1b0441b57c037d,
     .minimum_zig_version = "0.17.0",
 
     .paths = .{
