@@ -381,30 +381,7 @@ fn text_parent_resize_callback(element: *Element, data: ContainerInputData) !voi
 }
 
 /// Determines the properties of a text element.
-pub const TextProperties = struct
-{
-    /// Font to draw glyph images from.
-    font: *Font,
-    /// Size to render the text glyphs.
-    size: f32,
-    /// Alignment of individual lines of text.
-    alignment: vkui.Alignment,
-    /// Unicode string.
-    string: []u32,
-    /// Space to leave between the horizontal edges of the parent element, and the text itself. 
-    margin: f32,
-
-    pub fn init(font: *Font, size: f32, alignment: vkui.Alignment, string: []u32) TextProperties
-    {
-        return .{
-            .font = font,
-            .size = size,
-            .alignment = alignment,
-            .string = string,
-            .margin = 0
-        };
-    }
-};
+pub const TextProperties = TextData;
 
 /// Creates a text element, which uses the element's parent to host the text. For example, adding this element as a child to a simple quad would
 /// mean the text would attempt to fit within said quad.
@@ -567,7 +544,7 @@ fn button_callback_mouse_release(e: *Element, data: ContainerInputData) !void
     {
         if(e.data.?[0] == 2)
         {
-            try callback(e);
+            callback(e);
         }
         e.data.?[0] = 1;
     }
@@ -1973,9 +1950,7 @@ fn textfield_callback_rebuild(e: *Element, data: ContainerInputData) !void
 
     try text_space.remove_by_index(1);
 
-    var text_properties: TextProperties = .init(textfield_data.font, textfield_data.text_size, textfield_data.text_alignment, textfield_data.text);
-
-    text_properties.margin = 5;
+    const text_properties: TextProperties = .init(textfield_data.font, textfield_data.text_size, textfield_data.text_alignment, textfield_data.text, 5);
 
     const new_text = try create_text(e.allocator, text_properties);
     try text_space.add_and_dispose(new_text);
@@ -2309,9 +2284,7 @@ pub fn create_textfield(allocator: *const std.mem.Allocator, placement: Placemen
 
     cursor.* = try Element.init(allocator, .Color, cursor_placement, .{1, 1, 1, 1});
 
-    var text_properties: TextProperties = .init(properties.font, properties.text_size, properties.text_alignment, properties.initial_text);
-
-    text_properties.margin = 5;
+    const text_properties: TextProperties = .init(properties.font, properties.text_size, properties.text_alignment, properties.initial_text, 5);
 
     const text = try create_text(allocator, text_properties);
     var data: TextFieldData = try .init(allocator, properties);
@@ -2356,13 +2329,13 @@ pub fn init_basic_render_pass(interface: *VkInterface, swapchain: Swapchain) !*R
             .dst_subpass = undefined,
             .src_access_mask = .{},
             .src_stage_mask = .{
-                .color_attachment_output_bit = true
+                .color_attachment_output = true
             },
             .dst_access_mask = .{
-                .color_attachment_write_bit = true
+                .color_attachment_write = true
             },
             .dst_stage_mask = .{
-                .color_attachment_output_bit = true
+                .color_attachment_output = true
             }
         }
     };
@@ -2387,7 +2360,7 @@ fn init_basic_pipeline_descriptor_set(interface: *VkInterface, vk_allocator: *Vu
         .binding_index = 0,
         .type = .uniform_buffer,
         .shader_stage = .{
-            .vertex_bit = true
+            .vertex = true
         },
         .info = .{ .buffer = .{
             .buffer_size = 16 * @sizeOf(f32)
@@ -2398,7 +2371,7 @@ fn init_basic_pipeline_descriptor_set(interface: *VkInterface, vk_allocator: *Vu
         .binding_index = 1,
         .type = .combined_image_sampler,
         .shader_stage = .{
-            .fragment_bit = true
+            .fragment = true
         },
         .info = .{ .image = .{
             .image_sampler = container.texture_atlas.sampler,
@@ -2427,8 +2400,8 @@ fn init_basic_pipeline(interface: *VkInterface, descriptor_set: PipelineDescript
 
     try pvi.build(0, vk.VertexInputRate.instance);
 
-    try ui_pipeline.add_shader_module("shaders/ui_basic_vert.spv", .{.vertex_bit = true});
-    try ui_pipeline.add_shader_module("shaders/ui_basic_frag.spv", .{.fragment_bit = true});
+    try ui_pipeline.add_shader_module("shaders/ui_basic_vert.spv", .{.vertex = true});
+    try ui_pipeline.add_shader_module("shaders/ui_basic_frag.spv", .{.fragment = true});
 
     try ui_pipeline.add_dynamic_state(vk.DynamicState.viewport);
     try ui_pipeline.add_dynamic_state(vk.DynamicState.scissor);

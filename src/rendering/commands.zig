@@ -58,7 +58,7 @@ pub fn end_and_submit_single_time_command_buffer(context: *VkInterface, command_
         .p_command_buffers = @ptrCast(&command_buffer)
     };
 
-    try context.device.queueSubmit(queue, &.{ info_submit }, .null_handle);
+    try context.device.queueSubmit(queue, &.{ info_submit }, .null);
     try context.device.queueWaitIdle(queue);
 
     context.device.freeCommandBuffers(command_pool, &.{ command_buffer });

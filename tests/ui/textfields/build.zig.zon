@@ -1,8 +1,8 @@
 .{
-    .name = .ashbloom_example_textfields,
+    .name = .ashbloom_example,
     .version = "0.0.0",
-    .fingerprint = 0xa14c6989f5e6fc22,
-    .minimum_zig_version = "0.16.0",
+    .fingerprint = 0x77f454e284c39a5a,
+    .minimum_zig_version = "0.17.0",
 
     .paths = .{
         "build.zig",
@@ -12,7 +12,7 @@
 
     .dependencies = .{
         .ashbloom = .{
-            .path = "..\\.."
+            .path = "..\\..\\.."
         }
     }
 }

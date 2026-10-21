@@ -1,8 +1,8 @@
 .{
-    .name = .ashbloom_example_sin_out,
+    .name = .ashbloom_example,
     .version = "0.0.0",
     .fingerprint = 0x77f454e284c39a5a,
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0",
 
     .paths = .{
         "build.zig",

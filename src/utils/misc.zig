@@ -28,25 +28,6 @@ pub fn wrapping_rightshift(comptime T: type, value: T, shift: usize) T
     return wrapping_leftshift(T, value, (type_size - shift));
 }
 
-/// Returns the path of the emitted .exe file (implementation is OS-specific, only works on Windows & Linux for now).
-pub fn get_exe_path() []u8
-{
-    if(comptime builtin.os.tag == .windows)
-    {
-        const win32 = @import("win32");
-        const GetModuleFileName = win32.system.library_loader.GetModuleFileNameA;
-
-        var buffer: [4096]u8 = undefined;
-        const len = GetModuleFileName(null, @as([*:0]u8, @ptrCast(&buffer)), 4096);
-
-        return buffer[0..len];
-    }
-    else
-    {
-        @compileError("Your OS doesn't support the get_exe_path() function.");
-    }
-}
-
 /// Contains data about an individual font file.
 pub const FontEntry = struct
 {

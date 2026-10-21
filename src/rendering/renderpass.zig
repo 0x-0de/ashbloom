@@ -60,7 +60,7 @@ pub const RenderPass = struct
         const att_desc: vk.AttachmentDescription = .{
             .format = format,
             .samples = .{
-                .@"1_bit" = true
+                .@"1" = true
             },
             .load_op = load_op,
             .store_op = store_op,

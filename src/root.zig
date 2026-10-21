@@ -2,7 +2,6 @@
 //! All modules (source files) are exposed here.
 
 const std = @import("std");
-const win32 = @import("win32");
 
 /// Required field for win32 API.
 pub const UNICODE = false;

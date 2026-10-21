@@ -28,7 +28,7 @@ fn dc_sin(_: *ma.Device, output: *anyopaque, _: *anyopaque, frame_count: u32) ca
 pub fn main() !void
 {
     var ma_context: *ma.Context = try .init();
-    defer ma_context.uninit();
+    defer ma_context.deinit();
 
     const audio_device_list = try ma_context.get_devices();
     audio_device_list.print();
@@ -42,7 +42,7 @@ pub fn main() !void
     config.user_data = null;
 
     var device: *ma.Device = try .init(null, &config);
-    defer device.uninit();
+    defer device.deinit();
 
     try device.start();
 

@@ -11,11 +11,11 @@ var debug_required_validation_layers: [1][*:0]const u8 = .{
 };
 
 var debug_required_instance_extensions: [1][*:0]const u8 = .{
-    vk.extensions.ext_debug_utils.name
+    vk.instance_extensions.ext_debug_utils.name
 };
 
 var required_device_extensions: [1][*:0]const u8 = .{
-    vk.extensions.khr_swapchain.name
+    vk.device_extensions.khr_swapchain.name
 };
 
 const Window = ash.rendering.Window;
@@ -105,7 +105,7 @@ fn callback_mouse_leave(e: *ash.ui.Element, data: ash.ui.ContainerInputData) !vo
     ash.print_stdout("{s}\n", .{"Mouse left!"});
 }
 
-fn callback_button_press(e: *ash.ui.Element) !void
+fn callback_button_press(e: *ash.ui.Element) void
 {
     _ = e;
 

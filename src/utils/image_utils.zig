@@ -93,7 +93,7 @@ pub fn create_image_view_2d(interface: *VkInterface, image: vk.Image, format: vk
         },
         .subresource_range = .{
             .aspect_mask = .{
-                .color_bit = true
+                .color = true
             },
             .base_mip_level = 0,
             .level_count = 1,
@@ -148,7 +148,7 @@ command_pool: vk.CommandPool, transfer_queue: vk.Queue) !void
         .image = image,
         .subresource_range = .{
             .aspect_mask = .{
-                .color_bit = true
+                .color = true
             },
             .base_mip_level = 0,
             .level_count = 1,
@@ -172,28 +172,28 @@ command_pool: vk.CommandPool, transfer_queue: vk.Queue) !void
         {
             pipeline_barrier.src_access_mask = .{};
             pipeline_barrier.dst_access_mask = .{
-                .transfer_write_bit = true
+                .transfer_write = true
             };
 
             src_stage = .{
-                .top_of_pipe_bit = true
+                .top_of_pipe = true
             };
             dst_stage = .{
-                .transfer_bit = true
+                .transfer = true
             };
         }
         else if(new_layout == .transfer_src_optimal)
         {
             pipeline_barrier.src_access_mask = .{};
             pipeline_barrier.dst_access_mask = .{
-                .transfer_read_bit = true
+                .transfer_read = true
             };
 
             src_stage = .{
-                .top_of_pipe_bit = true
+                .top_of_pipe = true
             };
             dst_stage = .{
-                .transfer_bit = true
+                .transfer = true
             };
         }
     }
@@ -204,17 +204,17 @@ command_pool: vk.CommandPool, transfer_queue: vk.Queue) !void
         if(new_layout == .shader_read_only_optimal)
         {
             pipeline_barrier.src_access_mask = .{
-                .transfer_write_bit = true
+                .transfer_write = true
             };
             pipeline_barrier.dst_access_mask = .{
-                .shader_read_bit = true
+                .shader_read = true
             };
 
             src_stage = .{
-                .transfer_bit = true
+                .transfer = true
             };
             dst_stage = .{
-                .fragment_shader_bit = true
+                .fragment_shader = true
             };
         }
     }
@@ -330,7 +330,7 @@ pub const TextureAtlas2D = struct
     {
         const image_subresource: vk.ImageSubresourceLayers = .{
             .aspect_mask = .{
-                .color_bit = true
+                .color = true
             },
             .mip_level = 0,
             .base_array_layer = 0,
