@@ -12,7 +12,6 @@ This library is currently in an unstable (pre-release) state and may not fully s
 - Render passes (legacy Vulkan feature).
 - Vulkan graphics pipeline, descriptor set, and push constant handling.
     - Support for modern Vulkan dynamic rendering.
-
 - Linear algebra library, with built-in projection and transformation matrices.
 - Psuedo-random number and noise generation.
 - Built-in polygonization algorithms
