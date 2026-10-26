@@ -52,8 +52,6 @@ pub const Font = struct
 
     /// FreeType typeface object.
     typeface: freetype.FT_Face,
-    /// Current pixel size of any new requested characters.
-    typesize: c_uint,
 
     /// Texture atlas to load the font characters onto.
     atlas: ?*TextureAtlas2D,
@@ -61,12 +59,14 @@ pub const Font = struct
     characters: std.ArrayList(FontCharacter),
 
     /// Adds a unicode character directly to the atlas.
-    fn add_unicode_glyph(self: *Font, unicode: u32) !FontCharacter
+    fn add_unicode_glyph(self: *Font, unicode: u32, size: u32) !FontCharacter
     {
         if(self.atlas == null)
         {
             return FontError.NoAtlas;
         }
+
+        _ = freetype.FT_Set_Pixel_Sizes(self.typeface, 0, size);
 
         if(freetype.FT_Load_Char(self.typeface, unicode, freetype.FT_LOAD_RENDER) != 0)
         {
@@ -74,7 +74,7 @@ pub const Font = struct
         }
 
         const bitmap = self.typeface.*.glyph.*.bitmap;
-        
+
         const width = bitmap.width;
         const height = bitmap.rows;
 
@@ -96,7 +96,7 @@ pub const Font = struct
 
         var texture = try Texture2D.init_buffer(self.interface, self.vk_allocator, u8, buffer, width + 1, height + 1,
         .a8b8g8r8_uint_pack32, .Subtexture);
-        
+
         var suballocation = try self.atlas.?.add_texture(&texture);
 
         suballocation.pos_y += 1.0 / @as(f32, @floatFromInt(self.atlas.?.height));
@@ -109,7 +109,7 @@ pub const Font = struct
 
         const character: FontCharacter = .{
             .unicode = unicode,
-            .size = self.typesize,
+            .size = size,
             .suballocation = suballocation,
             .advance = @truncate(@as(u16, @intCast(self.typeface.*.glyph.*.advance.x)) >> 6),
             .bearing_x = @truncate(@as(i16, @intCast(self.typeface.*.glyph.*.bitmap_left))),
@@ -127,7 +127,7 @@ pub const Font = struct
     }
 
     /// Initializes the font class. If `atlas` is null, it will need to be set before `request` is called.
-    pub fn init(interface: *VkInterface, vk_allocator: *VulkanAllocator, path: []const u8, size: c_uint, atlas: ?*TextureAtlas2D) !Font
+    pub fn init(interface: *VkInterface, vk_allocator: *VulkanAllocator, path: []const u8, atlas: ?*TextureAtlas2D) !Font
     {
         if(!ui.initialized) return FontError.UIisUninitialized;
 
@@ -135,8 +135,7 @@ pub const Font = struct
             .interface = interface,
             .vk_allocator = vk_allocator,
             .typeface = undefined,
-            .typesize = size,
-            .atlas = atlas, 
+            .atlas = atlas,
             .characters = try std.ArrayList(FontCharacter).initCapacity(interface.allocator.*, 0)
         };
 
@@ -155,24 +154,22 @@ pub const Font = struct
             return FontError.FailedToLoadFont;
         }
 
-        font.set_font_size(size);
-
         return font;
     }
 
     /// Requests a unicode character to be added to the font.
     /// If the character is already available, then the associated `FontCharacter` is returned. Otherwise, a new one is allocated from the `atlas` and added to `characters` before being returned.
-    pub fn request(self: *Font, unicode: u32, size: f32) !FontCharacter
+    pub fn request(self: *Font, unicode: u32, size: u32) !FontCharacter
     {
         for(self.characters.items) |ch|
         {
-            if(ch.unicode == unicode and ch.size == @as(c_uint, @intFromFloat(size)))
+            if(ch.unicode == unicode and ch.size == size)
             {
                 return ch;
             }
         }
 
-        const ch = try self.add_unicode_glyph(unicode);
+        const ch = try self.add_unicode_glyph(unicode, size);
         try self.characters.append(self.interface.allocator.*, ch);
 
         return ch;
@@ -222,14 +219,6 @@ pub const Font = struct
                 }
             }
         }
-    }
-
-    /// Updates the `typesize`. This change only applies to new requested characters, currently held ones will maintain their current sizes.
-    /// You can request the same character(s) in multiple sizes.
-    pub fn set_font_size(self: *Font, size: c_uint) void
-    {
-        self.typesize = size;
-        _ = freetype.FT_Set_Pixel_Sizes(self.typeface, 0, size);
     }
 };
 

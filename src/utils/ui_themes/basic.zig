@@ -90,11 +90,9 @@ pub const FontCharacterElement = struct
 };
 
 /// Creates an image quad which displays a letter, symbol, or glyph from a font.
-pub fn create_text_character(allocator: *const std.mem.Allocator, placement: Placement, font: *Font, size: f32, unicode: u32) !FontCharacterElement
+pub fn create_text_character(allocator: *const std.mem.Allocator, placement: Placement, font: *Font, size: u32, unicode: u32) !FontCharacterElement
 {
     const e = try allocator.create(Element);
-
-    font.set_font_size(@as(c_uint, @intFromFloat(size)));
 
     const character = try font.request(unicode, size);
     const suballoc = character.suballocation;
@@ -107,8 +105,7 @@ pub fn create_text_character(allocator: *const std.mem.Allocator, placement: Pla
         .scl_y = suballoc.scl_y * @as(f32, @floatFromInt(font.atlas.?.height))
     };
 
-    e.* = try Element.init(allocator, .Character, scaled_placement, 
-    .{suballoc.pos_x, suballoc.pos_y, suballoc.scl_x, suballoc.scl_y});
+    e.* = try Element.init(allocator, .Character, scaled_placement, .{suballoc.pos_x, suballoc.pos_y, suballoc.scl_x, suballoc.scl_y});
 
     return .{
         .element = e,
@@ -135,7 +132,7 @@ pub const TextData = struct
     /// Font used.
     font: *Font,
     /// Text size.
-    size: f32,
+    size: u32,
     /// Alignment of individual lines of text in relation to the parent element.
     alignment: vkui.Alignment,
     /// Text, in unicode (u32) values.
@@ -143,7 +140,7 @@ pub const TextData = struct
     /// Horizontal border between the text and the edge of the parent element.
     margin: f32,
 
-    pub fn init(font: *Font, size: f32, alignment: vkui.Alignment, string: []u32, margin: f32) TextData
+    pub fn init(font: *Font, size: u32, alignment: vkui.Alignment, string: []u32, margin: f32) TextData
     {
         return .{
             .font = font,
@@ -194,7 +191,7 @@ fn get_text_line_alignment_push(text_data: TextData, draw_bounds: vkui.Bounds, l
 
 fn get_text_line_vertical_offset(text_data: TextData, bounds: vkui.Bounds, line_index: f32, num_lines: usize) f32
 {
-    const size = text_data.size;
+    const size: f32 = @floatFromInt(text_data.size);
 
     return switch(text_data.alignment.y)
     {
@@ -206,8 +203,6 @@ fn get_text_line_vertical_offset(text_data: TextData, bounds: vkui.Bounds, line_
 
 fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextData) !std.ArrayList(TextLine)
 {
-    ash.print_stdout("GET TEXT LINE DATA.\n", .{});
-
     if(text.string.len == 0) return .initCapacity(element.allocator.*, 0);
     var lines = try std.ArrayList(TextLine).initCapacity(element.allocator.*, 1);
 
@@ -221,12 +216,9 @@ fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextDat
 
     const container_width = bounds.draw_bounds.scl_x - text.margin * 2;
 
-    ash.print_stdout("LOOP\n", .{});
-
     while(should_loop)
     {
         const line = try lines.addOne(element.allocator.*);
-        ash.print_stdout("Line {d}.\n", .{lines.items.len});
 
         var offset: f32 = 0;
         var contains_whitespace = false;
@@ -251,11 +243,6 @@ fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextDat
                 // Width of the entire line in pixels, assuming this character is added to it.
                 const projected_length = offset + character.advance + character.bearing_x;
 
-                if(i == text.string.len - 1)
-                {
-                    ash.print_stdout("  projected length of last character's line: {d}\n", .{projected_length});
-                }
-
                 if(projected_length > container_width)
                 {
                     if(!contains_whitespace) next_break = i;
@@ -277,26 +264,21 @@ fn get_text_line_data(element: *Element, data: ContainerInputData, text: TextDat
             }
         }
 
-        ash.print_stdout(" final offset: {d} (limit: {d})\n", .{offset, container_width});
-        ash.print_stdout(" start: {d}, end: {d} (limit: {d})\n.", .{line_start, next_break, text.string.len - 1});
-
         line.length = next_break - line_start;
         line.size = offset;
 
         const line_alignment_push = get_text_line_alignment_push(text, bounds.draw_bounds, offset);
         line.alignment_push = line_alignment_push;
 
-        line_start = if(contains_whitespace) next_break + 1 else next_break;
+        line_start = if(contains_whitespace) next_break + 1 else next_break + 1;
         if(next_break >= text.string.len - 1) should_loop = false;
     }
 
-    ash.print_stdout("\tDone.\n", .{});
     return lines;
 }
 
 fn text_parent_resize_callback(element: *Element, data: ContainerInputData) !void
 {
-    ash.print_stdout("TEXT PARENT RESIZE CALLBACK.\n", .{});
     if(element.children.items.len == 0) return;
     
     const parent_lineage = element.lineage.?[0..element.lineage.?.len - 1];
@@ -306,17 +288,6 @@ fn text_parent_resize_callback(element: *Element, data: ContainerInputData) !voi
     memcpy_anonymous(&text_data, element.data.?.ptr, @sizeOf(TextData));
 
     var lines = try get_text_line_data(element, data, text_data);
-
-    ash.print_stdout("Number of lines: {d}\n", .{lines.items.len});
-    for(lines.items) |l|
-    {
-        ash.print_stdout("Newline.\n", .{});
-        for(l.start..l.start + l.length) |i|
-        {
-            ash.print_stdout("{d} ", .{text_data.string[i]});
-        }
-        ash.print_stdout("\n", .{});
-    }
 
     var character_index: usize = 0;
 
@@ -334,12 +305,12 @@ fn text_parent_resize_callback(element: *Element, data: ContainerInputData) !voi
                 const e = element.children.items[character_index];
 
                 e.placement.absolute_offset.pos_x = offset + @as(f32, @floatFromInt(ch.bearing_x)) + line.alignment_push;
-                e.placement.absolute_offset.pos_y = -(e.placement.absolute_offset.scl_y - @as(f32, @floatFromInt(ch.bearing_y))) - @as(f32, @floatFromInt(i)) * text_data.size;
+                e.placement.absolute_offset.pos_y = -(e.placement.absolute_offset.scl_y - @as(f32, @floatFromInt(ch.bearing_y))) - @as(f32, @floatFromInt(i * text_data.size));
 
                 character_index += 1;
             }
 
-            if(uc != '\n') offset += @floatFromInt(ch.advance);
+            if(uc != '\n') offset += @as(f32, @floatFromInt(ch.advance));
         }
     }
 
@@ -347,6 +318,8 @@ fn text_parent_resize_callback(element: *Element, data: ContainerInputData) !voi
     lines.deinit(element.allocator.*);
 
     // Vertical alignment.
+    
+    const text_size: f32 = @floatFromInt(text_data.size);
 
     switch(text_data.alignment.y)
     {
@@ -355,7 +328,7 @@ fn text_parent_resize_callback(element: *Element, data: ContainerInputData) !voi
             {
                 const e = element.children.items[i];
 
-                e.placement.absolute_offset.pos_y += (total_lines - 1) * text_data.size + text_data.margin;
+                e.placement.absolute_offset.pos_y += (total_lines - 1) * text_size + text_data.margin;
             }
         },
         .Center => {
@@ -363,7 +336,7 @@ fn text_parent_resize_callback(element: *Element, data: ContainerInputData) !voi
             {
                 const e = element.children.items[i];
 
-                e.placement.absolute_offset.pos_y += (bounds.draw_bounds.scl_y - text_data.size + (total_lines - 1) * text_data.size) / 2;
+                e.placement.absolute_offset.pos_y += (bounds.draw_bounds.scl_y - text_size + (total_lines - 1) * text_size) / 2;
             }
         },
         .Top => {
@@ -371,13 +344,12 @@ fn text_parent_resize_callback(element: *Element, data: ContainerInputData) !voi
             {
                 const e = element.children.items[i];
 
-                e.placement.absolute_offset.pos_y += bounds.draw_bounds.scl_y - text_data.size - text_data.margin;
+                e.placement.absolute_offset.pos_y += bounds.draw_bounds.scl_y - text_size - text_data.margin;
             }
         }
     }
 
     element.refresh(true);
-    ash.print_stdout("\tDone.\n", .{});
 }
 
 /// Determines the properties of a text element.
@@ -1572,7 +1544,7 @@ pub const TextFieldData = struct
     font: *Font,
 
     text: []u32,
-    text_size: f32,
+    text_size: u32,
     text_alignment: vkui.Alignment,
 
     current_cursor_pos: usize,
@@ -1615,7 +1587,7 @@ pub const TextFieldProperties = struct
     /// Font used for the text.
     font: *Font,
     /// Text size.
-    text_size: f32 = 20,
+    text_size: u32 = 20,
     /// Alignment of the text within the textfield, including the direction which the text will "grow" in.
     text_alignment: vkui.Alignment = .{
         .x = .Left,
@@ -1829,7 +1801,9 @@ fn get_text_space(element: *Element, container_data: ContainerInputData) !vkui.B
         }
     }
 
-    var scl_y = max_y - min_y + text_data.size;
+    const text_size: f32 = @floatFromInt(text_data.size);
+
+    var scl_y = max_y - min_y + text_size;
     if(scl_y < border_bounds.scl_y - 2)
     {
         // Ensures the text space is always at least as tall as the textfield space.
@@ -1844,8 +1818,8 @@ fn get_text_space(element: *Element, container_data: ContainerInputData) !vkui.B
     }
     else if(text_data.alignment.y == .Top)
     {
-        const cursor_boundary = border_bounds.scl_y - 2 - text_data.size;
-        const scroll_boundary = border_bounds.scl_y - 2 + text_data.size;
+        const cursor_boundary = border_bounds.scl_y - 2 - text_size;
+        const scroll_boundary = border_bounds.scl_y - 2 + text_size;
 
         if(pos_y < cursor_boundary and scl_y > scroll_boundary)
         {
@@ -2274,7 +2248,7 @@ pub fn create_textfield(allocator: *const std.mem.Allocator, placement: Placemen
             .pos_x = 0,
             .pos_y = 0,
             .scl_x = 3,
-            .scl_y = properties.text_size
+            .scl_y = @floatFromInt(properties.text_size)
         },
         .alignment = .{
             .x = .Left,
@@ -2486,7 +2460,7 @@ fn character_is_letter(c: u32) bool
     return (c >= 65 and c <= 90) or (c >= 97 and c <= 122) or c == 95;
 }
 
-fn trim_string(comptime T: type, str: []const T) []const T
+fn trim_string(allocator: *const std.mem.Allocator, comptime T: type, str: []const T) ![]T
 {
     var start_index: usize = 0;
     var end_index: usize = str.len - 1;
@@ -2506,12 +2480,21 @@ fn trim_string(comptime T: type, str: []const T) []const T
     if(start_index == str.len) return &.{};
 
     var read_mode = false;
+    var num_tabs: usize = 0;
+
+    end_index = start_index;
 
     for(start_index..str.len) |i|
     {
         if(character_is_whitespace(str[i]) and !read_mode)
         {
             read_mode = true;
+
+            for(end_index..i) |j|
+            {
+                if(str[j] == '\t') num_tabs += 1;
+            }
+
             end_index = i;
         }
         else if(!character_is_whitespace(str[i]))
@@ -2521,11 +2504,34 @@ fn trim_string(comptime T: type, str: []const T) []const T
 
         if(i == str.len - 1 and !read_mode)
         {
+            for(end_index..i) |j|
+            {
+                if(str[j] == '\t') num_tabs += 1;
+            }
+
             end_index = str.len;
         }
     }
 
-    return str[start_index..end_index];
+    const str_len = (end_index - start_index) - num_tabs;
+    var s = try allocator.alloc(T, str_len);
+
+    var index: usize = 0;
+    for(start_index..end_index) |i|
+    {
+        if(str[i] != '\t')
+        {
+            s[index] = str[i];
+            index += 1;
+        }
+
+        if(i == end_index - 1)
+        {
+            std.debug.assert(index == str_len);
+        }
+    }
+
+    return s;
 }
 
 fn parse_4_floats(s: []const u8) ![4]f32
@@ -2822,7 +2828,7 @@ fn load_xml_text(allocator: *const std.mem.Allocator, attributes: []XMLAttribute
     var alignment: vkui.Alignment = .{ .x = .Center, .y = .Center };
 
     var margin: f32 = 3;
-    var size: f32 = 30;
+    var size: u32 = 30;
 
     for(attributes) |att|
     {
@@ -2836,7 +2842,7 @@ fn load_xml_text(allocator: *const std.mem.Allocator, attributes: []XMLAttribute
         }
         else if(std.mem.eql(u8, att.name, "size"))
         {
-            size = try std.fmt.parseFloat(f32, att.value);
+            size = try std.fmt.parseInt(u32, att.value, 10);
         }
         else if(std.mem.eql(u8, att.name, "font"))
         {
@@ -3159,7 +3165,7 @@ fn load_xml_textfield(allocator: *const std.mem.Allocator, attributes: []XMLAttr
 {
     var font = assets.fonts[0].font;
     var text_alignment: vkui.Alignment = .{ .x = .Left, .y = .Top };
-    var text_size: f32 = 30;
+    var text_size: u32 = 30;
 
     var initial_text: []u32 = &.{};
     defer allocator.free(initial_text);
@@ -3191,7 +3197,7 @@ fn load_xml_textfield(allocator: *const std.mem.Allocator, attributes: []XMLAttr
         }
         else if(std.mem.eql(u8, att.name, "text_size"))
         {
-            text_size = try std.fmt.parseFloat(f32, att.value);
+            text_size = try std.fmt.parseInt(u32, att.value, 10);
         }
         else
         {
@@ -3640,7 +3646,8 @@ fn load_xml_ui_elements(allocator: *const std.mem.Allocator, reader: *xml.Reader
                         const text = try reader.text();
                         const index = element_stack.items.len - 1;
 
-                        const flattened_text = trim_string(u8, text);
+                        const flattened_text = try trim_string(allocator, u8, text);
+                        defer allocator.free(flattened_text);
 
                         var text_data: TextData = undefined;
                         memcpy_anonymous(&text_data, element_stack.items[index].data.?.ptr, @sizeOf(TextData));

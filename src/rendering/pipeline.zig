@@ -425,7 +425,7 @@ pub const PipelineDescriptorSet = struct
 
 /// Helper function to return a common vk.PipelineVertexInputStateCreateInfo use case:
 /// No vertex input will be passed through the pipeline. Instead, vertex input must be specified in the shader itself.
-pub fn pipeline_vertex_input_no_input() vk.PipelineVertexInputStateCreateInfo
+pub fn vertex_input_no_input() vk.PipelineVertexInputStateCreateInfo
 {
     return .{
         .vertex_attribute_description_count = 0,
@@ -435,7 +435,7 @@ pub fn pipeline_vertex_input_no_input() vk.PipelineVertexInputStateCreateInfo
 
 /// Helper function to return a common vk.PipelineInputAssemblyStateCreateInfo use case:
 /// Vertex input will be assembled into a list of rasterized triangles, with no element buffer (indices) or primitive restart (useless for lists anyways).
-pub fn pipeline_input_assembly_triangle_list() vk.PipelineInputAssemblyStateCreateInfo
+pub fn input_assembly_triangle_list() vk.PipelineInputAssemblyStateCreateInfo
 {
     return .{
         .topology = .triangle_list,
@@ -445,7 +445,7 @@ pub fn pipeline_input_assembly_triangle_list() vk.PipelineInputAssemblyStateCrea
 
 /// Helper function to return a common vk.PipelineViewportStateCreateInfo use case:
 /// The viewport is included in the pipeline's dynamic state, and doesn't need to be specified at pipeline creation time.
-pub fn pipeline_viewport_state_dynamic() vk.PipelineViewportStateCreateInfo
+pub fn viewport_state_dynamic() vk.PipelineViewportStateCreateInfo
 {
     return .{
         .viewport_count = 1,
@@ -455,7 +455,7 @@ pub fn pipeline_viewport_state_dynamic() vk.PipelineViewportStateCreateInfo
 
 /// Helper function to return a common vk.PipelineRasterizationStateCreateInfo use case:
 /// The pipeline rasterizer will fill the front (clockwise) faces of triangles only, and not worry about depth culling.
-pub fn pipeline_rasterizer_fill_triangle_cull_back_no_depth() vk.PipelineRasterizationStateCreateInfo
+pub fn rasterizer_fill_triangle_cull_back_no_depth() vk.PipelineRasterizationStateCreateInfo
 {
     return .{
         .depth_bias_enable = vk.Bool32.false,
@@ -475,7 +475,7 @@ pub fn pipeline_rasterizer_fill_triangle_cull_back_no_depth() vk.PipelineRasteri
 
 /// Helper function to return a common vk.PipelineMultisampleStateCreateInfo use case:
 /// The pipeline will not perform multisampling operations.
-pub fn pipeline_multisample_no_multisampling() vk.PipelineMultisampleStateCreateInfo
+pub fn multisample_no_multisampling() vk.PipelineMultisampleStateCreateInfo
 {
     return .{
         .sample_shading_enable = vk.Bool32.false,
@@ -490,7 +490,7 @@ pub fn pipeline_multisample_no_multisampling() vk.PipelineMultisampleStateCreate
 
 /// Helper function to return a common vk.PipelineColorBlendAttachmentState use case:
 /// The pipeline will not perform color blend operations, and will simply overwrite any colors instead.
-pub fn pipeline_color_blend_attachment_no_blend() vk.PipelineColorBlendAttachmentState
+pub fn color_blend_attachment_no_blend() vk.PipelineColorBlendAttachmentState
 {
     return .{
         .color_write_mask = .{
@@ -511,7 +511,7 @@ pub fn pipeline_color_blend_attachment_no_blend() vk.PipelineColorBlendAttachmen
 
 /// Helper function to return a common vk.PipelineColorBlendAttachmentState use case:
 /// The pipeline will perform standard alpha channel blending.
-pub fn pipeline_color_blend_attachment_alpha_blend() vk.PipelineColorBlendAttachmentState
+pub fn color_blend_attachment_alpha_blend() vk.PipelineColorBlendAttachmentState
 {
     return .{
         .color_write_mask = .{
@@ -532,7 +532,7 @@ pub fn pipeline_color_blend_attachment_alpha_blend() vk.PipelineColorBlendAttach
 
 /// Helper function to return a common vk.PipelineDepthStencilStateCreateInfo use case:
 /// This pipeline will perform depth testing, preferring fragments with smaller Z values.
-pub fn pipeline_depth_stencil_state_default() vk.PipelineDepthStencilStateCreateInfo
+pub fn depth_stencil_state_default() vk.PipelineDepthStencilStateCreateInfo
 {
     return .{
         .depth_test_enable = .true,
