@@ -114,7 +114,7 @@ fn init_pipeline() !void
     try pipeline.add_shader_module("../../res/shaders/main_vert.spv", .{ .vertex = true });
     try pipeline.add_shader_module("../../res/shaders/main_frag.spv", .{ .fragment = true });
 
-    try pipeline.add_color_blend_attachment(ash.rendering.pipeline.pipeline_color_blend_attachment_no_blend());
+    try pipeline.add_color_blend_attachment(ash.rendering.pipeline.color_blend_attachment_no_blend());
 
     try pipeline.add_dynamic_state(.viewport);
     try pipeline.add_dynamic_state(.scissor);

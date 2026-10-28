@@ -2382,7 +2382,7 @@ fn init_basic_pipeline(interface: *VkInterface, descriptor_set: PipelineDescript
 
     try ui_pipeline.add_descriptor_set(descriptor_set);
 
-    try ui_pipeline.add_color_blend_attachment(pipeline.pipeline_color_blend_attachment_alpha_blend());
+    try ui_pipeline.add_color_blend_attachment(pipeline.color_blend_attachment_alpha_blend());
 
     ui_pipeline.set_vertex_input(&pvi);
 

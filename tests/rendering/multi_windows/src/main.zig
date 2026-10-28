@@ -275,7 +275,7 @@ pub fn main() !void
     app_ui_container_a = try ui.Container.init(&vk_interface, &vk_allocator);
     app_ui_container_b = try ui.Container.init(&vk_interface, &vk_allocator);
 
-    app_font = try ash.ui.Font.init(&vk_interface, &vk_allocator, font_entry.path, 36, &app_ui_container_a.texture_atlas);
+    app_font = try ash.ui.Font.init(&vk_interface, &vk_allocator, font_entry.path, &app_ui_container_a.texture_atlas);
     
     defer app_font.deinit();
 

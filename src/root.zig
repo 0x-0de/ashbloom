@@ -24,12 +24,26 @@ pub const stb_vorbis = @import("stb_vorbis");
 /// Utilities related to audio streaming.
 pub const audio = struct
 {
-    pub const audio_source = @import("audio/output_source.zig");
     pub const decoders = @import("audio/decoders.zig");
+    pub const nodes = @import("audio/nodes.zig");
+    pub const transforms = @import("audio/transforms.zig");
 
-    pub const AudioFormat = audio_source.AudioFormat;
-    pub const OutputSource = audio_source.OutputSource;
-    pub const Producer = audio_source.Producer;
+    pub const AudioFormat = nodes.AudioFormat;
+    pub const SoundNode = nodes.SoundNode;
+    pub const Producer = nodes.Producer;
+
+    pub fn add_output_node(allocator: *const std.mem.Allocator, node: *audio.SoundNode) !void
+    {
+        node.export_channels = audio_device_output_format.channels;
+        node.export_sample_rate = audio_device_output_format.sample_rate;
+
+        try audio_sources.append(allocator.*, node);
+    }
+
+    pub fn remove_output_node(index: usize) void
+    {
+        _ = audio_sources.orderedRemove(index);
+    }
 };
 
 /// Utilities related to procedural generation, whether it's noise algorithms like Perlin noise or polygonization algorithms like marching cubes.
@@ -132,7 +146,7 @@ var audio_output_data_buffer: [AUDIO_BUFFER_SIZE * @sizeOf(f32)]u8 = undefined;
 
 var audio_device_output_format: audio.AudioFormat = undefined;
 
-var audio_sources: std.ArrayList(*audio.OutputSource) = undefined;
+var audio_sources: std.ArrayList(*audio.SoundNode) = undefined;
 
 fn ashbloom_audio_callback(device: *ma.Device, output: *anyopaque, _: *anyopaque, frame_count: u32) callconv(.c) void
 {
@@ -269,18 +283,6 @@ pub fn init_audio(allocator: *const std.mem.Allocator) !void
     try audio_device.start();
 }
 
-pub fn add_audio_source(allocator: *const std.mem.Allocator, source: *audio.OutputSource) !void
-{
-    source.export_channels = audio_device_output_format.channels;
-    source.export_sample_rate = audio_device_output_format.sample_rate;
-
-    try audio_sources.append(allocator.*, source);
-}
-
-pub fn remove_audio_source(index: usize) void
-{
-    _ = audio_sources.orderedRemove(index);
-}
 
 var stdout_io: std.Io.Threaded = undefined;
 var stdout_buffer: [2048]u8 = undefined;

@@ -773,11 +773,11 @@ pub const Pipeline = struct
             .push_constant_ranges = try std.ArrayList(vk.PushConstantRange).initCapacity(interface.allocator.*, 0),
             .pipeline_layout = null,
 
-            .info_vertex_input = pipeline_vertex_input_no_input(),
-            .info_input_assembly = pipeline_input_assembly_triangle_list(),
-            .info_viewport = pipeline_viewport_state_dynamic(),
-            .info_rasterizer = pipeline_rasterizer_fill_triangle_cull_back_no_depth(),
-            .info_multisampling = pipeline_multisample_no_multisampling()
+            .info_vertex_input = vertex_input_no_input(),
+            .info_input_assembly = input_assembly_triangle_list(),
+            .info_viewport = viewport_state_dynamic(),
+            .info_rasterizer = rasterizer_fill_triangle_cull_back_no_depth(),
+            .info_multisampling = multisample_no_multisampling()
         };
 
         return p;

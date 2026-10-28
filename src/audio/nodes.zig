@@ -70,13 +70,13 @@ pub const Producer = struct
         sample_margin: u1 = 0,
     };
 
-    /// Flags sent to the producer's OutputSource to indicate certain conditions.
+    /// Flags sent to the producer's SoundNode to indicate certain conditions.
     pub const Flags = packed struct
     {
         /// Indicates that the attempted generate operation resulted in failure.
         producer_failed: u1 = 0,
         /// Indicates that this producer has reached the end of its life (could be set to true if an audio file decoder has finished reading the audio, for example).
-        /// When set to 1, the OutputSource should automatically remove this producer.
+        /// When set to 1, the SoundNode should automatically remove this producer.
         end_of_life: u1 = 0,
     };
 
@@ -251,26 +251,56 @@ fn convert_sample_rate(allocator: *const std.mem.Allocator, input: [][]f32, curr
     return new_frames;
 }
 
+pub const SoundTransformFunction = *const fn(context: *anyopaque, frame: *[]f32) void;
+
+/// Contains a simple callback used to linearly transform audio data (can be used for volume, panning, etc).
+pub const SoundTransform = struct
+{
+    context: *anyopaque,
+    transform_fn: SoundTransformFunction,
+
+    pub fn transform(self: SoundTransform, frame: *[]f32) void
+    {
+        self.transform_fn(self.context, frame);
+    }
+};
+
 /// Handles a list of audio producers, automatically removing them when the end signal is given, and transforms them into the output audio format.
-pub const OutputSource = struct
+pub const SoundNode = struct
 {
     /// Allocator handle.
     allocator: *const std.mem.Allocator,
     /// List of producers.
     producers: std.ArrayList(Producer),
+    /// List of input sound nodes.
+    input_nodes: std.ArrayList(*SoundNode),
+    /// List of transforms.
+    transforms: std.ArrayList(SoundTransform),
     /// Playback sample rate.
     export_sample_rate: u32,
     /// Playback number of channels.
     export_channels: u32,
 
-    /// Adds a producer to the output source. This will begin generating audio immediately.
-    pub fn add_producer(self: *OutputSource, producer: Producer) !void
+    /// Adds an input node to this node. Forwards audio information from the input node into this node.
+    pub fn add_input_node(self: *SoundNode, input_node: *SoundNode) !void
+    {
+        try self.input_nodes.append(self.allocator.*, input_node);
+    }
+
+    /// Adds a producer to this node. This will begin generating audio immediately.
+    pub fn add_producer(self: *SoundNode, producer: Producer) !void
     {
         try self.producers.append(self.allocator.*, producer);
     }
 
-    /// Deinitializes the OutputSource.
-    pub fn deinit(self: *OutputSource) void
+    /// Adds a transform to this node.
+    pub fn add_transform(self: *SoundNode, transform: SoundTransform) !void
+    {
+        try self.transforms.append(self.allocator.*, transform);
+    }
+
+    /// Deinitializes the SoundNode.
+    pub fn deinit(self: *SoundNode) void
     {
         for(self.producers.items, 0..) |_, i|
         {
@@ -279,19 +309,21 @@ pub const OutputSource = struct
         self.producers.deinit(self.allocator.*);
     }
 
-    /// Initializes a new OutputSource.
-    pub fn init(allocator: *const std.mem.Allocator) !OutputSource
+    /// Initializes a new SoundNode.
+    pub fn init(allocator: *const std.mem.Allocator) !SoundNode
     {
         return .{
             .allocator = allocator,
             .producers = try .initCapacity(allocator.*, 0),
+            .input_nodes = try .initCapacity(allocator.*, 0),
+            .transforms = try .initCapacity(allocator.*, 0),
             .export_sample_rate = undefined,
             .export_channels = undefined
         };
     }
 
     /// Pull a required amount of audio data. Performs sample rate and channel conversions.
-    pub fn pull_audio(self: *OutputSource, frame_count: u32) ![][]f32
+    pub fn pull_audio(self: *SoundNode, frame_count: u32) ![][]f32
     {
         var data = try self.allocator.alloc([]f32, frame_count);
         for(0..frame_count) |i|
@@ -301,6 +333,21 @@ pub const OutputSource = struct
             {
                 data[i][j] = 0;
             }
+        }
+
+        for(self.input_nodes.items) |s|
+        {
+            const sound_data = try s.pull_audio(frame_count);
+
+            for(0..sound_data.len) |i|
+            {
+                for(0..sound_data[i].len) |j|
+                {
+                    data[i][j] += sound_data[i][j];
+                }
+                self.allocator.free(sound_data[i]);
+            }
+            self.allocator.free(sound_data);
         }
 
         var remove_queue: std.ArrayList(usize) = try .initCapacity(self.allocator.*, 0);
@@ -358,6 +405,14 @@ pub const OutputSource = struct
             }
         }
 
+        for(0..data.len) |i|
+        {
+            for(self.transforms.items) |t|
+            {
+                t.transform(&data[i]);
+            }
+        }
+
         while(remove_queue.items.len > 0)
         {
             const last = remove_queue.items.len - 1;
@@ -368,9 +423,19 @@ pub const OutputSource = struct
         return data;
     }
 
-    pub fn remove_producer(self: *OutputSource, index: usize) void
+    pub fn remove_input_node(self: *SoundNode, index: usize) void
+    {
+        _ = self.input_nodes.orderedRemove(index);
+    }
+
+    pub fn remove_producer(self: *SoundNode, index: usize) void
     {
         self.producers.items[index].deinit();
         _ = self.producers.orderedRemove(index);
+    }
+
+    pub fn remove_transform(self: *SoundNode, index: usize) void
+    {
+        _ = self.transforms.orderedRemove(index);
     }
 };

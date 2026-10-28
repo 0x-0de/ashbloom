@@ -35,10 +35,16 @@ pub fn main() !void
         try .init(&allocator, "../../res/192 stereo.ogg")
     };
 
-    var source: ash.audio.OutputSource = try .init(&allocator);
+    var source: ash.audio.SoundNode = try .init(&allocator);
     defer source.deinit();
+    
+    var vt: ash.audio.transforms.VolumeTransform = .{
+        .volume = 0.2
+    };
 
-    try ash.add_audio_source(&allocator, &source);
+    try source.add_transform(vt.transform());
+
+    try ash.audio.add_output_node(&allocator, &source);
 
     while(true)
     {
