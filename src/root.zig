@@ -141,21 +141,80 @@ var audio_allocator: *const std.mem.Allocator = undefined;
 var audio_context: *ma.Context = undefined;
 var audio_device: *ma.Device = undefined;
 
+var audio_input_buffer: [AUDIO_BUFFER_SIZE]f32 = undefined;
 var audio_output_buffer: [AUDIO_BUFFER_SIZE]f32 = undefined;
 var audio_output_data_buffer: [AUDIO_BUFFER_SIZE * @sizeOf(f32)]u8 = undefined;
 
+var audio_device_input_format: audio.AudioFormat = undefined;
 var audio_device_output_format: audio.AudioFormat = undefined;
 
 var audio_sources: std.ArrayList(*audio.SoundNode) = undefined;
+var input_cap: usize = 0;
 
-fn ashbloom_audio_callback(device: *ma.Device, output: *anyopaque, _: *anyopaque, frame_count: u32) callconv(.c) void
+fn input_producer_generate(_: *anyopaque, output: *const []f32, _: audio.Producer.GeneratorFlags) audio.Producer.Result
 {
-    _ = device;
+    for(0..output.len) |i|
+    {
+        const index = input_cap * output.len + i;
+        output.*[i] = audio_input_buffer[index];
+    }
 
+    input_cap += 1;
+    return .Success;
+}
+
+pub fn input_producer() audio.Producer
+{
+    return .{
+        .channels = audio_device_input_format.channels,
+        .context = undefined,
+        .generate_fn = input_producer_generate,
+        .sample_rate = audio_device_input_format.sample_rate
+    };
+}
+
+fn ashbloom_audio_callback(_: *ma.Device, output: *anyopaque, input: *anyopaque, frame_count: u32) callconv(.c) void
+{
     var frames_remaining = frame_count;
     while(frames_remaining > 0)
     {
         const next_amount_of_frames = @min(frame_count, AUDIO_BUFFER_SIZE);
+
+        var converted_offset: usize = 0;
+        input_cap = 0;
+        for(0..next_amount_of_frames * audio_device_input_format.channels) |i|
+        {
+            const input_format_size = audio_device_input_format.format.get_size();
+            const input_buffer: [*]u8 = @ptrCast(input);
+
+            switch(audio_device_input_format.format)
+            {
+                .Unknown => {},
+                .Unsigned8 => {
+                    var dp: u8 = undefined;
+                    utils.misc.memcpy_anonymous(&dp, input_buffer + i * input_format_size, input_format_size);
+                    audio_input_buffer[i] = @as(f32, @floatFromInt(dp)) / 128;
+                },
+                .Signed16 => {
+                    var dp: u16 = undefined;
+                    utils.misc.memcpy_anonymous(&dp, input_buffer + i * input_format_size, input_format_size);
+                    audio_input_buffer[i] = @as(f32, @floatFromInt(dp)) / 32768;
+                },
+                .Signed24 => {
+                    var dp: u24 = undefined;
+                    utils.misc.memcpy_anonymous(&dp, input_buffer + i * input_format_size, input_format_size);
+                    audio_input_buffer[i] = @as(f32, @floatFromInt(dp)) / 8388608;
+                },
+                .Signed32 => {
+                    var dp: u32 = undefined;
+                    utils.misc.memcpy_anonymous(&dp, input_buffer + i * input_format_size, input_format_size);
+                    audio_input_buffer[i] = @as(f32, @floatFromInt(dp)) / 2147483648;
+                },
+                .Float32 => {
+                    utils.misc.memcpy_anonymous(&audio_input_buffer[i], input_buffer + i * input_format_size, input_format_size);
+                }
+            }
+        }
 
         for(audio_sources.items) |os|
         {
@@ -176,39 +235,39 @@ fn ashbloom_audio_callback(device: *ma.Device, output: *anyopaque, _: *anyopaque
             }
         }
 
-        const format_size = audio_device_output_format.format.get_size();
+        const output_format_size = audio_device_output_format.format.get_size();
 
-        var converted_offset: usize = 0;
-        for(0..next_amount_of_frames * 2) |i|
+        converted_offset = 0;
+        for(0..next_amount_of_frames * audio_device_output_format.channels) |i|
         {
             switch(audio_device_output_format.format)
             {
                 .Unknown => {},
                 .Unsigned8 => {
                     var dp: u8 = @truncate(@as(usize, @intFromFloat(audio_output_buffer[i] * 128 + 128)));
-                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &dp, format_size);
+                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &dp, output_format_size);
                 },
                 .Signed16 => {
                     var dp: i16 = @truncate(@as(isize, @intFromFloat(audio_output_buffer[i] * 32768)));
-                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &dp, format_size);
+                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &dp, output_format_size);
                 },
                 .Signed24 => {
                     var dp: i24 = @truncate(@as(isize, @intFromFloat(audio_output_buffer[i] * 8388608)));
-                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &dp, format_size);
+                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &dp, output_format_size);
                 },
                 .Signed32 => {
                     var dp: i32 = @truncate(@as(isize, @intFromFloat(audio_output_buffer[i] * 2147483648)));
-                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &dp, format_size);
+                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &dp, output_format_size);
                 },
                 .Float32 => {
-                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &audio_output_buffer[i], format_size);
+                    utils.misc.memcpy_anonymous(&audio_output_data_buffer[converted_offset], &audio_output_buffer[i], output_format_size);
                 }
             }
 
-            converted_offset += format_size;
+            converted_offset += output_format_size;
         }
 
-        utils.misc.memcpy_anonymous(output, &audio_output_data_buffer, next_amount_of_frames * 2 * format_size);
+        utils.misc.memcpy_anonymous(output, &audio_output_data_buffer, next_amount_of_frames * audio_device_output_format.channels * output_format_size);
         frames_remaining -= next_amount_of_frames;
     }
 }
@@ -234,11 +293,21 @@ pub fn init_audio(allocator: *const std.mem.Allocator) !void
     audio_devices.print();
 
     var playback_device_info: ma.Device.Info = undefined;
+    var capture_device_info: ma.Device.Info = undefined;
+
     for(audio_devices.playback_devices) |d|
     {
         if(d.is_default == .True)
         {
             playback_device_info = d;
+        }
+    }
+
+    for(audio_devices.capture_devices) |d|
+    {
+        if(d.is_default == .True)
+        {
+            capture_device_info = d;
         }
     }
 
@@ -252,21 +321,45 @@ pub fn init_audio(allocator: *const std.mem.Allocator) !void
         }
     }
 
+    std.debug.print("Selected capture device: ", .{});
+    for(capture_device_info.name, 0..) |c, i|
+    {
+        if(c == 0)
+        {
+            std.debug.print("{s}\n", .{capture_device_info.name[0..i]});
+            break;
+        }
+    }
+
     const playback_device_info_ext = try audio_context.get_device_info(.Playback, &playback_device_info.id);
+    const capture_device_info_ext = try audio_context.get_device_info(.Capture, &capture_device_info.id);
 
     audio_device_output_format.channels = playback_device_info_ext.native_data_formats[0].channels;
     audio_device_output_format.format = playback_device_info_ext.native_data_formats[0].format;
     audio_device_output_format.sample_rate = playback_device_info_ext.native_data_formats[0].sample_rate;
 
+    std.debug.print("Playback device format:\n", .{});
     std.debug.print("\tChannels: {d}\n", .{audio_device_output_format.channels});
     std.debug.print("\tFormat: {d}\n", .{@intFromEnum(audio_device_output_format.format)});
     std.debug.print("\tSample rate: {d}\n", .{audio_device_output_format.sample_rate});
 
-    var config: ma.Device.Config = .init(.Playback);
+    audio_device_input_format.channels = capture_device_info_ext.native_data_formats[0].channels;
+    audio_device_input_format.format = capture_device_info_ext.native_data_formats[0].format;
+    audio_device_input_format.sample_rate = capture_device_info_ext.native_data_formats[0].sample_rate;
+
+    std.debug.print("Capture device format:\n", .{});
+    std.debug.print("\tChannels: {d}\n", .{audio_device_input_format.channels});
+    std.debug.print("\tFormat: {d}\n", .{@intFromEnum(audio_device_input_format.format)});
+    std.debug.print("\tSample rate: {d}\n", .{audio_device_input_format.sample_rate});
+
+    var config: ma.Device.Config = .init(.Duplex);
 
     config.playback.device_id = &playback_device_info.id;
     config.playback.format = audio_device_output_format.format;
     config.playback.channels = audio_device_output_format.channels;
+    config.capture.device_id = &capture_device_info.id;
+    config.capture.format = audio_device_input_format.format;
+    config.capture.channels = audio_device_input_format.channels;
     config.sample_rate = audio_device_output_format.sample_rate;
     config.data_callback = ashbloom_audio_callback;
     config.user_data = null;
