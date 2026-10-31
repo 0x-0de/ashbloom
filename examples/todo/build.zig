@@ -18,7 +18,7 @@ fn add_library_dependencies(b: *std.Build, install_step: *std.Build.Step, ashblo
 }
 
 /// Adding the Ashbloom library to the compile object.
-fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, ashbloom: *std.Build.Dependency, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void
+fn add_libraries(cmp: *std.Build.Step.Compile) void
 {
     cmp.root_module.addLibraryPath(.{ .cwd_relative = "zig-out/bin" });
     
@@ -31,15 +31,6 @@ fn add_libraries(b: *std.Build, cmp: *std.Build.Step.Compile, ashbloom: *std.Bui
         };
         
         cmp.root_module.addLibraryPath(sys32_path);
-
-        const win32 = b.addModule("win32", .{
-            .root_source_file = b.path("../../lib/win32.zig"),
-            .target = target,
-            .optimize = optimize,
-            .link_libc = true
-        });
-
-        ashbloom.module("ashbloom").addImport("win32", win32);
     }
     else if(builtin.target.os.tag == .linux)
     {
@@ -90,8 +81,8 @@ pub fn build(b: *std.Build) void
     
     add_library_dependencies(b, &install_exe.step, ashbloom);
     
-    add_libraries(b, exe, ashbloom, std_target, std_optimize);
-    add_libraries(b, exe_test, ashbloom, std_target, std_optimize);
+    add_libraries(exe);
+    add_libraries(exe_test);
 
     b.getInstallStep().dependOn(&install_exe.step);
 

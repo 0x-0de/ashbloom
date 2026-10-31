@@ -32,11 +32,11 @@ var debug_required_validation_layers: [1][*:0]const u8 = .{
 };
 
 var debug_required_instance_extensions: [1][*:0]const u8 = .{
-    vk.extensions.ext_debug_utils.name
+    vk.instance_extensions.ext_debug_utils.name
 };
 
 var required_device_extensions: [1][*:0]const u8 = .{
-    vk.extensions.khr_swapchain.name
+    vk.device_extensions.khr_swapchain.name
 };
 
 var window: ash.rendering.Window = undefined;
@@ -169,7 +169,7 @@ fn set_todo_list_scroll(adding: bool) !void
 }
 
 /// Callback for pressing any todo item delete button.
-fn callback_delete_todo_item(e: *ui.Element) !void
+fn callback_delete_todo_item(e: *ui.Element) void
 {
     // The todo item that ought to be deleted is the parent of the delete button that was pressed.
     const item = e.parent.?;
@@ -177,9 +177,12 @@ fn callback_delete_todo_item(e: *ui.Element) !void
     // I set the delete signal stored in the todo item element to true.
     var signal = true;
     misc.memcpy_anonymous(item.data.?.ptr + @sizeOf(u32), &signal, @sizeOf(bool));
-    
-    // 
-    try set_todo_list_scroll(false);
+
+    set_todo_list_scroll(false) catch
+    {
+        @panic("Error setting list scrollbar.");
+    };
+
     app_ui_container.signal_rebuild = true;
 }
 
@@ -267,7 +270,7 @@ fn create_todo_item(item: TodoItem) !*ui.Element
     const text_properties: ui_basic.TextProperties = .init(&app_font, 30, .{
         .x = .Left,
         .y = .Center
-    }, item.name);
+    }, item.name, 5);
 
     const text = try ui_basic.create_text(&allocator, text_properties);
 
@@ -365,27 +368,43 @@ fn todo_list_rebuild_callback(e: *ui.Element, data: ui.ContainerInputData) !void
 }
 
 /// Creates a new todo element and adds it to the list panel.
-fn new_todo(e: *ui.Element) !void
+fn new_todo(e: *ui.Element) void
 {
     _ = e;
 
     // Getting a pointer to the todo list.
     var todo_list_lineage: [2]usize = .{0, 2};
-    const todo_list = try app_ui_container.get_element(todo_list_lineage[0..2]);
+    const todo_list = app_ui_container.get_element(todo_list_lineage[0..2]) catch
+    {
+        @panic("Couldn't get todo list item.");
+    };
 
     // Getting a pointer to the textfield element.
     var textfield_lineage: [2]usize = .{0, 0};
-    const textfield = try app_ui_container.get_element(textfield_lineage[0..2]);
+    const textfield = app_ui_container.get_element(textfield_lineage[0..2]) catch
+    {
+        @panic("Couldn't get todo list item.");
+    };
 
     // Getting the text in the textfield.
     const todo_item_title = ui_basic.get_textfield_text(textfield);
 
     // Creating the actual todo item element, and adding it to the panel.
-    const todo_item = try create_todo_item(.{ .name = todo_item_title, .index = @truncate(todo_list.children.items.len) });
-    try todo_list.add_and_dispose(todo_item);
+    const todo_item = create_todo_item(.{ .name = todo_item_title, .index = @truncate(todo_list.children.items.len) }) catch
+    {
+        @panic("Couldn't create todo list item.");
+    };
+
+    todo_list.add_and_dispose(todo_item) catch
+    {
+        @panic("Couldn't add and dispose todo list item.");
+    };
 
     // Updates the todo list scroll values.
-    try set_todo_list_scroll(true);
+    set_todo_list_scroll(true) catch
+    {
+        @panic("Error setting scroll values.");
+    };
 
     // Signal to the UI container to ignore any oncoming callbacks for the next tick (prevents crashes), and then rebuild.
     // This will inevitably lead to todo_list_rebuild_callback being called.
@@ -587,7 +606,7 @@ pub fn main() !void
     
     // Create a font object, using the font path I queried above, with a pixel size of 36. I attach the font to the UI container's existing texture atlas,
     // so any character glyph textures that get loaded are sent to the UI container's texture atlas.
-    app_font = try Font.init(&vk_interface, &vk_allocator, font_entry.path, 36, &app_ui_container.texture_atlas);
+    app_font = try Font.init(&vk_interface, &vk_allocator, font_entry.path, &app_ui_container.texture_atlas);
     defer app_font.deinit();
 
     // Loading the trash icon texture for the delete button, and adding it to the UI container's texture atlas.
