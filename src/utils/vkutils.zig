@@ -85,5 +85,5 @@ pub fn choose_image_format(vk_interface: *ash.rendering.VkInterface, preferred_t
 /// Calls choose_image_format for a list of depth buffer attachments with optimal tiling and the depth-stencil feature.
 pub fn choose_best_depth_buffer_format(vk_interface: *ash.rendering.VkInterface) VulkanFormatError!vk.Format
 {
-    return choose_image_format(vk_interface, .optimal, .{ .depth_stencil_attachment_bit = true }, &.{ .d32_sfloat, .d32_sfloat_s8_uint, .d24_unorm_s8_uint });
+    return choose_image_format(vk_interface, .optimal, .{ .depth_stencil_attachment = true }, &.{ .d32_sfloat, .d32_sfloat_s8_uint, .d24_unorm_s8_uint });
 }
