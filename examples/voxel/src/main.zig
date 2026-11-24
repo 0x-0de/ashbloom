@@ -112,7 +112,7 @@ fn init_swapchain() !void
         .extent = undefined,
         .mip_levels = 1,
         .array_layers = 1,
-        .format = try ash.utils.vk_utils.choose_best_depth_buffer_format(&vk_interface),
+        .format = vk_interface.best_depth_format.?,
         .tiling = .optimal,
         .initial_layout = .undefined,
         .usage = .{ .depth_stencil_attachment = true },
@@ -122,7 +122,7 @@ fn init_swapchain() !void
 
     const info_depth_image_view: vk.ImageViewCreateInfo = .{
         .image = undefined,
-        .format = try ash.utils.vk_utils.choose_best_depth_buffer_format(&vk_interface),
+        .format = vk_interface.best_depth_format.?,
         .components = .{
             .r = .identity,
             .g = .identity,
@@ -224,7 +224,7 @@ fn init_attachments() !void
         .extent = undefined,
         .mip_levels = 1,
         .array_layers = 1,
-        .format = try ash.utils.vk_utils.choose_best_depth_buffer_format(&vk_interface),
+        .format = vk_interface.best_depth_format.?,
         .tiling = .optimal,
         .initial_layout = .undefined,
         .usage = .{ .depth_stencil_attachment = true },
@@ -234,7 +234,7 @@ fn init_attachments() !void
 
     const info_depth_image_view: vk.ImageViewCreateInfo = .{
         .image = undefined,
-        .format = try ash.utils.vk_utils.choose_best_depth_buffer_format(&vk_interface),
+        .format = vk_interface.best_depth_format.?,
         .components = .{
             .r = .identity,
             .g = .identity,
@@ -287,7 +287,7 @@ fn init_render_passes() !void
     // Both of these render passes ended up being virtually the same, other than the difference between the swapchain format and the selection buffer format.
     // This should be familiar to you if you're familiar with Vulkan render passes.
 
-    const depth_format = try ash.utils.vk_utils.choose_best_depth_buffer_format(&vk_interface);
+    const depth_format = vk_interface.best_depth_format.?;
 
     const sp_color_depth: ash.rendering.RenderPass.Subpass = .{
         .color_attachment_index = 0,

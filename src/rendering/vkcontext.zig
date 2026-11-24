@@ -6,6 +6,8 @@ const vk = @import("vulkan");
 
 const Window = @import("window.zig").Window;
 
+const vk_utils = @import("../utils/vkutils.zig");
+
 const print = @import("../root.zig").print_stdout;
 
 /// Default device extensions. Since Ashbloom's built-in Swapchain structure uses the VkSwapchainKHR extension, it's assumed that it will be
@@ -556,6 +558,8 @@ pub const VkInterface = struct
     physical_device_features: ?vk.PhysicalDeviceFeatures = null,
     physical_device_queue_families: ?PhysicalDeviceQueueFamilies = null,
 
+    best_depth_format: ?vk.Format = null,
+
     pub const InitOptions = struct
     {
         /// List of layers to add to the Vulkan logical device.
@@ -874,6 +878,8 @@ pub const VkInterface = struct
 
         interface.device = try interface.allocator.create(vk.DeviceProxy);
         interface.device.* = vk.DeviceProxy.init(hndl_device, interface.vkd);
+
+        interface.best_depth_format = try vk_utils.choose_best_depth_buffer_format(&interface);
 
         return interface;
     }
