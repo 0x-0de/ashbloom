@@ -683,8 +683,8 @@ pub fn main() !void
     allocator = dba.allocator();
 
     // Initializing Ashbloom.
-    try ash.init_graphics(&allocator);
-    defer ash.deinit_graphics();
+    try ash.init(&allocator);
+    defer ash.deinit();
 
     // Creating the window.
     window = try .init(1280, 720, "Voxel demo");

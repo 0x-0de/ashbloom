@@ -568,8 +568,8 @@ pub fn main() !void
     allocator = dba.allocator();
 
     // Initializing ashbloom (which also initializes GLFW).
-    try ash.init_graphics(&allocator);
-    defer ash.deinit_graphics();
+    try ash.init(&allocator);
+    defer ash.deinit();
 
     // This is mandatory for Vulkan projects, since GLFW is primed to use OpenGL.
     glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
