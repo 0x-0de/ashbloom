@@ -7,12 +7,6 @@ const vorbis = ash.stb_vorbis;
 
 const AudioFormat = ash.audio.AudioFormat;
 
-pub const WAVDecoderError = error
-{
-    InvalidFormat,
-    MissingDataBlock
-};
-
 /// Creates producers that read and export PCM data from .wav files.
 pub const WAVDecoder = struct
 {
@@ -26,6 +20,12 @@ pub const WAVDecoder = struct
     data_size: usize,
 
     file_buffer: [128]u8 = undefined,
+
+    pub const Error = error
+    {
+        InvalidFormat,
+        MissingDataBlock
+    };
 
     const Chunk = union(enum)
     {
@@ -231,8 +231,8 @@ pub const WAVDecoder = struct
             }
         }
 
-        if(!found_format) return WAVDecoderError.InvalidFormat;
-        if(!found_data_block) return WAVDecoderError.MissingDataBlock;
+        if(!found_format) return Error.InvalidFormat;
+        if(!found_data_block) return Error.MissingDataBlock;
 
         return wav_decoder;
     }

@@ -21,7 +21,7 @@ pub const minimp3 = @import("minimp3");
 /// stb_vorbis (custom bindings)
 pub const stb_vorbis = @import("stb_vorbis");
 
-/// Utilities related to audio streaming.
+/// Contains everything related to audio input and output. Allows you to record and play audio from a selected input and output.
 pub const audio = struct
 {
     pub const decoders = @import("audio/decoders.zig");
@@ -32,7 +32,8 @@ pub const audio = struct
     pub const SoundNode = nodes.SoundNode;
     pub const Producer = nodes.Producer;
 
-    pub fn add_output_node(allocator: *const std.mem.Allocator, node: *audio.SoundNode) !void
+    /// When called, Ashbloom will emit any sound processed through `node` in addition to other nodes added through this function.
+    pub fn add_output_node(allocator: *const std.mem.Allocator, node: *SoundNode) !void
     {
         node.export_channels = audio_device_output_format.channels;
         node.export_sample_rate = audio_device_output_format.sample_rate;
@@ -40,6 +41,134 @@ pub const audio = struct
         try audio_sources.append(allocator.*, node);
     }
 
+    /// Disables and deinitializes the audio faculties of the ashbloom framework.
+    pub fn deinit(allocator: *const std.mem.Allocator) void
+    {
+        audio_device.stop();
+
+        audio_sources.deinit(allocator.*);
+
+        audio_device.deinit();
+        audio_context.deinit();
+    }
+
+    fn input_producer_generate(_: *anyopaque, output: *const []f32, _: audio.Producer.GeneratorFlags) Producer.Result
+    {
+        for(0..output.len) |i|
+        {
+            const index = input_cap * output.len + i;
+            output.*[i] = audio_input_buffer[index];
+        }
+
+        input_cap += 1;
+        return .Success;
+    }
+
+    /// Returns a `Producer` which records data from the chosen audio input device.
+    pub fn input_producer() Producer
+    {
+        return .{
+            .channels = audio_device_input_format.channels,
+            .context = undefined,
+            .generate_fn = input_producer_generate,
+            .sample_rate = audio_device_input_format.sample_rate
+        };
+    }
+
+    /// Initializes the audio faculties of the Ashbloom framework. Creates a default miniaudio context and polls all available audio I/O devices (speakers, microphones, etc.).
+    pub fn init(allocator: *const std.mem.Allocator) !void
+    {
+        audio_allocator = allocator;
+        audio_context = try .init();
+
+        const audio_devices = try audio_context.get_devices();
+        audio_devices.print();
+
+        var playback_device_info: ma.Device.Info = undefined;
+        var capture_device_info: ma.Device.Info = undefined;
+
+        for(audio_devices.playback_devices) |d|
+        {
+            if(d.is_default == .True)
+            {
+                playback_device_info = d;
+            }
+        }
+
+        for(audio_devices.capture_devices) |d|
+        {
+            if(d.is_default == .True)
+            {
+                capture_device_info = d;
+            }
+        }
+
+        std.debug.print("Selected playback device: ", .{});
+        for(playback_device_info.name, 0..) |c, i|
+        {
+            if(c == 0)
+            {
+                std.debug.print("{s}\n", .{playback_device_info.name[0..i]});
+                break;
+            }
+        }
+
+        std.debug.print("Selected capture device: ", .{});
+        for(capture_device_info.name, 0..) |c, i|
+        {
+            if(c == 0)
+            {
+                std.debug.print("{s}\n", .{capture_device_info.name[0..i]});
+                break;
+            }
+        }
+
+        const playback_device_info_ext = try audio_context.get_device_info(.Playback, &playback_device_info.id);
+        const capture_device_info_ext = try audio_context.get_device_info(.Capture, &capture_device_info.id);
+
+        audio_device_output_format.channels = playback_device_info_ext.native_data_formats[0].channels;
+        audio_device_output_format.format = playback_device_info_ext.native_data_formats[0].format;
+        audio_device_output_format.sample_rate = playback_device_info_ext.native_data_formats[0].sample_rate;
+
+        std.debug.print("Playback device format:\n", .{});
+        std.debug.print("\tChannels: {d}\n", .{audio_device_output_format.channels});
+        std.debug.print("\tFormat: {d}\n", .{@intFromEnum(audio_device_output_format.format)});
+        std.debug.print("\tSample rate: {d}\n", .{audio_device_output_format.sample_rate});
+
+        audio_device_input_format.channels = capture_device_info_ext.native_data_formats[0].channels;
+        audio_device_input_format.format = capture_device_info_ext.native_data_formats[0].format;
+        audio_device_input_format.sample_rate = capture_device_info_ext.native_data_formats[0].sample_rate;
+
+        std.debug.print("Capture device format:\n", .{});
+        std.debug.print("\tChannels: {d}\n", .{audio_device_input_format.channels});
+        std.debug.print("\tFormat: {d}\n", .{@intFromEnum(audio_device_input_format.format)});
+        std.debug.print("\tSample rate: {d}\n", .{audio_device_input_format.sample_rate});
+
+        var config: ma.Device.Config = .init(.Duplex);
+
+        config.playback.device_id = &playback_device_info.id;
+        config.playback.format = audio_device_output_format.format;
+        config.playback.channels = audio_device_output_format.channels;
+        config.capture.device_id = &capture_device_info.id;
+        config.capture.format = audio_device_input_format.format;
+        config.capture.channels = audio_device_input_format.channels;
+        config.sample_rate = audio_device_output_format.sample_rate;
+        config.data_callback = ashbloom_audio_callback;
+        config.user_data = null;
+
+        audio_device = try .init(audio_context, &config);
+
+        for(0..AUDIO_BUFFER_SIZE) |i|
+        {
+            audio_output_buffer[i] = 0;
+        }
+
+        audio_sources = try .initCapacity(allocator.*, 0);
+
+        try audio_device.start();
+    }
+
+    /// Removes an output node from Ashbloom's listening queue by its index. Will effectively stop audio output from this node immediately.
     pub fn remove_output_node(index: usize) void
     {
         _ = audio_sources.orderedRemove(index);
@@ -151,28 +280,6 @@ var audio_device_output_format: audio.AudioFormat = undefined;
 var audio_sources: std.ArrayList(*audio.SoundNode) = undefined;
 var input_cap: usize = 0;
 
-fn input_producer_generate(_: *anyopaque, output: *const []f32, _: audio.Producer.GeneratorFlags) audio.Producer.Result
-{
-    for(0..output.len) |i|
-    {
-        const index = input_cap * output.len + i;
-        output.*[i] = audio_input_buffer[index];
-    }
-
-    input_cap += 1;
-    return .Success;
-}
-
-pub fn input_producer() audio.Producer
-{
-    return .{
-        .channels = audio_device_input_format.channels,
-        .context = undefined,
-        .generate_fn = input_producer_generate,
-        .sample_rate = audio_device_input_format.sample_rate
-    };
-}
-
 fn ashbloom_audio_callback(_: *ma.Device, output: *anyopaque, input: *anyopaque, frame_count: u32) callconv(.c) void
 {
     var frames_remaining = frame_count;
@@ -272,125 +379,20 @@ fn ashbloom_audio_callback(_: *ma.Device, output: *anyopaque, input: *anyopaque,
     }
 }
 
-/// Deinitializes the audio side of the ashbloom framework.
-pub fn deinit_audio(allocator: *const std.mem.Allocator) void
-{
-    audio_device.stop();
-
-    audio_sources.deinit(allocator.*);
-
-    audio_device.deinit();
-    audio_context.deinit();
-}
-
-/// Initializes the audio side of the ashbloom framework. Creates a default miniaudio context and polls all available audio I/O devices (speakers, microphones, etc.).
-pub fn init_audio(allocator: *const std.mem.Allocator) !void
-{
-    audio_allocator = allocator;
-    audio_context = try .init();
-
-    const audio_devices = try audio_context.get_devices();
-    audio_devices.print();
-
-    var playback_device_info: ma.Device.Info = undefined;
-    var capture_device_info: ma.Device.Info = undefined;
-
-    for(audio_devices.playback_devices) |d|
-    {
-        if(d.is_default == .True)
-        {
-            playback_device_info = d;
-        }
-    }
-
-    for(audio_devices.capture_devices) |d|
-    {
-        if(d.is_default == .True)
-        {
-            capture_device_info = d;
-        }
-    }
-
-    std.debug.print("Selected playback device: ", .{});
-    for(playback_device_info.name, 0..) |c, i|
-    {
-        if(c == 0)
-        {
-            std.debug.print("{s}\n", .{playback_device_info.name[0..i]});
-            break;
-        }
-    }
-
-    std.debug.print("Selected capture device: ", .{});
-    for(capture_device_info.name, 0..) |c, i|
-    {
-        if(c == 0)
-        {
-            std.debug.print("{s}\n", .{capture_device_info.name[0..i]});
-            break;
-        }
-    }
-
-    const playback_device_info_ext = try audio_context.get_device_info(.Playback, &playback_device_info.id);
-    const capture_device_info_ext = try audio_context.get_device_info(.Capture, &capture_device_info.id);
-
-    audio_device_output_format.channels = playback_device_info_ext.native_data_formats[0].channels;
-    audio_device_output_format.format = playback_device_info_ext.native_data_formats[0].format;
-    audio_device_output_format.sample_rate = playback_device_info_ext.native_data_formats[0].sample_rate;
-
-    std.debug.print("Playback device format:\n", .{});
-    std.debug.print("\tChannels: {d}\n", .{audio_device_output_format.channels});
-    std.debug.print("\tFormat: {d}\n", .{@intFromEnum(audio_device_output_format.format)});
-    std.debug.print("\tSample rate: {d}\n", .{audio_device_output_format.sample_rate});
-
-    audio_device_input_format.channels = capture_device_info_ext.native_data_formats[0].channels;
-    audio_device_input_format.format = capture_device_info_ext.native_data_formats[0].format;
-    audio_device_input_format.sample_rate = capture_device_info_ext.native_data_formats[0].sample_rate;
-
-    std.debug.print("Capture device format:\n", .{});
-    std.debug.print("\tChannels: {d}\n", .{audio_device_input_format.channels});
-    std.debug.print("\tFormat: {d}\n", .{@intFromEnum(audio_device_input_format.format)});
-    std.debug.print("\tSample rate: {d}\n", .{audio_device_input_format.sample_rate});
-
-    var config: ma.Device.Config = .init(.Duplex);
-
-    config.playback.device_id = &playback_device_info.id;
-    config.playback.format = audio_device_output_format.format;
-    config.playback.channels = audio_device_output_format.channels;
-    config.capture.device_id = &capture_device_info.id;
-    config.capture.format = audio_device_input_format.format;
-    config.capture.channels = audio_device_input_format.channels;
-    config.sample_rate = audio_device_output_format.sample_rate;
-    config.data_callback = ashbloom_audio_callback;
-    config.user_data = null;
-
-    audio_device = try .init(audio_context, &config);
-
-    for(0..AUDIO_BUFFER_SIZE) |i|
-    {
-        audio_output_buffer[i] = 0;
-    }
-
-    audio_sources = try .initCapacity(allocator.*, 0);
-
-    try audio_device.start();
-}
-
-
 var stdout_io: std.Io.Threaded = undefined;
 var stdout_buffer: [2048]u8 = undefined;
 var stdout_writer: std.Io.File.Writer = undefined;
 
 var stdout: *std.Io.Writer = undefined;
 
-/// Deinitializes the graphical side of the ashbloom framework, and all its dependencies (including GLFW).
-pub fn deinit_graphics() void
+/// Deinitializes the base and graphical faculties of the ashbloom framework, and all its dependencies (including GLFW).
+pub fn deinit() void
 {
     glfw.terminate();
 }
 
-/// Initializes the graphical side of the ashbloom framework, and all its dependencies (including GLFW).
-pub fn init_graphics(allocator: *const std.mem.Allocator) !void
+/// Initializes the base and graphical faculties of the ashbloom framework, and all its dependencies (including GLFW).
+pub fn init(allocator: *const std.mem.Allocator) !void
 {
     stdout_io = .init(allocator.*, .{});
     stdout_writer = std.Io.File.stdout().writer(stdout_io.io(), &stdout_buffer);
@@ -400,7 +402,6 @@ pub fn init_graphics(allocator: *const std.mem.Allocator) !void
 
     glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
 }
-
 
 /// Prints to the standard output. Useful since Zig's `std.debug.print` prints to stderr. Ashbloom inits its own instance of stdout().writer so this is just a shortcut.
 /// Max buffer size is 2048 characters, exceeding this value will likely cause a panic.
@@ -412,11 +413,20 @@ pub fn print_stdout(comptime fmt: []const u8, args: anytype) void
 
 comptime
 {
+    _ = audio;
     _ = gen;
     _ = math;
     _ = rendering;
     _ = utils;
     _ = ui;
+
+    _ = audio.decoders;
+    _ = audio.nodes;
+    _ = audio.transforms;
+
+    _ = audio.AudioFormat;
+    _ = audio.Producer;
+    _ = audio.SoundNode;
 
     _ = gen.polygonizers;
     _ = gen.random;

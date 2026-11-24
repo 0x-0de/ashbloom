@@ -6,6 +6,7 @@ This folder, for the time being, houses the main documentation for Ashbloom. Ash
 
 This library's documentation is split along the namespaces provided in Ashbloom's `root.zig` file. These namespaces are as follows:
 
+- [audio](./audio.md): Contains audio I/O functionality.
 - [gen](./gen.md): Utilities related to procedural generation, such as noise and polygonization algorithms.
 - [math](./math.md): Utilities related to advanced math, like linear algebra (vector and matrix math), as well as different methods of interpolation.
 - [rendering](./rendering.md): Houses the various Vulkan bootstrapping utilities developed for this library.
