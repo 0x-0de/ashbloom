@@ -22,11 +22,11 @@ var debug_required_validation_layers: [1][*:0]const u8 = .{
 };
 
 var debug_required_instance_extensions: [1][*:0]const u8 = .{
-    vk.extensions.ext_debug_utils.name
+    vk.instance_extensions.ext_debug_utils.name
 };
 
 var required_device_extensions: [1][*:0]const u8 = .{
-    vk.extensions.khr_swapchain.name
+    vk.device_extensions.khr_swapchain.name
 };
 
 var window: Window = undefined;
@@ -115,9 +115,9 @@ fn init_swapchain() !void
         .format = try ash.utils.vk_utils.choose_best_depth_buffer_format(&vk_interface),
         .tiling = .optimal,
         .initial_layout = .undefined,
-        .usage = .{ .depth_stencil_attachment_bit = true },
+        .usage = .{ .depth_stencil_attachment = true },
         .sharing_mode = .exclusive,
-        .samples = .{ .@"1_bit" = true }
+        .samples = .{ .@"1" = true }
     };
 
     const info_depth_image_view: vk.ImageViewCreateInfo = .{
@@ -130,7 +130,7 @@ fn init_swapchain() !void
             .a = .identity
         },
         .subresource_range = .{
-            .aspect_mask = .{ .depth_bit = true },
+            .aspect_mask = .{ .depth = true },
             .base_array_layer = 0,
             .base_mip_level = 0,
             .layer_count = 1,
@@ -183,10 +183,10 @@ fn init_attachments() !void
         .mip_levels = 1,
         .array_layers = 1,
         .tiling = .optimal,
-        .usage = .{ .transfer_src_bit = true, .color_attachment_bit = true }, // This is important; I render to this image as a standard color buffer, so I set `color_attachment_bit`, and I also
-                                                                              // want to move data **out** of this image into a CPU-readable buffer, so `transfer_src_bit` is also set.
+        .usage = .{ .transfer_src = true, .color_attachment = true }, // This is important; I render to this image as a standard color buffer, so I set `color_attachment`, and I also
+                                                                              // want to move data **out** of this image into a CPU-readable buffer, so `transfer_src` is also set.
         .sharing_mode = .exclusive,
-        .samples = .{ .@"1_bit" = true },
+        .samples = .{ .@"1" = true },
         .initial_layout = .undefined // Set by the render pass.
     };
 
@@ -201,7 +201,7 @@ fn init_attachments() !void
             .a = .identity
         },
         .subresource_range = .{
-            .aspect_mask = .{ .color_bit = true },
+            .aspect_mask = .{ .color = true },
             .base_array_layer = 0,
             .base_mip_level = 0,
             .layer_count = 1,
@@ -227,9 +227,9 @@ fn init_attachments() !void
         .format = try ash.utils.vk_utils.choose_best_depth_buffer_format(&vk_interface),
         .tiling = .optimal,
         .initial_layout = .undefined,
-        .usage = .{ .depth_stencil_attachment_bit = true },
+        .usage = .{ .depth_stencil_attachment = true },
         .sharing_mode = .exclusive,
-        .samples = .{ .@"1_bit" = true }
+        .samples = .{ .@"1" = true }
     };
 
     const info_depth_image_view: vk.ImageViewCreateInfo = .{
@@ -242,7 +242,7 @@ fn init_attachments() !void
             .a = .identity
         },
         .subresource_range = .{
-            .aspect_mask = .{ .depth_bit = true },
+            .aspect_mask = .{ .depth = true },
             .base_array_layer = 0,
             .base_mip_level = 0,
             .layer_count = 1,
@@ -298,10 +298,10 @@ fn init_render_passes() !void
         .subpass_dependency = .{
             .src_subpass = vk.SUBPASS_EXTERNAL,
             .dst_subpass = undefined,
-            .src_access_mask = .{ .depth_stencil_attachment_write_bit = true },
-            .dst_access_mask = .{ .color_attachment_write_bit = true, .depth_stencil_attachment_write_bit = true },
-            .src_stage_mask = .{ .color_attachment_output_bit = true, .late_fragment_tests_bit = true },
-            .dst_stage_mask = .{ .color_attachment_output_bit = true, .early_fragment_tests_bit = true }
+            .src_access_mask = .{ .depth_stencil_attachment_write = true },
+            .dst_access_mask = .{ .color_attachment_write = true, .depth_stencil_attachment_write = true },
+            .src_stage_mask = .{ .color_attachment_output = true, .late_fragment_tests = true },
+            .dst_stage_mask = .{ .color_attachment_output = true, .early_fragment_tests = true }
         }
     };
 
@@ -314,10 +314,10 @@ fn init_render_passes() !void
         .subpass_dependency = .{
             .src_subpass = vk.SUBPASS_EXTERNAL,
             .dst_subpass = undefined,
-            .src_access_mask = .{ .depth_stencil_attachment_write_bit = true },
-            .dst_access_mask = .{ .color_attachment_write_bit = true, .depth_stencil_attachment_write_bit = true },
-            .src_stage_mask = .{ .color_attachment_output_bit = true, .late_fragment_tests_bit = true },
-            .dst_stage_mask = .{ .color_attachment_output_bit = true, .early_fragment_tests_bit = true }
+            .src_access_mask = .{ .depth_stencil_attachment_write = true },
+            .dst_access_mask = .{ .color_attachment_write = true, .depth_stencil_attachment_write = true },
+            .src_stage_mask = .{ .color_attachment_output = true, .late_fragment_tests = true },
+            .dst_stage_mask = .{ .color_attachment_output = true, .early_fragment_tests = true }
         }
     };
 
@@ -418,7 +418,7 @@ fn init_graphics_pipeline_descriptor_sets() !void
 
     try pds_debug_geometry.add_binding(.{
         .binding_index = 0,
-        .shader_stage = .{ .vertex_bit = true },
+        .shader_stage = .{ .vertex = true },
         .type = .uniform_buffer,
         .info = .{ .buffer = .{
             .buffer_size = 32 * @sizeOf(f32)
@@ -434,7 +434,7 @@ fn init_graphics_pipeline_descriptor_sets() !void
 
     try pds_main.add_binding(.{
         .binding_index = 0,
-        .shader_stage = .{ .vertex_bit = true },
+        .shader_stage = .{ .vertex = true },
         .type = .uniform_buffer,
         .info = .{ .buffer = .{
             .buffer_size = 32 * @sizeOf(f32)
@@ -460,14 +460,14 @@ fn init_graphics_pipelines() !void
 
     try p_debug_geometry.add_descriptor_set(pipeline_descriptor_sets.get(.DebugGeometryModelView));
 
-    try p_debug_geometry.add_shader_module("../../res/shaders/debug/geometry_vert.spv", .{.vertex_bit = true});
-    try p_debug_geometry.add_shader_module("../../res/shaders/debug/geometry_frag.spv", .{.fragment_bit = true});
+    try p_debug_geometry.add_shader_module("../../res/shaders/debug/geometry_vert.spv", .{.vertex = true});
+    try p_debug_geometry.add_shader_module("../../res/shaders/debug/geometry_frag.spv", .{.fragment = true});
 
-    try p_debug_geometry.add_color_blend_attachment(ash.rendering.pipeline.pipeline_color_blend_attachment_alpha_blend());
+    try p_debug_geometry.add_color_blend_attachment(ash.rendering.pipeline.color_blend_attachment_alpha_blend());
 
     p_debug_geometry.set_vertex_input(pipeline_vertex_inputs.getPtr(.DebugGeometry));
 
-    p_debug_geometry.info_depth_stencil_testing = ash.rendering.pipeline.pipeline_depth_stencil_state_default();
+    p_debug_geometry.info_depth_stencil_testing = ash.rendering.pipeline.depth_stencil_state_default();
 
     try p_debug_geometry.build(.{ .FixedRenderPass = render_passes.getPtr(.DebugGeometry) });
 
@@ -481,14 +481,14 @@ fn init_graphics_pipelines() !void
 
     try p_main.add_descriptor_set(pipeline_descriptor_sets.get(.ModelView));
 
-    try p_main.add_shader_module("../../res/shaders/main_vert.spv", .{.vertex_bit = true});
-    try p_main.add_shader_module("../../res/shaders/main_frag.spv", .{.fragment_bit = true});
+    try p_main.add_shader_module("../../res/shaders/main_vert.spv", .{.vertex = true});
+    try p_main.add_shader_module("../../res/shaders/main_frag.spv", .{.fragment = true});
 
-    try p_main.add_color_blend_attachment(ash.rendering.pipeline.pipeline_color_blend_attachment_alpha_blend());
+    try p_main.add_color_blend_attachment(ash.rendering.pipeline.color_blend_attachment_alpha_blend());
 
     p_main.set_vertex_input(pipeline_vertex_inputs.getPtr(.Main));
 
-    p_main.info_depth_stencil_testing = ash.rendering.pipeline.pipeline_depth_stencil_state_default();
+    p_main.info_depth_stencil_testing = ash.rendering.pipeline.depth_stencil_state_default();
 
     try p_main.build(.{ .FixedRenderPass = render_passes.getPtr(.DebugGeometry) });
 
@@ -502,14 +502,14 @@ fn init_graphics_pipelines() !void
 
     try p_selection_display.add_descriptor_set(pipeline_descriptor_sets.get(.ModelView));
 
-    try p_selection_display.add_shader_module("../../res/shaders/debug/selection_vert.spv", .{.vertex_bit = true});
-    try p_selection_display.add_shader_module("../../res/shaders/debug/selection_frag.spv", .{.fragment_bit = true});
+    try p_selection_display.add_shader_module("../../res/shaders/debug/selection_vert.spv", .{.vertex = true});
+    try p_selection_display.add_shader_module("../../res/shaders/debug/selection_frag.spv", .{.fragment = true});
 
-    try p_selection_display.add_color_blend_attachment(ash.rendering.pipeline.pipeline_color_blend_attachment_no_blend());
+    try p_selection_display.add_color_blend_attachment(ash.rendering.pipeline.color_blend_attachment_no_blend());
 
     p_selection_display.set_vertex_input(pipeline_vertex_inputs.getPtr(.SelectionDisplay));
 
-    p_selection_display.info_depth_stencil_testing = ash.rendering.pipeline.pipeline_depth_stencil_state_default();
+    p_selection_display.info_depth_stencil_testing = ash.rendering.pipeline.depth_stencil_state_default();
 
     try p_selection_display.build(.{ .FixedRenderPass = render_passes.getPtr(.DebugGeometry) });
 
@@ -523,14 +523,14 @@ fn init_graphics_pipelines() !void
 
     try p_selection.add_descriptor_set(pipeline_descriptor_sets.get(.ModelView));
 
-    try p_selection.add_shader_module("../../res/shaders/selection_vert.spv", .{.vertex_bit = true});
-    try p_selection.add_shader_module("../../res/shaders/selection_frag.spv", .{.fragment_bit = true});
+    try p_selection.add_shader_module("../../res/shaders/selection_vert.spv", .{.vertex = true});
+    try p_selection.add_shader_module("../../res/shaders/selection_frag.spv", .{.fragment = true});
 
-    try p_selection.add_color_blend_attachment(ash.rendering.pipeline.pipeline_color_blend_attachment_no_blend());
+    try p_selection.add_color_blend_attachment(ash.rendering.pipeline.color_blend_attachment_no_blend());
 
     p_selection.set_vertex_input(pipeline_vertex_inputs.getPtr(.Selection));
 
-    p_selection.info_depth_stencil_testing = ash.rendering.pipeline.pipeline_depth_stencil_state_default();
+    p_selection.info_depth_stencil_testing = ash.rendering.pipeline.depth_stencil_state_default();
 
     try p_selection.build(.{ .FixedRenderPass = render_passes.getPtr(.Selection) });
 }
@@ -779,7 +779,7 @@ pub fn main() !void
 
     const selection_fence_info: vk.FenceCreateInfo = .{
         .flags = .{
-            .signaled_bit = true
+            .signaled = true
         }
     };
 
