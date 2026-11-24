@@ -201,8 +201,8 @@ pub fn main() !void
 
     allocator = dba.allocator();
 
-    try ash.init_graphics(&allocator);
-    defer ash.deinit_graphics();
+    try ash.init(&allocator);
+    defer ash.deinit();
 
     glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
 

@@ -149,8 +149,8 @@ pub fn main() !void
 
     allocator = dba.allocator();
 
-    try ash.init_graphics(&allocator);
-    defer ash.deinit_graphics();
+    try ash.init(&allocator);
+    defer ash.deinit();
 
     glfw.windowHint(glfw.ClientAPI, glfw.NoAPI);
 
@@ -175,7 +175,7 @@ pub fn main() !void
 
     app_ui_container = try ui.Container.init(&vk_interface, &vk_allocator);
 
-    app_font = try ash.ui.Font.init(&vk_interface, &vk_allocator, font_entry.path, 36, &app_ui_container.texture_atlas);
+    app_font = try ash.ui.Font.init(&vk_interface, &vk_allocator, font_entry.path, &app_ui_container.texture_atlas);
     defer app_font.deinit();
 
     for(system_fonts, 0..) |_, i|

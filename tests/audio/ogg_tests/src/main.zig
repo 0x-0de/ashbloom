@@ -18,12 +18,12 @@ pub fn main() !void
 
     const allocator = dbg_alloc.allocator();
 
-    try ash.init_audio(&allocator);
-    defer ash.deinit_audio(&allocator);
+    try ash.audio.init(&allocator);
+    defer ash.audio.deinit(&allocator);
 
     // For the stdout console.
-    try ash.init_graphics(&allocator);
-    defer ash.deinit_graphics();
+    try ash.init(&allocator);
+    defer ash.deinit();
 
     var current_play: usize = 0;
     var current_round: usize = 0;

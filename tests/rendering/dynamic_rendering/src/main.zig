@@ -146,8 +146,8 @@ pub fn main() !void
 
     allocator = dbg_alloc.allocator();
 
-    try ash.init_graphics(&allocator);
-    defer ash.deinit_graphics();
+    try ash.init(&allocator);
+    defer ash.deinit();
 
     window = try .init(1280, 720, "Dynamic rendering test");
 

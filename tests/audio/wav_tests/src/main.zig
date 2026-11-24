@@ -18,12 +18,12 @@ pub fn main() !void
 
     const allocator = dbg_alloc.allocator();
 
-    try ash.init_audio(&allocator);
-    defer ash.deinit_audio(&allocator);
+    try ash.audio.init(&allocator);
+    defer ash.audio.deinit(&allocator);
 
     // For the stdout console.
-    try ash.init_graphics(&allocator);
-    defer ash.deinit_graphics();
+    try ash.init(&allocator);
+    defer ash.deinit();
 
     var current_play: usize = 0;
     var current_round: usize = 0;
@@ -37,10 +37,10 @@ pub fn main() !void
         try ash.audio.decoders.WAVDecoder.init(&allocator, "../../res/f32 stereo.wav")
     };
 
-    var source: ash.audio.OutputSource = try .init(&allocator);
+    var source: ash.audio.SoundNode = try .init(&allocator);
     defer source.deinit();
 
-    try ash.add_audio_source(&allocator, &source);
+    try ash.audio.add_output_node(&allocator, &source);
 
     while(true)
     {

@@ -109,9 +109,8 @@ pub const WAVDecoder = struct
                 .Signed24 => {
                     for(0..self.format.channels) |i|
                     {
-                        var sample_int: i24 = undefined;
-                        ash.utils.misc.memcpy_anonymous(&sample_int, frame_bytes.ptr + i * 3, 3);
-
+                        const sample_int: i24 = @bitCast(frame_bytes[i * 3..][0..3].*);
+                        
                         const sample: f32 = @as(f32, @floatFromInt(sample_int)) / 8388608;
                         output.*[i] = sample;
                     }

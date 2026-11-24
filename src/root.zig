@@ -103,22 +103,22 @@ pub const audio = struct
             }
         }
 
-        std.debug.print("Selected playback device: ", .{});
-        for(playback_device_info.name, 0..) |c, i|
+        // std.debug.print("Selected playback device: ", .{});
+        for(playback_device_info.name) |c|
         {
             if(c == 0)
             {
-                std.debug.print("{s}\n", .{playback_device_info.name[0..i]});
+                // std.debug.print("{s}\n", .{playback_device_info.name[0..i]});
                 break;
             }
         }
 
-        std.debug.print("Selected capture device: ", .{});
-        for(capture_device_info.name, 0..) |c, i|
+        // std.debug.print("Selected capture device: ", .{});
+        for(capture_device_info.name) |c|
         {
             if(c == 0)
             {
-                std.debug.print("{s}\n", .{capture_device_info.name[0..i]});
+                // std.debug.print("{s}\n", .{capture_device_info.name[0..i]});
                 break;
             }
         }
@@ -130,19 +130,19 @@ pub const audio = struct
         audio_device_output_format.format = playback_device_info_ext.native_data_formats[0].format;
         audio_device_output_format.sample_rate = playback_device_info_ext.native_data_formats[0].sample_rate;
 
-        std.debug.print("Playback device format:\n", .{});
-        std.debug.print("\tChannels: {d}\n", .{audio_device_output_format.channels});
-        std.debug.print("\tFormat: {d}\n", .{@intFromEnum(audio_device_output_format.format)});
-        std.debug.print("\tSample rate: {d}\n", .{audio_device_output_format.sample_rate});
+        // std.debug.print("Playback device format:\n", .{});
+        // std.debug.print("\tChannels: {d}\n", .{audio_device_output_format.channels});
+        // std.debug.print("\tFormat: {d}\n", .{@intFromEnum(audio_device_output_format.format)});
+        // std.debug.print("\tSample rate: {d}\n", .{audio_device_output_format.sample_rate});
 
         audio_device_input_format.channels = capture_device_info_ext.native_data_formats[0].channels;
         audio_device_input_format.format = capture_device_info_ext.native_data_formats[0].format;
         audio_device_input_format.sample_rate = capture_device_info_ext.native_data_formats[0].sample_rate;
 
-        std.debug.print("Capture device format:\n", .{});
-        std.debug.print("\tChannels: {d}\n", .{audio_device_input_format.channels});
-        std.debug.print("\tFormat: {d}\n", .{@intFromEnum(audio_device_input_format.format)});
-        std.debug.print("\tSample rate: {d}\n", .{audio_device_input_format.sample_rate});
+        // std.debug.print("Capture device format:\n", .{});
+        // std.debug.print("\tChannels: {d}\n", .{audio_device_input_format.channels});
+        // std.debug.print("\tFormat: {d}\n", .{@intFromEnum(audio_device_input_format.format)});
+        // std.debug.print("\tSample rate: {d}\n", .{audio_device_input_format.sample_rate});
 
         var config: ma.Device.Config = .init(.Duplex);
 
@@ -487,8 +487,8 @@ comptime
     _ = ui.Font;
     _ = ui.FontCharacter;
 
-    _ = deinit_graphics;
-    _ = init_graphics;
+    _ = deinit;
+    _ = init;
 
     _ = print_stdout;
 

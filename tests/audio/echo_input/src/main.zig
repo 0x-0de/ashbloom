@@ -18,14 +18,14 @@ pub fn main() !void
 
     const allocator = dbg_alloc.allocator();
 
-    try ash.init_audio(&allocator);
-    defer ash.deinit_audio(&allocator);
+    try ash.audio.init(&allocator);
+    defer ash.audio.deinit(&allocator);
 
     // For the stdout console.
-    try ash.init_graphics(&allocator);
-    defer ash.deinit_graphics();
+    try ash.init(&allocator);
+    defer ash.deinit();
 
-    const input_producer = ash.input_producer();
+    const input_producer = ash.audio.input_producer();
 
     var source: ash.audio.SoundNode = try .init(&allocator);
     defer source.deinit();
